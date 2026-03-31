@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter Web Admin (Debug, puerto fijo)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "toolArgs": [
+        "--web-port",
+        "5173",
+        "--dart-define",
+        "API_BASE_URL=https://backend-feedback-11c2.onrender.com/api/v1"
+      ]
+    }
+  ]
+}
