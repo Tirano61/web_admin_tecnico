@@ -3,7 +3,19 @@ import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_re
 
 abstract class LiquidacionesEvent {}
 
-class LiquidacionesRequested extends LiquidacionesEvent {}
+class LiquidacionesRequested extends LiquidacionesEvent {
+  LiquidacionesRequested({
+    this.search = '',
+    this.estado = 'todos',
+    this.page = 1,
+    this.limit = 6,
+  });
+
+  final String search;
+  final String estado;
+  final int page;
+  final int limit;
+}
 
 abstract class LiquidacionesState {}
 
@@ -12,9 +24,21 @@ class LiquidacionesInitial extends LiquidacionesState {}
 class LiquidacionesLoading extends LiquidacionesState {}
 
 class LiquidacionesLoaded extends LiquidacionesState {
-  LiquidacionesLoaded(this.items);
+  LiquidacionesLoaded({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.search,
+    required this.estado,
+  });
 
   final List<LiquidacionItem> items;
+  final int total;
+  final int page;
+  final int limit;
+  final String search;
+  final String estado;
 }
 
 class LiquidacionesFailure extends LiquidacionesState {
@@ -36,8 +60,24 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
   ) async {
     emit(LiquidacionesLoading());
     try {
-      final items = await _repository.fetchLiquidaciones();
-      emit(LiquidacionesLoaded(items));
+      final result = await _repository.fetchLiquidaciones(
+        query: LiquidacionesQuery(
+          search: event.search,
+          estado: event.estado,
+          page: event.page,
+          limit: event.limit,
+        ),
+      );
+      emit(
+        LiquidacionesLoaded(
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          search: event.search,
+          estado: event.estado,
+        ),
+      );
     } catch (error) {
       emit(LiquidacionesFailure(error.toString()));
     }

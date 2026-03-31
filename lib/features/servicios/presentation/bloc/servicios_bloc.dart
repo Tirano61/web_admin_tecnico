@@ -3,7 +3,19 @@ import 'package:web_admin_tecnico/features/servicios/domain/servicios_repository
 
 abstract class ServiciosEvent {}
 
-class ServiciosRequested extends ServiciosEvent {}
+class ServiciosRequested extends ServiciosEvent {
+  ServiciosRequested({
+    this.search = '',
+    this.estado = 'todos',
+    this.page = 1,
+    this.limit = 6,
+  });
+
+  final String search;
+  final String estado;
+  final int page;
+  final int limit;
+}
 
 abstract class ServiciosState {}
 
@@ -12,9 +24,21 @@ class ServiciosInitial extends ServiciosState {}
 class ServiciosLoading extends ServiciosState {}
 
 class ServiciosLoaded extends ServiciosState {
-  ServiciosLoaded(this.items);
+  ServiciosLoaded({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.search,
+    required this.estado,
+  });
 
   final List<ServicioItem> items;
+  final int total;
+  final int page;
+  final int limit;
+  final String search;
+  final String estado;
 }
 
 class ServiciosFailure extends ServiciosState {
@@ -36,8 +60,24 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
   ) async {
     emit(ServiciosLoading());
     try {
-      final items = await _repository.fetchServicios();
-      emit(ServiciosLoaded(items));
+      final result = await _repository.fetchServicios(
+        query: ServiciosQuery(
+          search: event.search,
+          estado: event.estado,
+          page: event.page,
+          limit: event.limit,
+        ),
+      );
+      emit(
+        ServiciosLoaded(
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          search: event.search,
+          estado: event.estado,
+        ),
+      );
     } catch (error) {
       emit(ServiciosFailure(error.toString()));
     }
