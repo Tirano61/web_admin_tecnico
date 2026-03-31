@@ -1,16 +1,22 @@
 import 'package:web_admin_tecnico/core/auth/session_store.dart';
 
 class AuthenticatedHttpClient {
-  AuthenticatedHttpClient({this.basePath = '/api/v1'});
+  AuthenticatedHttpClient({String? baseUrl})
+      : baseUrl = baseUrl ?? configuredBaseUrl;
 
-  final String basePath;
+  static const String defaultBaseUrl =
+      'https://backend-feedback-11c2.onrender.com/api/v1';
+  static const String configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: defaultBaseUrl,
+  );
+
+  final String baseUrl;
 
   Uri buildUri(String endpoint, {Map<String, String>? queryParameters}) {
     final normalized = endpoint.startsWith('/') ? endpoint : '/$endpoint';
-    return Uri(
-      path: '$basePath$normalized',
-      queryParameters: queryParameters,
-    );
+    final uri = Uri.parse('$baseUrl$normalized');
+    return uri.replace(queryParameters: queryParameters);
   }
 
   Map<String, String> buildAuthHeaders() {

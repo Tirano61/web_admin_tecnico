@@ -5,7 +5,8 @@ void main() {
   testWidgets('Login screen smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const WebAdminTecnicoApp());
 
-    expect(find.text('Admin Tecnico'), findsOneWidget);
-    expect(find.text('Ingresar'), findsOneWidget);
+    expect(find.text('TechAdmin'), findsOneWidget);
+    expect(find.text('Acceso Interno'), findsOneWidget);
+    expect(find.text('Iniciar sesion'), findsOneWidget);
   });
 }
