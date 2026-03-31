@@ -60,6 +60,7 @@ Fuera de alcance para este rol:
 
 - Busqueda (`GET /clientes/buscar?q=`).
 - Vista detalle (`GET /clientes/:id`).
+- Alta cliente (`POST /clientes`).
 - Edicion cliente (`PATCH /clientes/:id`).
 
 ### 3.4 Modulo Catalogos Operativos
@@ -174,7 +175,7 @@ Entrega: flujo operativo de consulta y documentacion de orden.
 
 ## Sprint 2 (4 dias): clientes y catalogos operativos
 
-- Clientes: buscar, detalle, editar.
+- Clientes: buscar, detalle, crear, editar.
 - Zonas: ABM basico.
 - Categorias/productos: ABM basico.
 - Repuestos: ABM basico.
@@ -204,7 +205,7 @@ Entrega: version candidata a produccion interna.
 1. Como admin-tecnico quiero ver todas las ordenes con filtros para gestionar el trabajo diario.
 2. Como admin-tecnico quiero abrir una orden y descargar su PDF para control administrativo.
 3. Como admin-tecnico quiero cargar un PDF firmado en una orden para cerrar documentacion.
-4. Como admin-tecnico quiero editar clientes para mantener datos de contacto correctos.
+4. Como admin-tecnico quiero crear y editar clientes para mantener datos de contacto correctos.
 5. Como admin-tecnico quiero actualizar cotizacion y tarifa km para calculos vigentes.
 6. Como admin-tecnico quiero crear y aprobar liquidaciones para pago tecnico.
 7. Como admin-tecnico quiero administrar repuestos/productos para mantener catalogos operativos.
