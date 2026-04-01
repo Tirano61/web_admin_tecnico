@@ -7,12 +7,14 @@ class ServiciosRequested extends ServiciosEvent {
   ServiciosRequested({
     this.search = '',
     this.estado = 'todos',
+    this.canal = 'todos',
     this.page = 1,
     this.limit = 6,
   });
 
   final String search;
   final String estado;
+  final String canal;
   final int page;
   final int limit;
 }
@@ -31,6 +33,7 @@ class ServiciosLoaded extends ServiciosState {
     required this.limit,
     required this.search,
     required this.estado,
+    required this.canal,
   });
 
   final List<ServicioItem> items;
@@ -39,6 +42,7 @@ class ServiciosLoaded extends ServiciosState {
   final int limit;
   final String search;
   final String estado;
+  final String canal;
 }
 
 class ServiciosFailure extends ServiciosState {
@@ -64,6 +68,7 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
         query: ServiciosQuery(
           search: event.search,
           estado: event.estado,
+          canal: event.canal,
           page: event.page,
           limit: event.limit,
         ),
@@ -76,6 +81,7 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
           limit: result.limit,
           search: event.search,
           estado: event.estado,
+          canal: event.canal,
         ),
       );
     } catch (error) {

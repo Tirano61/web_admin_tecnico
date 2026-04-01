@@ -32,7 +32,13 @@ class PreciosRepositoryImpl implements PreciosRepository {
       (json) => PrecioItem(
         id: (json['id'] ?? '').toString(),
         descripcion: 'Cotizacion dolar',
-        valor: _toDouble(json['valor'] ?? json['cotizacion'] ?? json['monto']),
+        valor: _toDouble(
+          json['valor'] ??
+              json['valorUsd'] ??
+              json['cotizacion'] ??
+              json['cotizacionDolar'] ??
+              json['monto'],
+        ),
       ),
       fallbackPage: query.page,
       fallbackLimit: query.limit,
@@ -43,7 +49,9 @@ class PreciosRepositoryImpl implements PreciosRepository {
       (json) => PrecioItem(
         id: (json['id'] ?? '').toString(),
         descripcion: 'Tarifa km USD',
-        valor: _toDouble(json['valorKmUsd'] ?? json['valor'] ?? json['monto']),
+        valor: _toDouble(
+          json['valorKmUsd'] ?? json['valor_km_usd'] ?? json['valor'] ?? json['monto'],
+        ),
       ),
       fallbackPage: query.page,
       fallbackLimit: query.limit,

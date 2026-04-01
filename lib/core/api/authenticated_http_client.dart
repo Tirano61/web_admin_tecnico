@@ -68,7 +68,11 @@ class AuthenticatedHttpClient {
 
     dynamic payload;
     if (rawBody.isNotEmpty) {
-      payload = jsonDecode(rawBody);
+      try {
+        payload = jsonDecode(rawBody);
+      } catch (_) {
+        payload = rawBody;
+      }
     }
 
     if (status >= 400) {

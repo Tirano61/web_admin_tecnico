@@ -16,19 +16,28 @@ class ServiciosQuery {
   const ServiciosQuery({
     this.search = '',
     this.estado = 'todos',
+    this.canal = 'todos',
     this.page = 1,
     this.limit = 6,
   });
 
   final String search;
   final String estado;
+  final String canal;
   final int page;
   final int limit;
 
-  ServiciosQuery copyWith({String? search, String? estado, int? page, int? limit}) {
+  ServiciosQuery copyWith({
+    String? search,
+    String? estado,
+    String? canal,
+    int? page,
+    int? limit,
+  }) {
     return ServiciosQuery(
       search: search ?? this.search,
       estado: estado ?? this.estado,
+      canal: canal ?? this.canal,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
