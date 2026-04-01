@@ -24,6 +24,8 @@ class ServicioDetalle {
     this.diagnosticoDetalle,
     this.observaciones,
     this.fechaHoraServicio,
+    this.facturacion,
+    this.facturacionItems = const <ServicioFacturacionItem>[],
   });
 
   final String id;
@@ -36,6 +38,50 @@ class ServicioDetalle {
   final String? diagnosticoDetalle;
   final String? observaciones;
   final String? fechaHoraServicio;
+  final ServicioFacturacionResumen? facturacion;
+  final List<ServicioFacturacionItem> facturacionItems;
+}
+
+class ServicioFacturacionResumen {
+  const ServicioFacturacionResumen({
+    this.cotizacionDolarSnapshot,
+    this.valorKmUsdSnapshot,
+    this.subtotalKmUsd,
+    this.subtotalKmArs,
+    this.subtotalGeneralUsd,
+    this.subtotalGeneralArs,
+    this.ivaPorcentaje,
+    this.totalConIvaArs,
+    this.descuentoPorcentaje,
+    this.totalFinalArs,
+  });
+
+  final double? cotizacionDolarSnapshot;
+  final double? valorKmUsdSnapshot;
+  final double? subtotalKmUsd;
+  final double? subtotalKmArs;
+  final double? subtotalGeneralUsd;
+  final double? subtotalGeneralArs;
+  final double? ivaPorcentaje;
+  final double? totalConIvaArs;
+  final double? descuentoPorcentaje;
+  final double? totalFinalArs;
+}
+
+class ServicioFacturacionItem {
+  const ServicioFacturacionItem({
+    required this.tipoItem,
+    required this.descripcion,
+    this.cantidad,
+    this.subtotalUsd,
+    this.subtotalArs,
+  });
+
+  final String tipoItem;
+  final String descripcion;
+  final double? cantidad;
+  final double? subtotalUsd;
+  final double? subtotalArs;
 }
 
 class ServicioDocumentoInfo {
