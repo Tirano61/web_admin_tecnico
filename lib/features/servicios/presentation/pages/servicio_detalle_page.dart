@@ -174,6 +174,61 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
               const Divider(color: Color(0x334EA6FF)),
               const SizedBox(height: 14),
               Text(
+                'Facturacion',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: const Color(0xFFEAF3FF),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Cotizacion dolar snapshot',
+                value: _formatMoney(detalle?.facturacion?.cotizacionDolarSnapshot),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Tarifa km snapshot (USD)',
+                value: _formatMoney(detalle?.facturacion?.valorKmUsdSnapshot),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Subtotal general USD',
+                value: _formatMoney(detalle?.facturacion?.subtotalGeneralUsd),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Subtotal general ARS',
+                value: _formatMoney(detalle?.facturacion?.subtotalGeneralArs),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'IVA %',
+                value: _formatMoney(detalle?.facturacion?.ivaPorcentaje),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Total con IVA ARS',
+                value: _formatMoney(detalle?.facturacion?.totalConIvaArs),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Descuento %',
+                value: _formatMoney(detalle?.facturacion?.descuentoPorcentaje),
+              ),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Total final ARS',
+                value: _formatMoney(detalle?.facturacion?.totalFinalArs),
+              ),
+              const SizedBox(height: 12),
+              if ((detalle?.facturacionItems ?? const <ServicioFacturacionItem>[]).isNotEmpty)
+                _FacturacionItems(items: detalle!.facturacionItems)
+              else
+                const _InfoTile(label: 'Items facturados', value: 'Sin items'),
+              const SizedBox(height: 18),
+              const Divider(color: Color(0x334EA6FF)),
+              const SizedBox(height: 14),
+              Text(
                 'Documento',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: const Color(0xFFEAF3FF),
@@ -209,6 +264,70 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  String _formatMoney(double? value) {
+    if (value == null) {
+      return '-';
+    }
+    return value.toStringAsFixed(2);
+  }
+}
+
+class _FacturacionItems extends StatelessWidget {
+  const _FacturacionItems({required this.items});
+
+  final List<ServicioFacturacionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x1F122B4A),
+        border: Border.all(color: const Color(0x334EA6FF)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Items facturados',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF9AB1CC),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: const <DataColumn>[
+                DataColumn(label: Text('Tipo')),
+                DataColumn(label: Text('Descripcion')),
+                DataColumn(label: Text('Cantidad')),
+                DataColumn(label: Text('Subtotal USD')),
+                DataColumn(label: Text('Subtotal ARS')),
+              ],
+              rows: items
+                  .map(
+                    (item) => DataRow(
+                      cells: <DataCell>[
+                        DataCell(Text(item.tipoItem.toUpperCase())),
+                        DataCell(Text(item.descripcion.isEmpty ? '-' : item.descripcion)),
+                        DataCell(Text(item.cantidad?.toStringAsFixed(2) ?? '-')),
+                        DataCell(Text(item.subtotalUsd?.toStringAsFixed(2) ?? '-')),
+                        DataCell(Text(item.subtotalArs?.toStringAsFixed(2) ?? '-')),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

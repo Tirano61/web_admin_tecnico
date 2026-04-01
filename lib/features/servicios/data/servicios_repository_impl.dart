@@ -77,6 +77,8 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     final root = _asMap(payload);
     final servicioNode = _asMap(root['servicio']);
     final clienteNode = _asMap(servicioNode['cliente']);
+    final facturacionNode = _asMap(root['facturacion']);
+    final facturacionItemsNode = _asList(root['facturacionItems']);
 
     final resolvedId = (root['servicioId'] ?? root['id'] ?? servicioNode['id'] ?? servicioId).toString();
     final canal = (servicioNode['canal'] ?? root['canal'] ?? 'sin_canal').toString();
@@ -98,6 +100,32 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       diagnosticoDetalle: _stringOrNull(servicioNode['diagnosticoDetalle']),
       observaciones: _stringOrNull(servicioNode['observaciones']),
       fechaHoraServicio: _stringOrNull(root['fechaHoraServicio'] ?? servicioNode['fechaHoraServicio']),
+      facturacion: facturacionNode.isEmpty
+          ? null
+          : ServicioFacturacionResumen(
+              cotizacionDolarSnapshot: _toDouble(facturacionNode['cotizacionDolarSnapshot']),
+              valorKmUsdSnapshot: _toDouble(facturacionNode['valorKmUsdSnapshot']),
+              subtotalKmUsd: _toDouble(facturacionNode['subtotalKmUsd']),
+              subtotalKmArs: _toDouble(facturacionNode['subtotalKmArs']),
+              subtotalGeneralUsd: _toDouble(facturacionNode['subtotalGeneralUsd']),
+              subtotalGeneralArs: _toDouble(facturacionNode['subtotalGeneralArs']),
+              ivaPorcentaje: _toDouble(facturacionNode['ivaPorcentaje']),
+              totalConIvaArs: _toDouble(facturacionNode['totalConIvaArs']),
+              descuentoPorcentaje: _toDouble(facturacionNode['descuentoPorcentaje']),
+              totalFinalArs: _toDouble(facturacionNode['totalFinalArs']),
+            ),
+      facturacionItems: facturacionItemsNode
+          .map((raw) {
+            final item = _asMap(raw);
+            return ServicioFacturacionItem(
+              tipoItem: (item['tipoItem'] ?? item['tipo_item'] ?? 'item').toString(),
+              descripcion: (item['descripcion'] ?? '').toString(),
+              cantidad: _toDouble(item['cantidad']),
+              subtotalUsd: _toDouble(item['subtotalUsd'] ?? item['subtotal_usd']),
+              subtotalArs: _toDouble(item['subtotalArs'] ?? item['subtotal_ars']),
+            );
+          })
+          .toList(),
     );
   }
 
@@ -155,12 +183,32 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     return const <String, dynamic>{};
   }
 
+  List<dynamic> _asList(dynamic value) {
+    if (value is List) {
+      return value;
+    }
+    return const <dynamic>[];
+  }
+
   String? _stringOrNull(dynamic value) {
     final text = (value ?? '').toString().trim();
     if (text.isEmpty || text == 'null') {
       return null;
     }
     return text;
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
   }
 
   String? _normalizePdfUrl(String? rawUrl) {
