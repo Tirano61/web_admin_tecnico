@@ -12,6 +12,48 @@ class ServicioItem {
   final String estadoOrden;
 }
 
+class ServicioDetalle {
+  const ServicioDetalle({
+    required this.id,
+    required this.estadoOrden,
+    required this.canal,
+    this.clienteNombre,
+    this.lugar,
+    this.equipoSerie,
+    this.sintoma,
+    this.diagnosticoDetalle,
+    this.observaciones,
+    this.fechaHoraServicio,
+  });
+
+  final String id;
+  final String estadoOrden;
+  final String canal;
+  final String? clienteNombre;
+  final String? lugar;
+  final String? equipoSerie;
+  final String? sintoma;
+  final String? diagnosticoDetalle;
+  final String? observaciones;
+  final String? fechaHoraServicio;
+}
+
+class ServicioDocumentoInfo {
+  const ServicioDocumentoInfo({
+    this.pdfHashSha256,
+    this.pdfUrl,
+    this.firmaClienteNombre,
+    this.firmaClienteDocumento,
+    this.firmaFechaHora,
+  });
+
+  final String? pdfHashSha256;
+  final String? pdfUrl;
+  final String? firmaClienteNombre;
+  final String? firmaClienteDocumento;
+  final String? firmaFechaHora;
+}
+
 class ServiciosQuery {
   const ServiciosQuery({
     this.search = '',
@@ -46,4 +88,8 @@ class ServiciosQuery {
 
 abstract class ServiciosRepository {
   Future<PagedResult<ServicioItem>> fetchServicios({required ServiciosQuery query});
+
+  Future<ServicioDetalle> fetchServicioDetalle(String servicioId);
+
+  Future<ServicioDocumentoInfo> fetchDocumento(String servicioId);
 }
