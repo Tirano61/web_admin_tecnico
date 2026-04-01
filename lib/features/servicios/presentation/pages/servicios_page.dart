@@ -27,12 +27,14 @@ class _ServiciosView extends StatefulWidget {
 class _ServiciosViewState extends State<_ServiciosView> {
   final TextEditingController _searchController = TextEditingController();
   String _estadoFilter = 'todos';
+  String _canalFilter = 'todos';
 
   void _requestPage({int page = 1, int? limit}) {
     context.read<ServiciosBloc>().add(
           ServiciosRequested(
             search: _searchController.text.trim(),
             estado: _estadoFilter,
+            canal: _canalFilter,
             page: page,
             limit: limit ?? 6,
           ),
@@ -59,6 +61,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
 
         if (state is ServiciosLoaded) {
           final estados = <String>{'todos', 'abierta', 'cerrada', 'firmada'};
+          final canales = <String>{'todos', 'campo', 'remoto', 'fabrica'};
           final currentLimit = state.limit;
 
           return ModulePageLayout(
@@ -110,6 +113,35 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                 (estado) => DropdownMenuItem<String>(
                                   value: estado,
                                   child: Text(estado.toUpperCase()),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF122B4A),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0x334EA6FF)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _canalFilter,
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() => _canalFilter = value);
+                            _requestPage(page: 1, limit: currentLimit);
+                          },
+                          items: canales
+                              .map(
+                                (canal) => DropdownMenuItem<String>(
+                                  value: canal,
+                                  child: Text(canal.toUpperCase()),
                                 ),
                               )
                               .toList(),

@@ -1,5 +1,6 @@
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
+import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/catalogos/domain/catalogos_repository.dart';
 
 class CatalogosRepositoryImpl implements CatalogosRepository {
@@ -64,20 +65,35 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     String tipo,
     CatalogosQuery query,
   ) async {
-    final payload = await _httpClient.getJson(
-      endpoint,
-      queryParameters: <String, String>{
-        'q': query.search,
-        'page': query.page.toString(),
-        'limit': query.limit.toString(),
-      },
-    );
+    dynamic payload;
+    final supportsSearch = endpoint == '/repuestos';
+    try {
+      payload = await _httpClient.getJson(
+        endpoint,
+        queryParameters: <String, String>{
+          if (supportsSearch) 'q': query.search,
+          'page': query.page.toString(),
+          'limit': query.limit.toString(),
+        },
+      );
+    } on AppFailure catch (error) {
+      if (error.statusCode != 400) {
+        rethrow;
+      }
+      payload = await _httpClient.getJson(
+        endpoint,
+        queryParameters: <String, String>{
+          if (supportsSearch) 'q': query.search,
+        },
+      );
+    }
 
     final paged = PagedResult<CatalogoItem>.fromDynamic(
       payload,
       (json) {
         final id = (json['id'] ?? '').toString();
-        final nombre = (json['nombre'] ?? json['descripcion'] ?? json['detalle'] ?? '').toString();
+        final nombre =
+            (json['nombre'] ?? json['descripcion'] ?? json['detalle'] ?? json['codigo'] ?? '').toString();
         return CatalogoItem(
           id: id,
           nombre: nombre.isEmpty ? 'Sin nombre' : nombre,
