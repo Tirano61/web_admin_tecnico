@@ -4,6 +4,7 @@ import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/servicios/domain/servicios_repository.dart';
 import 'package:web_admin_tecnico/features/servicios/data/servicios_repository_impl.dart';
 import 'package:web_admin_tecnico/features/servicios/presentation/bloc/servicios_bloc.dart';
+import 'package:web_admin_tecnico/features/servicios/presentation/pages/servicio_detalle_page.dart';
 
 class ServiciosPage extends StatelessWidget {
   const ServiciosPage({super.key});
@@ -39,6 +40,14 @@ class _ServiciosViewState extends State<_ServiciosView> {
             limit: limit ?? 6,
           ),
         );
+  }
+
+  void _openDetalle(ServicioItem item) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ServicioDetallePage(servicioId: item.id),
+      ),
+    );
   }
 
   @override
@@ -166,6 +175,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                         total: state.total,
                         page: state.page,
                         limit: state.limit,
+                        onOpen: _openDetalle,
                       ),
                       rowsPerPage: state.limit,
                       availableRowsPerPage: const <int>[6, 12, 24],
@@ -228,12 +238,14 @@ class _ServiciosTableSource extends DataTableSource {
     required this.total,
     required this.page,
     required this.limit,
+    required this.onOpen,
   });
 
   final List<ServicioItem> items;
   final int total;
   final int page;
   final int limit;
+  final ValueChanged<ServicioItem> onOpen;
 
   @override
   DataRow? getRow(int index) {
@@ -253,7 +265,7 @@ class _ServiciosTableSource extends DataTableSource {
         DataCell(
           IconButton(
             tooltip: 'Ver detalle',
-            onPressed: () {},
+            onPressed: () => onOpen(item),
             icon: const Icon(Icons.open_in_new, size: 18),
           ),
         ),
