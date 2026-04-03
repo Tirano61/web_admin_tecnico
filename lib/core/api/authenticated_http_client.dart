@@ -27,13 +27,13 @@ class AuthenticatedHttpClient {
     return uri.replace(queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery);
   }
 
-  Map<String, String> buildAuthHeaders() {
+  Map<String, String> buildAuthHeaders({bool includeAuth = true}) {
     final token = SessionStore.currentSession?.token;
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    if (token != null && token.isNotEmpty) {
+    if (includeAuth && token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     };
     return headers;
@@ -42,9 +42,10 @@ class AuthenticatedHttpClient {
   Future<dynamic> getJson(
     String endpoint, {
     Map<String, String>? queryParameters,
+    bool includeAuth = true,
   }) async {
     final uri = buildUri(endpoint, queryParameters: queryParameters);
-    final response = await http.get(uri, headers: buildAuthHeaders());
+    final response = await http.get(uri, headers: buildAuthHeaders(includeAuth: includeAuth));
     return _decodeResponse(response);
   }
 
@@ -52,11 +53,12 @@ class AuthenticatedHttpClient {
     String endpoint, {
     Map<String, dynamic>? body,
     Map<String, String>? queryParameters,
+    bool includeAuth = true,
   }) async {
     final uri = buildUri(endpoint, queryParameters: queryParameters);
     final response = await http.post(
       uri,
-      headers: buildAuthHeaders(),
+      headers: buildAuthHeaders(includeAuth: includeAuth),
       body: jsonEncode(body ?? const <String, dynamic>{}),
     );
     return _decodeResponse(response);

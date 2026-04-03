@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/catalogos/data/catalogos_repository_impl.dart';
 import 'package:web_admin_tecnico/features/catalogos/domain/catalogos_repository.dart';
@@ -60,6 +61,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
         if (state is CatalogosLoaded) {
           final tipos = <String>{'todos', 'zona', 'categoria', 'producto', 'repuesto'};
           final currentLimit = state.limit;
+          final rowsPerPage = normalizeRowsPerPage(state.limit);
+          final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
 
           return ModulePageLayout(
             title: 'Catalogos',
@@ -135,8 +138,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         page: state.page,
                         limit: state.limit,
                       ),
-                      rowsPerPage: state.limit,
-                      availableRowsPerPage: const <int>[6, 12, 24],
+                      rowsPerPage: rowsPerPage,
+                      availableRowsPerPage: rowsPerPageOptions,
                       onRowsPerPageChanged: (value) {
                         if (value == null) {
                           return;
@@ -144,9 +147,9 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         _requestPage(page: 1, limit: value);
                       },
                       onPageChanged: (firstRowIndex) {
-                        final nextPage = (firstRowIndex ~/ state.limit) + 1;
+                        final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
                         if (nextPage != state.page) {
-                          _requestPage(page: nextPage, limit: state.limit);
+                          _requestPage(page: nextPage, limit: rowsPerPage);
                         }
                       },
                       showFirstLastButtons: true,
