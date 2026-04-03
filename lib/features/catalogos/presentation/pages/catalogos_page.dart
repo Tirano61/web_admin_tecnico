@@ -28,6 +28,7 @@ class _CatalogosView extends StatefulWidget {
 class _CatalogosViewState extends State<_CatalogosView> {
   final TextEditingController _searchController = TextEditingController();
   String _tipoFilter = 'todos';
+  static const List<String> _tipos = <String>['todos', 'zona', 'categoria', 'producto', 'repuesto'];
 
   void _requestPage({int page = 1, int? limit}) {
     context.read<CatalogosBloc>().add(
@@ -40,6 +41,201 @@ class _CatalogosViewState extends State<_CatalogosView> {
         );
   }
 
+  Future<void> _openCreateDialog(BuildContext context) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController();
+    final categoriaIdController = TextEditingController();
+    var selectedTipo = _tipoFilter == 'todos' ? 'zona' : _tipoFilter;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102845),
+              title: const Text('Nuevo registro de catalogo'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedTipo,
+                      decoration: const InputDecoration(labelText: 'Tipo'),
+                      items: _tipos
+                          .where((tipo) => tipo != 'todos')
+                          .map(
+                            (tipo) => DropdownMenuItem<String>(
+                              value: tipo,
+                              child: Text(tipo.toUpperCase()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setDialogState(() => selectedTipo = value);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: nombreController,
+                      autofocus: true,
+                      style: const TextStyle(color: Color(0xFFEAF3FF)),
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre',
+                        hintText: 'Ej: Zona Norte / Producto A / Repuesto X',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El nombre es obligatorio';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (selectedTipo == 'producto') ...<Widget>[
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: categoriaIdController,
+                        style: const TextStyle(color: Color(0xFFEAF3FF)),
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria ID (opcional)',
+                          hintText: 'UUID categoria-producto',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (formKey.currentState?.validate() ?? false) {
+                      context.read<CatalogosBloc>().add(
+                            CatalogosCreateRequested(
+                              input: CreateCatalogoInput(
+                                tipo: selectedTipo,
+                                nombre: nombreController.text,
+                                categoriaId: categoriaIdController.text,
+                              ),
+                            ),
+                          );
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                  child: const Text('Crear'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nombreController.dispose();
+    categoriaIdController.dispose();
+  }
+
+  Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController(text: item.nombre);
+    final categoriaIdController = TextEditingController();
+    var activo = item.activo;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102845),
+              title: const Text('Editar registro de catalogo'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ModuleStatusChip(label: item.tipo.toUpperCase()),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: nombreController,
+                      autofocus: true,
+                      style: const TextStyle(color: Color(0xFFEAF3FF)),
+                      decoration: const InputDecoration(
+                        labelText: 'Nombre',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El nombre es obligatorio';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (item.tipo == 'producto') ...<Widget>[
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: categoriaIdController,
+                        style: const TextStyle(color: Color(0xFFEAF3FF)),
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria ID (opcional)',
+                          hintText: 'Completar solo si vas a reasignar categoria',
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    SwitchListTile.adaptive(
+                      value: activo,
+                      onChanged: (value) => setDialogState(() => activo = value),
+                      title: const Text('Activo'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (formKey.currentState?.validate() ?? false) {
+                      context.read<CatalogosBloc>().add(
+                            CatalogosUpdateRequested(
+                              input: UpdateCatalogoInput(
+                                id: item.id,
+                                tipo: item.tipo,
+                                nombre: nombreController.text,
+                                categoriaId: categoriaIdController.text,
+                                activo: activo,
+                              ),
+                            ),
+                          );
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nombreController.dispose();
+    categoriaIdController.dispose();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -48,121 +244,151 @@ class _CatalogosViewState extends State<_CatalogosView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CatalogosBloc, CatalogosState>(
-      builder: (context, state) {
-        if (state is CatalogosLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
+    return BlocListener<CatalogosBloc, CatalogosState>(
+      listenWhen: (previous, current) {
+        return current is CatalogosFailure ||
+            (current is CatalogosLoaded && current.message != null && current.message!.isNotEmpty);
+      },
+      listener: (context, state) {
         if (state is CatalogosFailure) {
-          return Center(child: Text('Error: ${state.message}'));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${state.message}')),
+          );
         }
+        if (state is CatalogosLoaded && state.message != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message!)),
+          );
+        }
+      },
+      child: BlocBuilder<CatalogosBloc, CatalogosState>(
+        builder: (context, state) {
+          if (state is CatalogosLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (state is CatalogosLoaded) {
-          final tipos = <String>{'todos', 'zona', 'categoria', 'producto', 'repuesto'};
-          final currentLimit = state.limit;
-          final rowsPerPage = normalizeRowsPerPage(state.limit);
-          final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+          if (state is CatalogosFailure) {
+            return Center(child: Text('Error: ${state.message}'));
+          }
 
-          return ModulePageLayout(
-            title: 'Catalogos',
-            subtitle: 'Parametros operativos para productos, zonas y repuestos.',
-            trailing: ModuleStatusChip(label: '${state.total} total'),
-            child: Column(
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: InputDecoration(
-                          hintText: 'Buscar por ID o nombre...',
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          filled: true,
-                          fillColor: const Color(0xFF122B4A),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0x334EA6FF)),
+          if (state is CatalogosLoaded) {
+            final currentLimit = state.limit;
+            final rowsPerPage = normalizeRowsPerPage(state.limit);
+            final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+
+            return ModulePageLayout(
+              title: 'Catalogos',
+              subtitle: 'Parametros operativos para productos, zonas y repuestos.',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  OutlinedButton.icon(
+                    onPressed: () => _openCreateDialog(context),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Nuevo registro'),
+                  ),
+                  const SizedBox(width: 8),
+                  ModuleStatusChip(label: '${state.total} total'),
+                ],
+              ),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
+                          style: const TextStyle(color: Color(0xFFEAF3FF)),
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por ID o nombre...',
+                            prefixIcon: const Icon(Icons.search),
+                            isDense: true,
+                            filled: true,
+                            fillColor: const Color(0xFF122B4A),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0x334EA6FF)),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF122B4A),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0x334EA6FF)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _tipoFilter,
-                          onChanged: (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            setState(() => _tipoFilter = value);
-                            _requestPage(page: 1, limit: currentLimit);
-                          },
-                          items: tipos
-                              .map(
-                                (tipo) => DropdownMenuItem<String>(
-                                  value: tipo,
-                                  child: Text(tipo.toUpperCase()),
-                                ),
-                              )
-                              .toList(),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF122B4A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0x334EA6FF)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _tipoFilter,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+                              setState(() => _tipoFilter = value);
+                              _requestPage(page: 1, limit: currentLimit);
+                            },
+                            items: _tipos
+                                .map(
+                                  (tipo) => DropdownMenuItem<String>(
+                                    value: tipo,
+                                    child: Text(tipo.toUpperCase()),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: Card(
-                    child: PaginatedDataTable(
-                      headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                      columns: const <DataColumn>[
-                        DataColumn(label: Text('ID')),
-                        DataColumn(label: Text('Nombre')),
-                        DataColumn(label: Text('Tipo')),
-                        DataColumn(label: Text('Accion')),
-                      ],
-                      source: _CatalogosTableSource(
-                        items: state.items,
-                        total: state.total,
-                        page: state.page,
-                        limit: state.limit,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Card(
+                      child: PaginatedDataTable(
+                        headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                        columns: const <DataColumn>[
+                          DataColumn(label: Text('ID')),
+                          DataColumn(label: Text('Nombre')),
+                          DataColumn(label: Text('Tipo')),
+                          DataColumn(label: Text('Estado')),
+                          DataColumn(label: Text('Accion')),
+                        ],
+                        source: _CatalogosTableSource(
+                          items: state.items,
+                          total: state.total,
+                          page: state.page,
+                          limit: state.limit,
+                          onEdit: (item) => _openEditDialog(context, item),
+                        ),
+                        rowsPerPage: rowsPerPage,
+                        availableRowsPerPage: rowsPerPageOptions,
+                        onRowsPerPageChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+                          _requestPage(page: 1, limit: value);
+                        },
+                        onPageChanged: (firstRowIndex) {
+                          final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
+                          if (nextPage != state.page) {
+                            _requestPage(page: nextPage, limit: rowsPerPage);
+                          }
+                        },
+                        showFirstLastButtons: true,
                       ),
-                      rowsPerPage: rowsPerPage,
-                      availableRowsPerPage: rowsPerPageOptions,
-                      onRowsPerPageChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        _requestPage(page: 1, limit: value);
-                      },
-                      onPageChanged: (firstRowIndex) {
-                        final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
-                        if (nextPage != state.page) {
-                          _requestPage(page: nextPage, limit: rowsPerPage);
-                        }
-                      },
-                      showFirstLastButtons: true,
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }
+                ],
+              ),
+            );
+          }
 
-        return const SizedBox.shrink();
-      },
+          return const SizedBox.shrink();
+        },
+      ),
     );
   }
 }
@@ -173,12 +399,14 @@ class _CatalogosTableSource extends DataTableSource {
     required this.total,
     required this.page,
     required this.limit,
+    required this.onEdit,
   });
 
   final List<CatalogoItem> items;
   final int total;
   final int page;
   final int limit;
+  final ValueChanged<CatalogoItem> onEdit;
 
   @override
   DataRow? getRow(int index) {
@@ -196,9 +424,16 @@ class _CatalogosTableSource extends DataTableSource {
         DataCell(Text(item.nombre)),
         DataCell(ModuleStatusChip(label: item.tipo.toUpperCase())),
         DataCell(
+          ModuleStatusChip(
+            label: item.activo ? 'ACTIVO' : 'INACTIVO',
+            backgroundColor: item.activo ? const Color(0x1F0FA960) : const Color(0x1FF4B942),
+            foregroundColor: item.activo ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B),
+          ),
+        ),
+        DataCell(
           IconButton(
             tooltip: 'Editar catalogo',
-            onPressed: () {},
+            onPressed: () => onEdit(item),
             icon: const Icon(Icons.edit_outlined, size: 18),
           ),
         ),

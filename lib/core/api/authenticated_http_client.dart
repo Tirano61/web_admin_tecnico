@@ -35,7 +35,7 @@ class AuthenticatedHttpClient {
     };
     if (includeAuth && token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
-    };
+    }
     return headers;
   }
 
@@ -57,6 +57,21 @@ class AuthenticatedHttpClient {
   }) async {
     final uri = buildUri(endpoint, queryParameters: queryParameters);
     final response = await http.post(
+      uri,
+      headers: buildAuthHeaders(includeAuth: includeAuth),
+      body: jsonEncode(body ?? const <String, dynamic>{}),
+    );
+    return _decodeResponse(response);
+  }
+
+  Future<dynamic> patchJson(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
+    bool includeAuth = true,
+  }) async {
+    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final response = await http.patch(
       uri,
       headers: buildAuthHeaders(includeAuth: includeAuth),
       body: jsonEncode(body ?? const <String, dynamic>{}),
