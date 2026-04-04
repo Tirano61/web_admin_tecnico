@@ -87,6 +87,7 @@ Nota de permisos UX: diagnosticos/resoluciones se muestran en modo lectura para 
 - Gestion de liquidaciones:
   - crear (`POST /liquidaciones`)
   - listar (`GET /liquidaciones`)
+  - listar items por liquidacion (`GET /liquidaciones/:id/items`)
   - editar cabecera (`PATCH /liquidaciones/:id`)
   - aprobar liquidacion (`PATCH /liquidaciones/:id/aprobar`)
   - agregar item (`POST /liquidaciones/:id/items`)
@@ -186,7 +187,7 @@ Entrega: mantenimiento operativo completo.
 
 - Cotizacion y tarifa km (actual + historial + alta).
 - Tipos salida/tipos servicio.
-- Liquidaciones: crear, editar, items, aprobacion.
+- Liquidaciones: crear, listar, ver items, editar, aprobacion.
 - Reglas UX para `canal=campo` (evitar liquidar otros canales).
 
 Entrega: circuito de liquidacion cerrado.
@@ -217,6 +218,7 @@ Entrega: version candidata a produccion interna.
 - Carga de documento firmado responde con estado actualizado de orden.
 - Clientes y catalogos operativos se pueden crear/editar sin refresco completo.
 - Liquidaciones soportan ciclo completo de alta -> items -> aprobacion.
+- Aprobacion/eliminacion de item en liquidaciones se realiza desde listado (sin pedir `itemId` manual).
 - Analytics no aparece en UI admin-tecnico.
 
 ## 9) Riesgos y mitigacion
@@ -229,6 +231,8 @@ Entrega: version candidata a produccion interna.
   - Mitigacion: caso de prueba temprano en Sprint 1 con endpoint real.
 - Diferencias snake_case/camelCase en algunos payloads.
   - Mitigacion: normalizar mappers y agregar tests de serializacion.
+- Falta de endpoint de lectura de items por liquidacion puede forzar ingreso manual de `itemId` en UI.
+  - Mitigacion: cerrar contrato con `GET /liquidaciones/:id/items` antes del desarrollo de pantallas de aprobacion/eliminacion.
 
 ## 10) Decisiones a cerrar antes de construir
 
@@ -237,3 +241,4 @@ Entrega: version candidata a produccion interna.
 3. Definir comportamiento de ordenes `remoto/fabrica` respecto a firma y estados en la interfaz.
 4. Confirmar si se requiere export CSV operativo para admin-tecnico (no analytics).
 5. Definir estrategia de auditoria visual (quien cambio precios/liquidaciones y cuando) en frontend.
+6. Confirmar disponibilidad de `GET /liquidaciones/:id/items` para evitar ingreso manual de `itemId`.

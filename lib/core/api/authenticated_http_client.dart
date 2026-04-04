@@ -79,6 +79,21 @@ class AuthenticatedHttpClient {
     return _decodeResponse(response);
   }
 
+  Future<dynamic> deleteJson(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
+    bool includeAuth = true,
+  }) async {
+    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final response = await http.delete(
+      uri,
+      headers: buildAuthHeaders(includeAuth: includeAuth),
+      body: body == null ? null : jsonEncode(body),
+    );
+    return _decodeResponse(response);
+  }
+
   dynamic _decodeResponse(http.Response response) {
     final status = response.statusCode;
     final rawBody = response.body.trim();
