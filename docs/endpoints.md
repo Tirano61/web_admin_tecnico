@@ -380,6 +380,7 @@ Notas:
 | POST | `/liquidaciones` | admin-tecnico |
 | GET | `/liquidaciones/mias` | tecnico |
 | GET | `/liquidaciones` | admin-tecnico |
+| GET | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id` | admin-tecnico |
 | PATCH | `/liquidaciones/:id/aprobar` | admin-tecnico |
 | POST | `/liquidaciones/:id/items` | admin-tecnico |
@@ -411,6 +412,36 @@ Tambien soporta camelCase:
 ```json
 { "tipo_servicio_id": "{{tipoServicioId}}" }
 ```
+
+`GET /liquidaciones/:id/items`:
+
+```json
+{
+  "liquidacionId": "{{liquidacionId}}",
+  "items": [
+    {
+      "id": "{{itemId}}",
+      "tipoServicioId": "{{tipoServicioId}}",
+      "tipoServicioNombre": "Instalacion",
+      "precioUsdSnapshot": 120.5,
+      "aprobado": false,
+      "fechaAprobacion": null,
+      "createdAt": "2026-04-04T10:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "totalItems": 1,
+    "aprobados": 0,
+    "pendientes": 1,
+    "subtotalUsdTotal": 120.5
+  }
+}
+```
+
+Notas:
+
+- Este endpoint permite obtener `itemId` desde UI para aprobar/eliminar items sin ingreso manual.
+- Si la liquidacion existe pero no tiene items, devuelve `items: []` y `meta.totalItems = 0`.
 
 ## Analytics (feedback)
 
