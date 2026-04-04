@@ -21,6 +21,12 @@ class ClientesCreateRequested extends ClientesEvent {
   final CreateClienteInput input;
 }
 
+class ClientesUpdateRequested extends ClientesEvent {
+  ClientesUpdateRequested({required this.input});
+
+  final UpdateClienteInput input;
+}
+
 abstract class ClientesState {}
 
 class ClientesInitial extends ClientesState {}
@@ -55,6 +61,7 @@ class ClientesBloc extends Bloc<ClientesEvent, ClientesState> {
   ClientesBloc(this._repository) : super(ClientesInitial()) {
     on<ClientesRequested>(_onRequested);
     on<ClientesCreateRequested>(_onCreateRequested);
+    on<ClientesUpdateRequested>(_onUpdateRequested);
   }
 
   final ClientesRepository _repository;
@@ -102,6 +109,28 @@ class ClientesBloc extends Bloc<ClientesEvent, ClientesState> {
           limit: result.limit,
           search: _lastQuery.search,
           message: 'Cliente creado correctamente',
+        ),
+      );
+    } catch (error) {
+      emit(ClientesFailure(error.toString()));
+    }
+  }
+
+  Future<void> _onUpdateRequested(
+    ClientesUpdateRequested event,
+    Emitter<ClientesState> emit,
+  ) async {
+    try {
+      await _repository.updateCliente(input: event.input);
+      final result = await _repository.fetchClientes(query: _lastQuery);
+      emit(
+        ClientesLoaded(
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          search: _lastQuery.search,
+          message: 'Cliente actualizado correctamente',
         ),
       );
     } catch (error) {
