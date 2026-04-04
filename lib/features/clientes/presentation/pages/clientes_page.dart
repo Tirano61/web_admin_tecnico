@@ -11,15 +11,19 @@ class ClientesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final repository = ClientesRepositoryImpl();
+
     return BlocProvider<ClientesBloc>(
-      create: (_) => ClientesBloc(ClientesRepositoryImpl())..add(ClientesRequested()),
-      child: const _ClientesView(),
+      create: (_) => ClientesBloc(repository)..add(ClientesRequested()),
+      child: _ClientesView(repository: repository),
     );
   }
 }
 
 class _ClientesView extends StatefulWidget {
-  const _ClientesView();
+  const _ClientesView({required this.repository});
+
+  final ClientesRepository repository;
 
   @override
   State<_ClientesView> createState() => _ClientesViewState();
@@ -36,6 +40,181 @@ class _ClientesViewState extends State<_ClientesView> {
             limit: limit ?? 6,
           ),
         );
+  }
+
+  Future<void> _openDetalleDialog(ClienteItem item) async {
+    final detalleFuture = widget.repository.fetchClienteDetalle(item.id);
+
+    await showDialog<void>(
+      context: this.context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Detalle de cliente'),
+          content: SizedBox(
+            width: 440,
+            child: FutureBuilder<ClienteDetalle>(
+              future: detalleFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Text(
+                    'No se pudo cargar el detalle del cliente.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  );
+                }
+
+                final detalle = snapshot.data!;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _ClienteDetalleLine(label: 'ID', value: detalle.id),
+                    _ClienteDetalleLine(label: 'Nombre', value: detalle.nombre),
+                    _ClienteDetalleLine(label: 'CUIT', value: detalle.cuit ?? '-'),
+                    _ClienteDetalleLine(label: 'Contacto', value: detalle.contacto ?? '-'),
+                    _ClienteDetalleLine(label: 'Telefono', value: detalle.telefono ?? '-'),
+                    _ClienteDetalleLine(label: 'Localidad', value: detalle.localidad ?? '-'),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openEditDialog(ClienteItem item) async {
+    ClienteDetalle detalle;
+    try {
+      detalle = await widget.repository.fetchClienteDetalle(item.id);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        SnackBar(content: Text('No se pudo cargar el cliente: $error')),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: detalle.nombre);
+    final cuitController = TextEditingController(text: detalle.cuit ?? '');
+    final contactoController = TextEditingController(text: detalle.contacto ?? '');
+    final telefonoController = TextEditingController(text: detalle.telefono ?? '');
+    final localidadController = TextEditingController(text: detalle.localidad ?? '');
+
+    await showDialog<void>(
+      context: this.context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Editar cliente'),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: true,
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El nombre es obligatorio';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: cuitController,
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: const InputDecoration(labelText: 'CUIT'),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'El CUIT es obligatorio';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: contactoController,
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: const InputDecoration(labelText: 'Contacto (opcional)'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: telefonoController,
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: const InputDecoration(labelText: 'Telefono (opcional)'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: localidadController,
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: const InputDecoration(labelText: 'Localidad (opcional)'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  context.read<ClientesBloc>().add(
+                        ClientesUpdateRequested(
+                          input: UpdateClienteInput(
+                            id: detalle.id,
+                            nombre: nameController.text,
+                            cuit: cuitController.text,
+                            contacto: contactoController.text,
+                            telefono: telefonoController.text,
+                            localidad: localidadController.text,
+                          ),
+                        ),
+                      );
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameController.dispose();
+    cuitController.dispose();
+    contactoController.dispose();
+    telefonoController.dispose();
+    localidadController.dispose();
   }
 
   @override
@@ -117,6 +296,7 @@ class _ClientesViewState extends State<_ClientesView> {
                         columns: const <DataColumn>[
                           DataColumn(label: Text('ID')),
                           DataColumn(label: Text('Nombre')),
+                          DataColumn(label: Text('CUIT')),
                           DataColumn(label: Text('Estado')),
                           DataColumn(label: Text('Accion')),
                         ],
@@ -125,6 +305,8 @@ class _ClientesViewState extends State<_ClientesView> {
                           total: state.total,
                           page: state.page,
                           limit: state.limit,
+                          onView: _openDetalleDialog,
+                          onEdit: _openEditDialog,
                         ),
                         rowsPerPage: rowsPerPage,
                         availableRowsPerPage: rowsPerPageOptions,
@@ -158,6 +340,9 @@ class _ClientesViewState extends State<_ClientesView> {
   Future<void> _openCreateDialog(BuildContext context) async {
     final nameController = TextEditingController();
     final cuitController = TextEditingController();
+    final contactoController = TextEditingController();
+    final telefonoController = TextEditingController();
+    final localidadController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     await showDialog<void>(
@@ -201,6 +386,30 @@ class _ClientesViewState extends State<_ClientesView> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: contactoController,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: const InputDecoration(
+                    labelText: 'Contacto (opcional)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: telefonoController,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: const InputDecoration(
+                    labelText: 'Telefono (opcional)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: localidadController,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: const InputDecoration(
+                    labelText: 'Localidad (opcional)',
+                  ),
+                ),
               ],
             ),
           ),
@@ -217,6 +426,9 @@ class _ClientesViewState extends State<_ClientesView> {
                           input: CreateClienteInput(
                             nombre: nameController.text,
                             cuit: cuitController.text,
+                            contacto: contactoController.text,
+                            telefono: telefonoController.text,
+                            localidad: localidadController.text,
                           ),
                         ),
                       );
@@ -232,6 +444,9 @@ class _ClientesViewState extends State<_ClientesView> {
 
     nameController.dispose();
     cuitController.dispose();
+    contactoController.dispose();
+    telefonoController.dispose();
+    localidadController.dispose();
   }
 }
 
@@ -241,12 +456,16 @@ class _ClientesTableSource extends DataTableSource {
     required this.total,
     required this.page,
     required this.limit,
+    required this.onView,
+    required this.onEdit,
   });
 
   final List<ClienteItem> items;
   final int total;
   final int page;
   final int limit;
+  final ValueChanged<ClienteItem> onView;
+  final ValueChanged<ClienteItem> onEdit;
 
   @override
   DataRow? getRow(int index) {
@@ -262,12 +481,23 @@ class _ClientesTableSource extends DataTableSource {
       cells: <DataCell>[
         DataCell(Text(item.id)),
         DataCell(Text(item.nombre)),
+        DataCell(Text(item.cuit ?? '-')),
         const DataCell(ModuleStatusChip(label: 'OPERATIVO')),
         DataCell(
-          IconButton(
-            tooltip: 'Editar cliente',
-            onPressed: () {},
-            icon: const Icon(Icons.edit_outlined, size: 18),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              IconButton(
+                tooltip: 'Ver detalle',
+                onPressed: () => onView(item),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+              ),
+              IconButton(
+                tooltip: 'Editar cliente',
+                onPressed: () => onEdit(item),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+              ),
+            ],
           ),
         ),
       ],
@@ -282,4 +512,37 @@ class _ClientesTableSource extends DataTableSource {
 
   @override
   int get selectedRowCount => 0;
+}
+
+class _ClienteDetalleLine extends StatelessWidget {
+  const _ClienteDetalleLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF9AB1CC),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFEAF3FF),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 }
