@@ -46,7 +46,7 @@ class _ClientesViewState extends State<_ClientesView> {
     final detalleFuture = widget.repository.fetchClienteDetalle(item.id);
 
     await showDialog<void>(
-      context: this.context,
+      context: context,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF102845),
@@ -105,7 +105,7 @@ class _ClientesViewState extends State<_ClientesView> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(this.context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudo cargar el cliente: $error')),
       );
       return;
@@ -123,7 +123,7 @@ class _ClientesViewState extends State<_ClientesView> {
     final localidadController = TextEditingController(text: detalle.localidad ?? '');
 
     await showDialog<void>(
-      context: this.context,
+      context: context,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF102845),
