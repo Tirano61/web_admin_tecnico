@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repository_impl.dart';
@@ -50,6 +51,68 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return null;
     }
     return value;
+  }
+
+  String _resolveApiErrorMessage(
+    Object error, {
+    required String fallback,
+  }) {
+    if (error is AppFailure) {
+      final statusCode = error.statusCode;
+      if (statusCode == 401) {
+        return 'Sesion expirada. Inicia sesion nuevamente.';
+      }
+      if (statusCode == 403) {
+        return 'No tienes permisos para realizar esta accion.';
+      }
+      if (statusCode == 404) {
+        return 'No se encontro el recurso solicitado.';
+      }
+      if (statusCode != null && statusCode >= 500) {
+        return 'Error del servidor. Intenta nuevamente en unos segundos.';
+      }
+      if (error.message.trim().isNotEmpty) {
+        return error.message;
+      }
+      return fallback;
+    }
+
+    final text = error.toString().trim();
+    if (text.isEmpty) {
+      return fallback;
+    }
+    return text;
+  }
+
+  Future<bool> _confirmDeleteLiquidacionItem({
+    required BuildContext dialogContext,
+    required String liquidacionId,
+    required String itemId,
+  }) async {
+    final accepted = await showDialog<bool>(
+      context: dialogContext,
+      builder: (confirmContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Eliminar item'),
+          content: Text(
+            'Se eliminara el item $itemId de la liquidacion $liquidacionId. Esta accion no se puede deshacer.\n\nDeseas continuar?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(confirmContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(confirmContext).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return accepted ?? false;
   }
 
   Future<void> _openCreateDialog() async {
@@ -392,6 +455,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             Future<void> runItemAction({
               required Future<void> Function() action,
               required String successMessage,
+              required String errorFallback,
             }) async {
               if (actionInProgress) {
                 return;
@@ -423,8 +487,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 if (!mounted) {
                   return;
                 }
+                final message = _resolveApiErrorMessage(
+                  error,
+                  fallback: errorFallback,
+                );
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $error')),
+                  SnackBar(content: Text(message)),
                 );
               } finally {
                 if (dialogBuildContext.mounted) {
@@ -449,8 +517,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     }
 
                     if (snapshot.hasError || !snapshot.hasData) {
+                      final loadError = _resolveApiErrorMessage(
+                        snapshot.error ?? Exception('Error desconocido'),
+                        fallback: 'No se pudieron cargar los items de la liquidacion.',
+                      );
                       return Text(
-                        'No se pudieron cargar los items de la liquidacion.',
+                        loadError,
                         style: Theme.of(context).textTheme.bodyMedium,
                       );
                     }
@@ -496,7 +568,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              'Sin items para esta liquidacion. Las acciones por item estan deshabilitadas.',
+                              'Esta liquidacion no tiene items cargados todavia. Agrega items desde Acciones > Agregar item.',
                             ),
                           )
                         else
@@ -553,6 +625,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                             ),
                                                             successMessage:
                                                                 'Item aprobado correctamente',
+                                                            errorFallback:
+                                                                'No se pudo aprobar el item de liquidacion.',
                                                           );
                                                         },
                                                   icon: const Icon(Icons.check_circle_outline),
@@ -561,8 +635,17 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   tooltip: 'Eliminar item',
                                                   onPressed: actionInProgress
                                                       ? null
-                                                      : () {
-                                                          runItemAction(
+                                                      : () async {
+                                                          final accepted = await _confirmDeleteLiquidacionItem(
+                                                            dialogContext: dialogBuildContext,
+                                                            liquidacionId: response.liquidacionId,
+                                                            itemId: detalle.id,
+                                                          );
+                                                          if (!accepted || !dialogBuildContext.mounted) {
+                                                            return;
+                                                          }
+
+                                                          await runItemAction(
                                                             action: () =>
                                                                 widget.repository.deleteLiquidacionItem(
                                                               input: DeleteLiquidacionItemInput(
@@ -572,6 +655,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                             ),
                                                             successMessage:
                                                                 'Item eliminado correctamente',
+                                                            errorFallback:
+                                                                'No se pudo eliminar el item de liquidacion.',
                                                           );
                                                         },
                                                   icon: const Icon(Icons.delete_outline),
