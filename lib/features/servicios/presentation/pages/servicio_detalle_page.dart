@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:web_admin_tecnico/core/error/app_failure.dart';
+import 'package:web_admin_tecnico/core/utils/open_pdf_bytes.dart';
 import 'package:web_admin_tecnico/core/utils/open_external_url.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/servicios/data/servicios_repository_impl.dart';
@@ -24,6 +26,8 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
   ServicioDocumentoInfo? _documento;
   String? _error;
   bool _loading = true;
+  bool _openingPdfAuth = false;
+  bool _downloadingPdfAuth = false;
 
   @override
   void initState() {
@@ -91,6 +95,101 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('URL de PDF copiada al portapapeles.')),
     );
+  }
+
+  String _resolveApiErrorMessage(
+    Object error, {
+    required String fallback,
+  }) {
+    if (error is AppFailure) {
+      final statusCode = error.statusCode;
+      if (statusCode == 401) {
+        return 'Sesion expirada. Inicia sesion nuevamente.';
+      }
+      if (statusCode == 403) {
+        return 'No tienes permisos para esta accion.';
+      }
+      if (statusCode == 404) {
+        return 'No se encontro el recurso solicitado.';
+      }
+      if (statusCode != null && statusCode >= 500) {
+        return 'Error del servidor. Intenta nuevamente en unos segundos.';
+      }
+      if (error.message.trim().isNotEmpty) {
+        return error.message;
+      }
+      return fallback;
+    }
+
+    final text = error.toString().trim();
+    if (text.isEmpty) {
+      return fallback;
+    }
+    return text;
+  }
+
+  Future<void> _openAuthenticatedPdf() async {
+    if (_openingPdfAuth) {
+      return;
+    }
+
+    setState(() => _openingPdfAuth = true);
+
+    try {
+      final bytes = await _repository.fetchDocumentoPdfBytes(widget.servicioId);
+      if (bytes.isEmpty) {
+        throw const AppFailure('El PDF autenticado no contiene datos.');
+      }
+      await openPdfBytes(bytes);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _resolveApiErrorMessage(
+        error,
+        fallback: 'No se pudo abrir el PDF autenticado.',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() => _openingPdfAuth = false);
+      }
+    }
+  }
+
+  Future<void> _downloadAuthenticatedPdf() async {
+    if (_downloadingPdfAuth) {
+      return;
+    }
+
+    setState(() => _downloadingPdfAuth = true);
+
+    try {
+      final bytes = await _repository.fetchDocumentoPdfBytes(widget.servicioId);
+      if (bytes.isEmpty) {
+        throw const AppFailure('El PDF autenticado no contiene datos.');
+      }
+      await downloadPdfBytes(bytes, fileName: 'servicio-${widget.servicioId}.pdf');
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF autenticado descargado.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = _resolveApiErrorMessage(
+        error,
+        fallback: 'No se pudo descargar el PDF autenticado.',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) {
+        setState(() => _downloadingPdfAuth = false);
+      }
+    }
   }
 
   @override
@@ -246,18 +345,29 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
               const SizedBox(height: 10),
               _InfoTile(label: 'URL PDF', value: documento?.pdfUrl ?? '-'),
               const SizedBox(height: 14),
-              Row(
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
                 children: <Widget>[
                   FilledButton.icon(
                     onPressed: (documento?.pdfUrl ?? '').isEmpty ? null : _openPdfUrl,
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('Abrir PDF'),
                   ),
-                  const SizedBox(width: 10),
                   OutlinedButton.icon(
                     onPressed: (documento?.pdfUrl ?? '').isEmpty ? null : _copyPdfUrl,
                     icon: const Icon(Icons.copy_all_outlined),
                     label: const Text('Copiar URL'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _openingPdfAuth ? null : _openAuthenticatedPdf,
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: Text(_openingPdfAuth ? 'Abriendo...' : 'Ver PDF autenticado'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _downloadingPdfAuth ? null : _downloadAuthenticatedPdf,
+                    icon: const Icon(Icons.download_outlined),
+                    label: Text(_downloadingPdfAuth ? 'Descargando...' : 'Descargar PDF autenticado'),
                   ),
                 ],
               ),

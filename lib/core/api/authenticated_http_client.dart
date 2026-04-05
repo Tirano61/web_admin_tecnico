@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
@@ -92,6 +93,21 @@ class AuthenticatedHttpClient {
       body: body == null ? null : jsonEncode(body),
     );
     return _decodeResponse(response);
+  }
+
+  Future<Uint8List> getBytes(
+    String endpoint, {
+    Map<String, String>? queryParameters,
+    bool includeAuth = true,
+  }) async {
+    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final headers = buildAuthHeaders(includeAuth: includeAuth);
+    headers.remove('Content-Type');
+    final response = await http.get(uri, headers: headers);
+    if (response.statusCode >= 400) {
+      _decodeResponse(response);
+    }
+    return response.bodyBytes;
   }
 
   dynamic _decodeResponse(http.Response response) {

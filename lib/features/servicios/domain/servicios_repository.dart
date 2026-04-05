@@ -138,4 +138,6 @@ abstract class ServiciosRepository {
   Future<ServicioDetalle> fetchServicioDetalle(String servicioId);
 
   Future<ServicioDocumentoInfo> fetchDocumento(String servicioId);
+
+  Future<List<int>> fetchDocumentoPdfBytes(String servicioId);
 }

@@ -145,6 +145,12 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     );
   }
 
+  @override
+  Future<List<int>> fetchDocumentoPdfBytes(String servicioId) async {
+    final bytes = await _httpClient.getBytes('/servicios/${servicioId.trim()}/documento/pdf');
+    return bytes;
+  }
+
   String _resolveId(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
     final value = root['id'] ?? root['servicioId'] ?? servicioNode['id'] ?? servicioNode['servicioId'];
     return (value ?? '').toString();
