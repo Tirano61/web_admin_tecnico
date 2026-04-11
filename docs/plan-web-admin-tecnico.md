@@ -58,6 +58,7 @@ Fuera de alcance para este rol:
 
 ### 3.3 Modulo Clientes
 
+- Listado paginado (`GET /clientes?page=&limit=`).
 - Busqueda (`GET /clientes/buscar?q=`).
 - Vista detalle (`GET /clientes/:id`).
 - Alta cliente (`POST /clientes`).
@@ -176,7 +177,7 @@ Entrega: flujo operativo de consulta y documentacion de orden.
 
 ## Sprint 2 (4 dias): clientes y catalogos operativos
 
-- Clientes: buscar, detalle, crear, editar.
+- Clientes: listar paginado, buscar, detalle, crear, editar.
 - Zonas: ABM basico.
 - Categorias/productos: ABM basico.
 - Repuestos: ABM basico.
@@ -216,7 +217,7 @@ Entrega: version candidata a produccion interna.
 - Login de admin-tecnico funciona y bloquea rutas no permitidas.
 - Servicios listan y permiten abrir detalle con documento/PDF.
 - Carga de documento firmado responde con estado actualizado de orden.
-- Clientes y catalogos operativos se pueden crear/editar sin refresco completo.
+- Clientes y catalogos operativos se pueden listar/crear/editar sin refresco completo.
 - Liquidaciones soportan ciclo completo de alta -> items -> aprobacion.
 - Aprobacion/eliminacion de item en liquidaciones se realiza desde listado (sin pedir `itemId` manual).
 - Analytics no aparece en UI admin-tecnico.

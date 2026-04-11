@@ -18,12 +18,16 @@ class AuthenticatedHttpClient {
 
   final String baseUrl;
 
-  Uri buildUri(String endpoint, {Map<String, String>? queryParameters}) {
+  Uri buildUri(
+    String endpoint, {
+    Map<String, String>? queryParameters,
+    bool keepEmptyQueryParameters = false,
+  }) {
     final normalized = endpoint.startsWith('/') ? endpoint : '/$endpoint';
     final uri = Uri.parse('$baseUrl$normalized');
     final cleanedQuery = <String, String>{
       for (final entry in (queryParameters ?? const <String, String>{}).entries)
-        if (entry.value.trim().isNotEmpty) entry.key: entry.value,
+        if (keepEmptyQueryParameters || entry.value.trim().isNotEmpty) entry.key: entry.value,
     };
     return uri.replace(queryParameters: cleanedQuery.isEmpty ? null : cleanedQuery);
   }
@@ -44,8 +48,13 @@ class AuthenticatedHttpClient {
     String endpoint, {
     Map<String, String>? queryParameters,
     bool includeAuth = true,
+    bool keepEmptyQueryParameters = false,
   }) async {
-    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final uri = buildUri(
+      endpoint,
+      queryParameters: queryParameters,
+      keepEmptyQueryParameters: keepEmptyQueryParameters,
+    );
     final response = await http.get(uri, headers: buildAuthHeaders(includeAuth: includeAuth));
     return _decodeResponse(response);
   }
@@ -55,8 +64,13 @@ class AuthenticatedHttpClient {
     Map<String, dynamic>? body,
     Map<String, String>? queryParameters,
     bool includeAuth = true,
+    bool keepEmptyQueryParameters = false,
   }) async {
-    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final uri = buildUri(
+      endpoint,
+      queryParameters: queryParameters,
+      keepEmptyQueryParameters: keepEmptyQueryParameters,
+    );
     final response = await http.post(
       uri,
       headers: buildAuthHeaders(includeAuth: includeAuth),
@@ -70,8 +84,13 @@ class AuthenticatedHttpClient {
     Map<String, dynamic>? body,
     Map<String, String>? queryParameters,
     bool includeAuth = true,
+    bool keepEmptyQueryParameters = false,
   }) async {
-    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final uri = buildUri(
+      endpoint,
+      queryParameters: queryParameters,
+      keepEmptyQueryParameters: keepEmptyQueryParameters,
+    );
     final response = await http.patch(
       uri,
       headers: buildAuthHeaders(includeAuth: includeAuth),
@@ -85,8 +104,13 @@ class AuthenticatedHttpClient {
     Map<String, dynamic>? body,
     Map<String, String>? queryParameters,
     bool includeAuth = true,
+    bool keepEmptyQueryParameters = false,
   }) async {
-    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final uri = buildUri(
+      endpoint,
+      queryParameters: queryParameters,
+      keepEmptyQueryParameters: keepEmptyQueryParameters,
+    );
     final response = await http.delete(
       uri,
       headers: buildAuthHeaders(includeAuth: includeAuth),
@@ -99,8 +123,13 @@ class AuthenticatedHttpClient {
     String endpoint, {
     Map<String, String>? queryParameters,
     bool includeAuth = true,
+    bool keepEmptyQueryParameters = false,
   }) async {
-    final uri = buildUri(endpoint, queryParameters: queryParameters);
+    final uri = buildUri(
+      endpoint,
+      queryParameters: queryParameters,
+      keepEmptyQueryParameters: keepEmptyQueryParameters,
+    );
     final headers = buildAuthHeaders(includeAuth: includeAuth);
     headers.remove('Content-Type');
     final response = await http.get(uri, headers: headers);
