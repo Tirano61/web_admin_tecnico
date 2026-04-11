@@ -279,10 +279,50 @@ Notas:
 
 | Metodo | Endpoint | Rol |
 |---|---|---|
+| GET | `/clientes?page=&limit=` | tecnico, admin-tecnico, admin |
 | GET | `/clientes/buscar?q=` | tecnico, admin-tecnico, admin |
 | GET | `/clientes/:id` | tecnico, admin-tecnico, admin |
 | POST | `/clientes` | tecnico, admin-tecnico |
 | PATCH | `/clientes/:id` | admin-tecnico |
+
+### GET /clientes (listado paginado)
+
+Query params:
+
+- `page` (opcional, default `1`)
+- `limit` (opcional, default `20`)
+
+Ejemplo:
+
+`GET /clientes?page=1&limit=20`
+
+Respuesta ejemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "{{clienteId}}",
+      "cuit": "20304050607",
+      "nombre": "Agro SRL",
+      "contacto": "Juan Perez",
+      "telefono": "+54 9 11 5555-0001",
+      "localidad": "Pergamino"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Notas:
+
+- Endpoint pensado para listado general en web admin-tecnico.
+- `GET /clientes/buscar?q=` se mantiene para autocompletes/busquedas rapidas.
 
 ## Catalogos
 

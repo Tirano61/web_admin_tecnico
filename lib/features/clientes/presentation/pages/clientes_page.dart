@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
@@ -31,15 +33,54 @@ class _ClientesView extends StatefulWidget {
 
 class _ClientesViewState extends State<_ClientesView> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String? _searchHintMessage;
+
+  static const Duration _searchDebounceDuration = Duration(milliseconds: 350);
 
   void _requestPage({int page = 1, int? limit}) {
+    final search = _searchController.text.trim();
+    if (search.isNotEmpty && search.length < 3) {
+      if (_searchHintMessage != 'Ingresa al menos 3 caracteres para buscar clientes.') {
+        setState(() {
+          _searchHintMessage = 'Ingresa al menos 3 caracteres para buscar clientes.';
+        });
+      }
+      return;
+    }
+
     context.read<ClientesBloc>().add(
           ClientesRequested(
-            search: _searchController.text.trim(),
+            search: search,
             page: page,
             limit: limit ?? 6,
           ),
         );
+  }
+
+  void _onSearchChanged({required int limit}) {
+    final search = _searchController.text.trim();
+    _searchDebounce?.cancel();
+
+    if (search.isNotEmpty && search.length < 3) {
+      if (_searchHintMessage != 'Ingresa al menos 3 caracteres para buscar clientes.') {
+        setState(() {
+          _searchHintMessage = 'Ingresa al menos 3 caracteres para buscar clientes.';
+        });
+      }
+      return;
+    }
+
+    if (_searchHintMessage != null) {
+      setState(() => _searchHintMessage = null);
+    }
+
+    _searchDebounce = Timer(_searchDebounceDuration, () {
+      if (!mounted) {
+        return;
+      }
+      _requestPage(page: 1, limit: limit);
+    });
   }
 
   Future<void> _openDetalleDialog(ClienteItem item) async {
@@ -219,6 +260,7 @@ class _ClientesViewState extends State<_ClientesView> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -255,6 +297,10 @@ class _ClientesViewState extends State<_ClientesView> {
           if (state is ClientesLoaded) {
             final rowsPerPage = normalizeRowsPerPage(state.limit);
             final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+            final hasActiveSearch = state.search.trim().isNotEmpty;
+            final emptyMessage = hasActiveSearch
+                ? 'No se encontraron clientes para "${state.search}".'
+              : 'No hay clientes cargados para mostrar en esta pagina.';
             return ModulePageLayout(
               title: 'Clientes',
               subtitle: 'Base operativa de clientes para ordenes y seguimiento.',
@@ -274,7 +320,7 @@ class _ClientesViewState extends State<_ClientesView> {
                 children: <Widget>[
                   TextField(
                     controller: _searchController,
-                    onChanged: (_) => _requestPage(page: 1, limit: state.limit),
+                    onChanged: (_) => _onSearchChanged(limit: state.limit),
                     style: const TextStyle(color: Color(0xFFEAF3FF)),
                     decoration: InputDecoration(
                       hintText: 'Buscar por ID o nombre...',
@@ -288,7 +334,31 @@ class _ClientesViewState extends State<_ClientesView> {
                       ),
                     ),
                   ),
+                  if (_searchHintMessage != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _searchHintMessage!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFFFFD98B),
+                            ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
+                  if (state.items.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1F122B4A),
+                        border: Border.all(color: const Color(0x334EA6FF)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(emptyMessage),
+                    ),
                   Expanded(
                     child: Card(
                       child: PaginatedDataTable(

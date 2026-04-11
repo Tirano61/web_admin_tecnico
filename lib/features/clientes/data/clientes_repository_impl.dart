@@ -11,25 +11,10 @@ class ClientesRepositoryImpl implements ClientesRepository {
 
   @override
   Future<PagedResult<ClienteItem>> fetchClientes({required ClientesQuery query}) async {
-    dynamic payload;
-    try {
-      payload = await _httpClient.getJson(
-        '/clientes/buscar',
-        queryParameters: <String, String>{
-          'q': query.search,
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
-      }
-      payload = await _httpClient.getJson(
-        '/clientes/buscar',
-        queryParameters: <String, String>{'q': query.search},
-      );
-    }
+    final search = query.search.trim();
+    final payload = search.isEmpty
+        ? await _fetchPagedClientes(query)
+        : await _fetchClientesSearch(query: query, search: search);
 
     final result = PagedResult<ClienteItem>.fromDynamic(
       payload,
@@ -58,6 +43,58 @@ class ClientesRepositoryImpl implements ClientesRepository {
       page: query.page,
       limit: query.limit,
     );
+  }
+
+  Future<dynamic> _fetchPagedClientes(ClientesQuery query) async {
+    try {
+      return await _httpClient.getJson(
+        '/clientes',
+        queryParameters: <String, String>{
+          'page': query.page.toString(),
+          'limit': query.limit.toString(),
+        },
+      );
+    } on AppFailure catch (error) {
+      if (error.statusCode != 404) {
+        rethrow;
+      }
+
+      // Compatibilidad con entornos viejos que aun no exponen /clientes paginado.
+      return _httpClient.getJson(
+        '/clientes/buscar',
+        queryParameters: <String, String>{
+          'q': '',
+          'page': query.page.toString(),
+          'limit': query.limit.toString(),
+        },
+        keepEmptyQueryParameters: true,
+      );
+    }
+  }
+
+  Future<dynamic> _fetchClientesSearch({
+    required ClientesQuery query,
+    required String search,
+  }) async {
+    try {
+      return await _httpClient.getJson(
+        '/clientes/buscar',
+        queryParameters: <String, String>{
+          'q': search,
+          'page': query.page.toString(),
+          'limit': query.limit.toString(),
+        },
+      );
+    } on AppFailure catch (error) {
+      if (error.statusCode != 400) {
+        rethrow;
+      }
+
+      return _httpClient.getJson(
+        '/clientes/buscar',
+        queryParameters: <String, String>{'q': search},
+      );
+    }
   }
 
   @override
