@@ -29,6 +29,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
   final TextEditingController _searchController = TextEditingController();
   String _tipoFilter = 'todos';
   static const List<String> _tipos = <String>['todos', 'zona', 'categoria', 'producto', 'repuesto'];
+  static const List<int> _rowsPerPageDefaults = <int>[20, 40, 60];
 
   void _requestPage({int page = 1, int? limit}) {
     context.read<CatalogosBloc>().add(
@@ -36,7 +37,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
             search: _searchController.text.trim(),
             tipo: _tipoFilter,
             page: page,
-            limit: limit ?? 6,
+            limit: limit ?? 20,
           ),
         );
   }
@@ -273,8 +274,14 @@ class _CatalogosViewState extends State<_CatalogosView> {
 
           if (state is CatalogosLoaded) {
             final currentLimit = state.limit;
-            final rowsPerPage = normalizeRowsPerPage(state.limit);
-            final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+            final rowsPerPage = normalizeRowsPerPage(
+              state.limit,
+              defaults: _rowsPerPageDefaults,
+            );
+            final rowsPerPageOptions = buildRowsPerPageOptions(
+              state.limit,
+              defaults: _rowsPerPageDefaults,
+            );
 
             return ModulePageLayout(
               title: 'Catalogos',
@@ -347,37 +354,46 @@ class _CatalogosViewState extends State<_CatalogosView> {
                   const SizedBox(height: 12),
                   Expanded(
                     child: Card(
-                      child: PaginatedDataTable(
-                        headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                        columns: const <DataColumn>[
-                          DataColumn(label: Text('ID')),
-                          DataColumn(label: Text('Nombre')),
-                          DataColumn(label: Text('Tipo')),
-                          DataColumn(label: Text('Estado')),
-                          DataColumn(label: Text('Accion')),
-                        ],
-                        source: _CatalogosTableSource(
-                          items: state.items,
-                          total: state.total,
-                          page: state.page,
-                          limit: state.limit,
-                          onEdit: (item) => _openEditDialog(context, item),
-                        ),
-                        rowsPerPage: rowsPerPage,
-                        availableRowsPerPage: rowsPerPageOptions,
-                        onRowsPerPageChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
-                          _requestPage(page: 1, limit: value);
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                              child: PaginatedDataTable(
+                                headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                columns: const <DataColumn>[
+                                  DataColumn(label: Text('ID')),
+                                  DataColumn(label: Text('Nombre')),
+                                  DataColumn(label: Text('Tipo')),
+                                  DataColumn(label: Text('Estado')),
+                                  DataColumn(label: Text('Accion')),
+                                ],
+                                source: _CatalogosTableSource(
+                                  items: state.items,
+                                  total: state.total,
+                                  page: state.page,
+                                  limit: state.limit,
+                                  onEdit: (item) => _openEditDialog(context, item),
+                                ),
+                                rowsPerPage: rowsPerPage,
+                                availableRowsPerPage: rowsPerPageOptions,
+                                onRowsPerPageChanged: (value) {
+                                  if (value == null) {
+                                    return;
+                                  }
+                                  _requestPage(page: 1, limit: value);
+                                },
+                                onPageChanged: (firstRowIndex) {
+                                  final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
+                                  if (nextPage != state.page) {
+                                    _requestPage(page: nextPage, limit: rowsPerPage);
+                                  }
+                                },
+                                showFirstLastButtons: true,
+                              ),
+                            ),
+                          );
                         },
-                        onPageChanged: (firstRowIndex) {
-                          final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
-                          if (nextPage != state.page) {
-                            _requestPage(page: nextPage, limit: rowsPerPage);
-                          }
-                        },
-                        showFirstLastButtons: true,
                       ),
                     ),
                   ),

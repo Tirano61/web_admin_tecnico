@@ -8,7 +8,7 @@ class CatalogosRequested extends CatalogosEvent {
     this.search = '',
     this.tipo = 'todos',
     this.page = 1,
-    this.limit = 6,
+    this.limit = 20,
   });
 
   final String search;
