@@ -14,15 +14,20 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   @override
   Future<PagedResult<CatalogoItem>> fetchCatalogos({required CatalogosQuery query}) async {
     final normalizedTipo = query.tipo.toLowerCase();
+
+    if (normalizedTipo != 'todos' && normalizedTipo.isNotEmpty) {
+      return _fetchByTipo(normalizedTipo, query);
+    }
+
     final requested = normalizedTipo == 'todos' || normalizedTipo.isEmpty
         ? <String>['zona', 'categoria', 'producto', 'repuesto']
         : <String>[normalizedTipo];
 
-    final results = await Future.wait<List<CatalogoItem>>(
-      requested.map((tipo) => _fetchByTipo(tipo, query)),
+    final results = await Future.wait<PagedResult<CatalogoItem>>(
+      requested.map((tipo) => _fetchByTipo(tipo, query, usePagination: false)),
     );
 
-    final merged = <CatalogoItem>[for (final list in results) ...list];
+    final merged = <CatalogoItem>[for (final result in results) ...result.items];
     final search = query.search.trim().toLowerCase();
     final filtered = merged.where((item) {
       final matchText = search.isEmpty
@@ -80,24 +85,30 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     );
   }
 
-  Future<List<CatalogoItem>> _fetchByTipo(String tipo, CatalogosQuery query) async {
+  Future<PagedResult<CatalogoItem>> _fetchByTipo(
+    String tipo,
+    CatalogosQuery query, {
+    bool usePagination = true,
+  }) async {
     switch (tipo) {
       case 'zona':
-        return _fetchSimple('/zonas', 'zona', query);
+        return _fetchSimple('/zonas', 'zona', query, usePagination: usePagination);
       case 'categoria':
-        return _fetchSimple('/categorias-producto', 'categoria', query);
+        return _fetchSimple('/categorias-producto', 'categoria', query, usePagination: usePagination);
       case 'producto':
-        return _fetchSimple('/productos', 'producto', query);
+        return _fetchSimple('/productos', 'producto', query, usePagination: usePagination);
       case 'repuesto':
       default:
-        return _fetchSimple('/repuestos', 'repuesto', query);
+        return _fetchSimple('/repuestos', 'repuesto', query, usePagination: usePagination);
     }
   }
 
-  Future<List<CatalogoItem>> _fetchSimple(
+  Future<PagedResult<CatalogoItem>> _fetchSimple(
     String endpoint,
     String tipo,
-    CatalogosQuery query,
+    CatalogosQuery query, {
+    bool usePagination = true,
+  }
   ) async {
     dynamic payload;
     final supportsSearch = endpoint == '/repuestos';
@@ -106,8 +117,8 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
         endpoint,
         queryParameters: <String, String>{
           if (supportsSearch) 'q': query.search,
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
+          if (usePagination) 'page': query.page.toString(),
+          if (usePagination) 'limit': query.limit.toString(),
         },
       );
     } on AppFailure catch (error) {
@@ -140,7 +151,7 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       fallbackLimit: query.limit,
     );
 
-    return paged.items;
+    return paged;
   }
 
   String _endpointByTipo(String tipo) {
