@@ -69,7 +69,7 @@ Fuera de alcance para este rol:
 - Zonas: listar/crear/editar (`GET/POST/PATCH /zonas`).
 - Categorias producto: listar/crear/editar (`GET/POST/PATCH /categorias-producto`).
 - Productos: listar/crear/editar (`GET/POST/PATCH /productos`).
-- Repuestos: listar/crear/editar (`GET/POST/PATCH /repuestos`).
+- Repuestos: buscar rapido (`GET /repuestos?q=`), listar admin paginado (`GET /repuestos/listado?page=&limit=&q=&activo=`), crear/editar (`POST/PATCH /repuestos`).
 
 Nota de permisos UX: diagnosticos/resoluciones se muestran en modo lectura para admin-tecnico.
 

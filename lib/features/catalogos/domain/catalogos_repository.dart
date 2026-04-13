@@ -50,19 +50,22 @@ class CatalogosQuery {
     this.tipo = 'todos',
     this.page = 1,
     this.limit = 20,
+    this.activo,
   });
 
   final String search;
   final String tipo;
   final int page;
   final int limit;
+  final bool? activo;
 
-  CatalogosQuery copyWith({String? search, String? tipo, int? page, int? limit}) {
+  CatalogosQuery copyWith({String? search, String? tipo, int? page, int? limit, bool? activo}) {
     return CatalogosQuery(
       search: search ?? this.search,
       tipo: tipo ?? this.tipo,
       page: page ?? this.page,
       limit: limit ?? this.limit,
+      activo: activo ?? this.activo,
     );
   }
 }

@@ -20,7 +20,7 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     }
 
     final requested = normalizedTipo == 'todos' || normalizedTipo.isEmpty
-        ? <String>['zona', 'categoria', 'producto', 'repuesto']
+      ? <String>['zona', 'categoria', 'producto']
         : <String>[normalizedTipo];
 
     final results = await Future.wait<PagedResult<CatalogoItem>>(
@@ -99,7 +99,7 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
         return _fetchSimple('/productos', 'producto', query, usePagination: usePagination);
       case 'repuesto':
       default:
-        return _fetchSimple('/repuestos', 'repuesto', query, usePagination: usePagination);
+        return _fetchSimple('/repuestos/listado', 'repuesto', query, usePagination: usePagination);
     }
   }
 
@@ -111,15 +111,21 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   }
   ) async {
     dynamic payload;
-    final supportsSearch = endpoint == '/repuestos';
+    final supportsSearch = endpoint == '/repuestos' || endpoint == '/repuestos/listado';
+    final supportsActivoFilter = endpoint == '/repuestos/listado';
+    final supportsCategoriaVacia = endpoint == '/productos';
+    final keepEmptyParams = supportsSearch || supportsCategoriaVacia;
     try {
       payload = await _httpClient.getJson(
         endpoint,
         queryParameters: <String, String>{
           if (supportsSearch) 'q': query.search,
+          if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
+          if (supportsCategoriaVacia) 'categoriaId': '',
           if (usePagination) 'page': query.page.toString(),
           if (usePagination) 'limit': query.limit.toString(),
         },
+        keepEmptyQueryParameters: keepEmptyParams,
       );
     } on AppFailure catch (error) {
       if (error.statusCode != 400) {
@@ -129,7 +135,10 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
         endpoint,
         queryParameters: <String, String>{
           if (supportsSearch) 'q': query.search,
+          if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
+          if (supportsCategoriaVacia) 'categoriaId': '',
         },
+        keepEmptyQueryParameters: keepEmptyParams,
       );
     }
 

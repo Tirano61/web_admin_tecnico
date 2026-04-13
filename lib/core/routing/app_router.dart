@@ -24,6 +24,8 @@ class AppRouter {
         return _shellRoute(AppModule.clientes);
       case AppRoutes.catalogos:
         return _shellRoute(AppModule.catalogos);
+      case AppRoutes.repuestos:
+        return _shellRoute(AppModule.repuestos);
       case AppRoutes.precios:
         return _shellRoute(AppModule.precios);
       case AppRoutes.liquidaciones:
