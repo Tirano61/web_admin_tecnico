@@ -6,38 +6,55 @@ import 'package:web_admin_tecnico/features/catalogos/data/catalogos_repository_i
 import 'package:web_admin_tecnico/features/catalogos/domain/catalogos_repository.dart';
 import 'package:web_admin_tecnico/features/catalogos/presentation/bloc/catalogos_bloc.dart';
 
-class CatalogosPage extends StatelessWidget {
-  const CatalogosPage({super.key});
+class RepuestosPage extends StatelessWidget {
+  const RepuestosPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider<CatalogosBloc>(
-      create: (_) => CatalogosBloc(CatalogosRepositoryImpl())..add(CatalogosRequested()),
-      child: const _CatalogosView(),
+      create: (_) => CatalogosBloc(CatalogosRepositoryImpl())
+        ..add(
+          CatalogosRequested(
+            tipo: 'repuesto',
+            limit: 20,
+          ),
+        ),
+      child: const _RepuestosView(),
     );
   }
 }
 
-class _CatalogosView extends StatefulWidget {
-  const _CatalogosView();
+class _RepuestosView extends StatefulWidget {
+  const _RepuestosView();
 
   @override
-  State<_CatalogosView> createState() => _CatalogosViewState();
+  State<_RepuestosView> createState() => _RepuestosViewState();
 }
 
-class _CatalogosViewState extends State<_CatalogosView> {
+class _RepuestosViewState extends State<_RepuestosView> {
   final TextEditingController _searchController = TextEditingController();
-  String _tipoFilter = 'todos';
-  static const List<String> _tipos = <String>['todos', 'zona', 'categoria', 'producto'];
+  String _estadoFilter = 'todos';
   static const List<int> _rowsPerPageDefaults = <int>[20, 40, 60];
+
+  bool? get _activoFilter {
+    switch (_estadoFilter) {
+      case 'activos':
+        return true;
+      case 'inactivos':
+        return false;
+      default:
+        return null;
+    }
+  }
 
   void _requestPage({int page = 1, int? limit}) {
     context.read<CatalogosBloc>().add(
           CatalogosRequested(
             search: _searchController.text.trim(),
-            tipo: _tipoFilter,
+            tipo: 'repuesto',
             page: page,
             limit: limit ?? 20,
+            activo: _activoFilter,
           ),
         );
   }
@@ -45,108 +62,63 @@ class _CatalogosViewState extends State<_CatalogosView> {
   Future<void> _openCreateDialog(BuildContext context) async {
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController();
-    final categoriaIdController = TextEditingController();
-    var selectedTipo = _tipoFilter == 'todos' ? 'zona' : _tipoFilter;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF102845),
-              title: const Text('Nuevo registro de catalogo'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedTipo,
-                      decoration: const InputDecoration(labelText: 'Tipo'),
-                      items: _tipos
-                          .where((tipo) => tipo != 'todos')
-                          .map(
-                            (tipo) => DropdownMenuItem<String>(
-                              value: tipo,
-                              child: Text(tipo.toUpperCase()),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setDialogState(() => selectedTipo = value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: nombreController,
-                      autofocus: true,
-                      style: const TextStyle(color: Color(0xFFEAF3FF)),
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre',
-                        hintText: 'Ej: Zona Norte / Producto A / Repuesto X',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'El nombre es obligatorio';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (selectedTipo == 'producto') ...<Widget>[
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: categoriaIdController,
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: const InputDecoration(
-                          labelText: 'Categoria ID (opcional)',
-                          hintText: 'UUID categoria-producto',
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Nuevo repuesto'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: nombreController,
+              autofocus: true,
+              style: const TextStyle(color: Color(0xFFEAF3FF)),
+              decoration: const InputDecoration(
+                labelText: 'Nombre',
+                hintText: 'Ej: Celda CZAP 20000',
               ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (formKey.currentState?.validate() ?? false) {
-                      context.read<CatalogosBloc>().add(
-                            CatalogosCreateRequested(
-                              input: CreateCatalogoInput(
-                                tipo: selectedTipo,
-                                nombre: nombreController.text,
-                                categoriaId: categoriaIdController.text,
-                              ),
-                            ),
-                          );
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
-                  child: const Text('Crear'),
-                ),
-              ],
-            );
-          },
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'El nombre es obligatorio';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  context.read<CatalogosBloc>().add(
+                        CatalogosCreateRequested(
+                          input: CreateCatalogoInput(
+                            tipo: 'repuesto',
+                            nombre: nombreController.text,
+                          ),
+                        ),
+                      );
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Crear'),
+            ),
+          ],
         );
       },
     );
 
     nombreController.dispose();
-    categoriaIdController.dispose();
   }
 
   Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController(text: item.nombre);
-    final categoriaIdController = TextEditingController();
     var activo = item.activo;
 
     await showDialog<void>(
@@ -156,24 +128,17 @@ class _CatalogosViewState extends State<_CatalogosView> {
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF102845),
-              title: const Text('Editar registro de catalogo'),
+              title: const Text('Editar repuesto'),
               content: Form(
                 key: formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: ModuleStatusChip(label: item.tipo.toUpperCase()),
-                    ),
-                    const SizedBox(height: 10),
                     TextFormField(
                       controller: nombreController,
                       autofocus: true,
                       style: const TextStyle(color: Color(0xFFEAF3FF)),
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre',
-                      ),
+                      decoration: const InputDecoration(labelText: 'Nombre'),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'El nombre es obligatorio';
@@ -181,17 +146,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         return null;
                       },
                     ),
-                    if (item.tipo == 'producto') ...<Widget>[
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: categoriaIdController,
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: const InputDecoration(
-                          labelText: 'Categoria ID (opcional)',
-                          hintText: 'Completar solo si vas a reasignar categoria',
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 10),
                     SwitchListTile.adaptive(
                       value: activo,
@@ -214,9 +168,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                             CatalogosUpdateRequested(
                               input: UpdateCatalogoInput(
                                 id: item.id,
-                                tipo: item.tipo,
+                                tipo: 'repuesto',
                                 nombre: nombreController.text,
-                                categoriaId: categoriaIdController.text,
                                 activo: activo,
                               ),
                             ),
@@ -234,7 +187,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
     );
 
     nombreController.dispose();
-    categoriaIdController.dispose();
   }
 
   @override
@@ -273,7 +225,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
           }
 
           if (state is CatalogosLoaded) {
-            final currentLimit = state.limit;
             final rowsPerPage = normalizeRowsPerPage(
               state.limit,
               defaults: _rowsPerPageDefaults,
@@ -284,15 +235,15 @@ class _CatalogosViewState extends State<_CatalogosView> {
             );
 
             return ModulePageLayout(
-              title: 'Catalogos',
-              subtitle: 'Parametros operativos para zonas, categorias y productos.',
+              title: 'Repuestos',
+              subtitle: 'Listado y mantenimiento operativo de repuestos.',
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   OutlinedButton.icon(
                     onPressed: () => _openCreateDialog(context),
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Nuevo registro'),
+                    label: const Text('Nuevo repuesto'),
                   ),
                   const SizedBox(width: 8),
                   ModuleStatusChip(label: '${state.total} total'),
@@ -305,10 +256,10 @@ class _CatalogosViewState extends State<_CatalogosView> {
                       Expanded(
                         child: TextField(
                           controller: _searchController,
-                          onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
+                          onChanged: (_) => _requestPage(page: 1, limit: state.limit),
                           style: const TextStyle(color: Color(0xFFEAF3FF)),
                           decoration: InputDecoration(
-                            hintText: 'Buscar por ID o nombre...',
+                            hintText: 'Buscar repuesto por ID o nombre...',
                             prefixIcon: const Icon(Icons.search),
                             isDense: true,
                             filled: true,
@@ -330,22 +281,22 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _tipoFilter,
+                            value: _estadoFilter,
                             onChanged: (value) {
                               if (value == null) {
                                 return;
                               }
-                              setState(() => _tipoFilter = value);
-                              _requestPage(page: 1, limit: currentLimit);
+                              setState(() => _estadoFilter = value);
+                              _requestPage(page: 1, limit: state.limit);
                             },
-                            items: _tipos
-                                .map(
-                                  (tipo) => DropdownMenuItem<String>(
-                                    value: tipo,
-                                    child: Text(tipo.toUpperCase()),
-                                  ),
-                                )
-                                .toList(),
+                            items: const <DropdownMenuItem<String>>[
+                              DropdownMenuItem<String>(value: 'todos', child: Text('TODOS')),
+                              DropdownMenuItem<String>(value: 'activos', child: Text('ACTIVOS')),
+                              DropdownMenuItem<String>(
+                                value: 'inactivos',
+                                child: Text('INACTIVOS'),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -364,11 +315,10 @@ class _CatalogosViewState extends State<_CatalogosView> {
                                 columns: const <DataColumn>[
                                   DataColumn(label: Text('ID')),
                                   DataColumn(label: Text('Nombre')),
-                                  DataColumn(label: Text('Tipo')),
                                   DataColumn(label: Text('Estado')),
                                   DataColumn(label: Text('Accion')),
                                 ],
-                                source: _CatalogosTableSource(
+                                source: _RepuestosTableSource(
                                   items: state.items,
                                   total: state.total,
                                   page: state.page,
@@ -409,8 +359,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
   }
 }
 
-class _CatalogosTableSource extends DataTableSource {
-  _CatalogosTableSource({
+class _RepuestosTableSource extends DataTableSource {
+  _RepuestosTableSource({
     required this.items,
     required this.total,
     required this.page,
@@ -438,7 +388,6 @@ class _CatalogosTableSource extends DataTableSource {
       cells: <DataCell>[
         DataCell(Text(item.id)),
         DataCell(Text(item.nombre)),
-        DataCell(ModuleStatusChip(label: item.tipo.toUpperCase())),
         DataCell(
           ModuleStatusChip(
             label: item.activo ? 'ACTIVO' : 'INACTIVO',
@@ -448,7 +397,7 @@ class _CatalogosTableSource extends DataTableSource {
         ),
         DataCell(
           IconButton(
-            tooltip: 'Editar catalogo',
+            tooltip: 'Editar repuesto',
             onPressed: () => onEdit(item),
             icon: const Icon(Icons.edit_outlined, size: 18),
           ),

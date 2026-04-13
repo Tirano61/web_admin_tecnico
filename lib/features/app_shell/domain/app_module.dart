@@ -5,6 +5,7 @@ enum AppModule {
   servicios,
   clientes,
   catalogos,
+  repuestos,
   precios,
   liquidaciones,
 }
@@ -18,6 +19,8 @@ extension AppModuleX on AppModule {
         return 'Clientes';
       case AppModule.catalogos:
         return 'Catalogos';
+      case AppModule.repuestos:
+        return 'Repuestos';
       case AppModule.precios:
         return 'Precios';
       case AppModule.liquidaciones:
@@ -33,6 +36,8 @@ extension AppModuleX on AppModule {
         return AppRoutes.clientes;
       case AppModule.catalogos:
         return AppRoutes.catalogos;
+      case AppModule.repuestos:
+        return AppRoutes.repuestos;
       case AppModule.precios:
         return AppRoutes.precios;
       case AppModule.liquidaciones:
@@ -48,6 +53,8 @@ extension AppModuleX on AppModule {
         return Icons.groups_outlined;
       case AppModule.catalogos:
         return Icons.inventory_2_outlined;
+      case AppModule.repuestos:
+        return Icons.build_circle_outlined;
       case AppModule.precios:
         return Icons.attach_money_outlined;
       case AppModule.liquidaciones:
@@ -62,7 +69,9 @@ extension AppModuleX on AppModule {
       case AppModule.clientes:
         return 'Base de clientes para operaciones y facturacion.';
       case AppModule.catalogos:
-        return 'Mantenimiento de zonas, productos y repuestos.';
+        return 'Mantenimiento de zonas, categorias y productos.';
+      case AppModule.repuestos:
+        return 'Listado, alta y edicion operativa de repuestos.';
       case AppModule.precios:
         return 'Valores vigentes de cotizacion y tarifa km.';
       case AppModule.liquidaciones:

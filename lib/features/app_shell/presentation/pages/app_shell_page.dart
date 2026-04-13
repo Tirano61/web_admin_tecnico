@@ -9,6 +9,7 @@ import 'package:web_admin_tecnico/features/catalogos/presentation/pages/catalogo
 import 'package:web_admin_tecnico/features/clientes/presentation/pages/clientes_page.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_page.dart';
 import 'package:web_admin_tecnico/features/precios/presentation/pages/precios_page.dart';
+import 'package:web_admin_tecnico/features/repuestos/presentation/pages/repuestos_page.dart';
 import 'package:web_admin_tecnico/features/servicios/presentation/pages/servicios_page.dart';
 
 class AppShellPage extends StatelessWidget {
@@ -78,6 +79,8 @@ class _AppShellView extends StatelessWidget {
         return const ClientesPage();
       case AppModule.catalogos:
         return const CatalogosPage();
+      case AppModule.repuestos:
+        return const RepuestosPage();
       case AppModule.precios:
         return const PreciosPage();
       case AppModule.liquidaciones:

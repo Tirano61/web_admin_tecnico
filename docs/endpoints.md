@@ -354,10 +354,51 @@ Notas:
 | Metodo | Endpoint | Rol |
 |---|---|---|
 | GET | `/repuestos?q=` | tecnico, admin-tecnico, admin |
+| GET | `/repuestos/listado?page=&limit=&q=&activo=` | admin-tecnico, admin |
 | POST | `/repuestos` | admin-tecnico |
 | PATCH | `/repuestos/:id` | admin-tecnico |
 | POST | `/servicios/:id/repuestos` | tecnico, admin-tecnico, admin |
 | GET | `/servicios/:id/repuestos` | tecnico, admin-tecnico, admin |
+
+### GET /repuestos/listado (admin paginado)
+
+Query params:
+
+- `page` (opcional, default `1`)
+- `limit` (opcional, default `20`)
+- `q` (opcional, busca por codigo o nombre)
+- `activo` (opcional, `true` o `false`; si se omite trae activos e inactivos)
+
+Ejemplo:
+
+`GET /repuestos/listado?page=1&limit=20&q=celda&activo=true`
+
+Respuesta ejemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "{{repuestoId}}",
+      "codigo": "05-01-CZAP-20000",
+      "nombre": "Celda CZAP 20000",
+      "precioUsd": 120.75,
+      "activo": true
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Notas:
+
+- Endpoint pensado para grillas de administracion en web admin-tecnico.
+- `GET /repuestos?q=` se mantiene como busqueda rapida (maximo 10 activos), util para autocompletes.
 
 ### Payload POST /servicios/:id/repuestos
 

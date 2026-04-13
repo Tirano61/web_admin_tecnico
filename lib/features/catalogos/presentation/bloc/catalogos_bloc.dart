@@ -9,12 +9,14 @@ class CatalogosRequested extends CatalogosEvent {
     this.tipo = 'todos',
     this.page = 1,
     this.limit = 20,
+    this.activo,
   });
 
   final String search;
   final String tipo;
   final int page;
   final int limit;
+  final bool? activo;
 }
 
 class CatalogosCreateRequested extends CatalogosEvent {
@@ -80,6 +82,7 @@ class CatalogosBloc extends Bloc<CatalogosEvent, CatalogosState> {
       tipo: event.tipo,
       page: event.page,
       limit: event.limit,
+      activo: event.activo,
     );
     emit(CatalogosLoading());
     try {
