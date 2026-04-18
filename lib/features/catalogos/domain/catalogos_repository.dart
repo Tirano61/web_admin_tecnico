@@ -6,12 +6,16 @@ class CatalogoItem {
     required this.nombre,
     required this.tipo,
     this.activo = true,
+    this.codigo,
+    this.precioUsd,
   });
 
   final String id;
   final String nombre;
   final String tipo;
   final bool activo;
+  final String? codigo;
+  final double? precioUsd;
 }
 
 class CreateCatalogoInput {
@@ -20,12 +24,16 @@ class CreateCatalogoInput {
     required this.nombre,
     this.categoriaId,
     this.activo,
+    this.codigo,
+    this.precioUsd,
   });
 
   final String tipo;
   final String nombre;
   final String? categoriaId;
   final bool? activo;
+  final String? codigo;
+  final double? precioUsd;
 }
 
 class UpdateCatalogoInput {
@@ -35,6 +43,8 @@ class UpdateCatalogoInput {
     required this.nombre,
     this.categoriaId,
     this.activo,
+    this.codigo,
+    this.precioUsd,
   });
 
   final String id;
@@ -42,6 +52,8 @@ class UpdateCatalogoInput {
   final String nombre;
   final String? categoriaId;
   final bool? activo;
+  final String? codigo;
+  final double? precioUsd;
 }
 
 class CatalogosQuery {

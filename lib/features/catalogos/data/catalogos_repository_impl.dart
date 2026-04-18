@@ -61,6 +61,8 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       nombre: input.nombre,
       categoriaId: input.categoriaId,
       activo: input.activo,
+      codigo: input.codigo,
+      precioUsd: input.precioUsd,
     );
 
     await _sendWithFallback(
@@ -77,6 +79,8 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       nombre: input.nombre,
       categoriaId: input.categoriaId,
       activo: input.activo,
+      codigo: input.codigo,
+      precioUsd: input.precioUsd,
     );
 
     await _sendWithFallback(
@@ -148,12 +152,16 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
         final id = (json['id'] ?? '').toString();
         final nombre =
             (json['nombre'] ?? json['descripcion'] ?? json['detalle'] ?? json['codigo'] ?? '').toString();
+        final codigo = (json['codigo'] ?? json['codigoRepuesto'] ?? '').toString().trim();
+        final precioUsd = _toDouble(json['precioUsd'] ?? json['precio_usd'] ?? json['precio']);
         final activoRaw = json['activo'];
         return CatalogoItem(
           id: id,
           nombre: nombre.isEmpty ? 'Sin nombre' : nombre,
           tipo: tipo,
           activo: activoRaw is bool ? activoRaw : true,
+          codigo: codigo.isEmpty ? null : codigo,
+          precioUsd: precioUsd,
         );
       },
       fallbackPage: query.page,
@@ -204,11 +212,17 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     required String nombre,
     String? categoriaId,
     bool? activo,
+    String? codigo,
+    double? precioUsd,
   }) {
     final cleanNombre = nombre.trim();
     final cleanCategoriaId = categoriaId?.trim() ?? '';
+    final cleanCodigo = codigo?.trim() ?? '';
     final normalizedTipo = tipo.toLowerCase();
     final withCategoria = normalizedTipo == 'producto' && cleanCategoriaId.isNotEmpty;
+    final isRepuesto = normalizedTipo == 'repuesto';
+    final withCodigo = isRepuesto && cleanCodigo.isNotEmpty;
+    final withPrecio = isRepuesto && precioUsd != null;
 
     final candidates = <Map<String, dynamic>>[];
     final signatures = <String>{};
@@ -216,6 +230,8 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     void addCandidate(
       String labelKey, {
       String? categoriaKey,
+      String? codigoKey,
+      String? precioKey,
       bool withActivo = false,
     }) {
       final body = <String, dynamic>{
@@ -223,6 +239,12 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       };
       if (withCategoria && categoriaKey != null) {
         body[categoriaKey] = cleanCategoriaId;
+      }
+      if (withCodigo && codigoKey != null) {
+        body[codigoKey] = cleanCodigo;
+      }
+      if (withPrecio && precioKey != null) {
+        body[precioKey] = precioUsd;
       }
       if (withActivo && activo != null) {
         body['activo'] = activo;
@@ -232,6 +254,22 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       if (!signatures.contains(signature)) {
         signatures.add(signature);
         candidates.add(body);
+      }
+    }
+
+    if (isRepuesto) {
+      const labels = <String>['nombre', 'descripcion'];
+      const precios = <String>['precioUsd', 'precio_usd', 'precio'];
+
+      for (final label in labels) {
+        for (final precioKey in precios) {
+          addCandidate(label, codigoKey: 'codigo', precioKey: precioKey, withActivo: false);
+        }
+      }
+      for (final label in labels) {
+        for (final precioKey in precios) {
+          addCandidate(label, codigoKey: 'codigo', precioKey: precioKey, withActivo: true);
+        }
       }
     }
 
@@ -259,5 +297,18 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     addCandidate('detalle', withActivo: true);
 
     return candidates;
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '.'));
+    }
+    return null;
   }
 }
