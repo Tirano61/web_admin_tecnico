@@ -36,6 +36,10 @@ class _RepuestosViewState extends State<_RepuestosView> {
   String _estadoFilter = 'todos';
   static const List<int> _rowsPerPageDefaults = <int>[20, 40, 60];
 
+  double? _parsePrecioUsd(String raw) {
+    return double.tryParse(raw.trim().replaceAll(',', '.'));
+  }
+
   bool? get _activoFilter {
     switch (_estadoFilter) {
       case 'activos':
@@ -61,7 +65,9 @@ class _RepuestosViewState extends State<_RepuestosView> {
 
   Future<void> _openCreateDialog(BuildContext context) async {
     final formKey = GlobalKey<FormState>();
+    final codigoController = TextEditingController();
     final nombreController = TextEditingController();
+    final precioController = TextEditingController();
 
     await showDialog<void>(
       context: context,
@@ -71,20 +77,60 @@ class _RepuestosViewState extends State<_RepuestosView> {
           title: const Text('Nuevo repuesto'),
           content: Form(
             key: formKey,
-            child: TextFormField(
-              controller: nombreController,
-              autofocus: true,
-              style: const TextStyle(color: Color(0xFFEAF3FF)),
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                hintText: 'Ej: Celda CZAP 20000',
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'El nombre es obligatorio';
-                }
-                return null;
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                TextFormField(
+                  controller: codigoController,
+                  autofocus: true,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: const InputDecoration(
+                    labelText: 'Codigo',
+                    hintText: 'Ej: 05-01-CZAP-20000',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El codigo es obligatorio';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: nombreController,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre',
+                    hintText: 'Ej: Celda CZAP 20000',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El nombre es obligatorio';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: precioController,
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Precio USD',
+                    hintText: 'Ej: 120.75',
+                  ),
+                  validator: (value) {
+                    final parsed = _parsePrecioUsd(value ?? '');
+                    if (parsed == null) {
+                      return 'Ingresa un precio valido';
+                    }
+                    if (parsed < 0) {
+                      return 'El precio no puede ser negativo';
+                    }
+                    return null;
+                  },
+                ),
+              ],
             ),
           ),
           actions: <Widget>[
@@ -95,11 +141,17 @@ class _RepuestosViewState extends State<_RepuestosView> {
             FilledButton(
               onPressed: () {
                 if (formKey.currentState?.validate() ?? false) {
+                  final precio = _parsePrecioUsd(precioController.text);
+                  if (precio == null) {
+                    return;
+                  }
                   context.read<CatalogosBloc>().add(
                         CatalogosCreateRequested(
                           input: CreateCatalogoInput(
                             tipo: 'repuesto',
+                            codigo: codigoController.text,
                             nombre: nombreController.text,
+                            precioUsd: precio,
                           ),
                         ),
                       );
@@ -113,12 +165,18 @@ class _RepuestosViewState extends State<_RepuestosView> {
       },
     );
 
+    codigoController.dispose();
     nombreController.dispose();
+    precioController.dispose();
   }
 
   Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
     final formKey = GlobalKey<FormState>();
+    final codigoController = TextEditingController(text: item.codigo ?? '');
     final nombreController = TextEditingController(text: item.nombre);
+    final precioController = TextEditingController(
+      text: item.precioUsd == null ? '' : item.precioUsd!.toStringAsFixed(2),
+    );
     var activo = item.activo;
 
     await showDialog<void>(
@@ -135,13 +193,42 @@ class _RepuestosViewState extends State<_RepuestosView> {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     TextFormField(
-                      controller: nombreController,
+                      controller: codigoController,
                       autofocus: true,
+                      style: const TextStyle(color: Color(0xFFEAF3FF)),
+                      decoration: const InputDecoration(labelText: 'Codigo'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El codigo es obligatorio';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: nombreController,
                       style: const TextStyle(color: Color(0xFFEAF3FF)),
                       decoration: const InputDecoration(labelText: 'Nombre'),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'El nombre es obligatorio';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: precioController,
+                      style: const TextStyle(color: Color(0xFFEAF3FF)),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Precio USD'),
+                      validator: (value) {
+                        final parsed = _parsePrecioUsd(value ?? '');
+                        if (parsed == null) {
+                          return 'Ingresa un precio valido';
+                        }
+                        if (parsed < 0) {
+                          return 'El precio no puede ser negativo';
                         }
                         return null;
                       },
@@ -164,12 +251,18 @@ class _RepuestosViewState extends State<_RepuestosView> {
                 FilledButton(
                   onPressed: () {
                     if (formKey.currentState?.validate() ?? false) {
+                      final precio = _parsePrecioUsd(precioController.text);
+                      if (precio == null) {
+                        return;
+                      }
                       context.read<CatalogosBloc>().add(
                             CatalogosUpdateRequested(
                               input: UpdateCatalogoInput(
                                 id: item.id,
                                 tipo: 'repuesto',
+                                codigo: codigoController.text,
                                 nombre: nombreController.text,
+                                precioUsd: precio,
                                 activo: activo,
                               ),
                             ),
@@ -186,7 +279,9 @@ class _RepuestosViewState extends State<_RepuestosView> {
       },
     );
 
+    codigoController.dispose();
     nombreController.dispose();
+    precioController.dispose();
   }
 
   @override
@@ -314,7 +409,9 @@ class _RepuestosViewState extends State<_RepuestosView> {
                                 headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
                                 columns: const <DataColumn>[
                                   DataColumn(label: Text('ID')),
+                                  DataColumn(label: Text('Codigo')),
                                   DataColumn(label: Text('Nombre')),
+                                  DataColumn(label: Text('Precio USD')),
                                   DataColumn(label: Text('Estado')),
                                   DataColumn(label: Text('Accion')),
                                 ],
@@ -387,7 +484,9 @@ class _RepuestosTableSource extends DataTableSource {
       index: index,
       cells: <DataCell>[
         DataCell(Text(item.id)),
+        DataCell(Text(item.codigo ?? '-')),
         DataCell(Text(item.nombre)),
+        DataCell(Text(item.precioUsd == null ? '-' : item.precioUsd!.toStringAsFixed(2))),
         DataCell(
           ModuleStatusChip(
             label: item.activo ? 'ACTIVO' : 'INACTIVO',
