@@ -320,14 +320,16 @@ class _RepuestosViewState extends State<_RepuestosView> {
           }
 
           if (state is CatalogosLoaded) {
+            final effectiveLimit = state.limit > 0 ? state.limit : 20;
             final rowsPerPage = normalizeRowsPerPage(
-              state.limit,
+              effectiveLimit,
               defaults: _rowsPerPageDefaults,
             );
             final rowsPerPageOptions = buildRowsPerPageOptions(
-              state.limit,
+              effectiveLimit,
               defaults: _rowsPerPageDefaults,
             );
+            final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
 
             return ModulePageLayout(
               title: 'Repuestos',
@@ -406,6 +408,12 @@ class _RepuestosViewState extends State<_RepuestosView> {
                             child: ConstrainedBox(
                               constraints: BoxConstraints(minWidth: constraints.maxWidth),
                               child: PaginatedDataTable(
+                                key: ValueKey<String>(
+                                  'repuestos_${state.page}_${state.limit}_${state.total}_$_estadoFilter',
+                                ),
+                                initialFirstRowIndex: initialFirstRowIndex < 0
+                                    ? 0
+                                    : initialFirstRowIndex,
                                 headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
                                 columns: const <DataColumn>[
                                   DataColumn(label: Text('ID')),
@@ -431,9 +439,9 @@ class _RepuestosViewState extends State<_RepuestosView> {
                                   _requestPage(page: 1, limit: value);
                                 },
                                 onPageChanged: (firstRowIndex) {
-                                  final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
+                                  final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
                                   if (nextPage != state.page) {
-                                    _requestPage(page: nextPage, limit: rowsPerPage);
+                                    _requestPage(page: nextPage, limit: effectiveLimit);
                                   }
                                 },
                                 showFirstLastButtons: true,

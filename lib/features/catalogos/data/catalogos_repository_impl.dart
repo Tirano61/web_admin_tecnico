@@ -115,33 +115,40 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   }
   ) async {
     dynamic payload;
-    final supportsSearch = endpoint == '/repuestos' || endpoint == '/repuestos/listado';
-    final supportsActivoFilter = endpoint == '/repuestos/listado';
+    final isQuickSearchEndpoint = endpoint == '/repuestos';
+    final isAdminRepuestosEndpoint = endpoint == '/repuestos/listado';
+    final supportsSearch = isQuickSearchEndpoint || isAdminRepuestosEndpoint;
+    final supportsActivoFilter = isAdminRepuestosEndpoint;
     final supportsCategoriaVacia = endpoint == '/productos';
-    final keepEmptyParams = supportsSearch || supportsCategoriaVacia;
+    final trimmedSearch = query.search.trim();
+    final includeSearchParam = supportsSearch && (trimmedSearch.isNotEmpty || isQuickSearchEndpoint);
+    final keepEmptyParams = isQuickSearchEndpoint || supportsCategoriaVacia;
+
+    Map<String, String> buildQueryParameters({required bool includeSearch}) {
+      return <String, String>{
+        if (includeSearchParam && includeSearch) 'q': trimmedSearch,
+        if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
+        if (supportsCategoriaVacia) 'categoriaId': '',
+        if (usePagination) 'page': query.page.toString(),
+        if (usePagination) 'limit': query.limit.toString(),
+      };
+    }
+
     try {
       payload = await _httpClient.getJson(
         endpoint,
-        queryParameters: <String, String>{
-          if (supportsSearch) 'q': query.search,
-          if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
-          if (supportsCategoriaVacia) 'categoriaId': '',
-          if (usePagination) 'page': query.page.toString(),
-          if (usePagination) 'limit': query.limit.toString(),
-        },
+        queryParameters: buildQueryParameters(includeSearch: true),
         keepEmptyQueryParameters: keepEmptyParams,
       );
     } on AppFailure catch (error) {
       if (error.statusCode != 400) {
         rethrow;
       }
+
+      // Retry sin parametro de busqueda para endpoints que validan q cuando llega vacio.
       payload = await _httpClient.getJson(
         endpoint,
-        queryParameters: <String, String>{
-          if (supportsSearch) 'q': query.search,
-          if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
-          if (supportsCategoriaVacia) 'categoriaId': '',
-        },
+        queryParameters: buildQueryParameters(includeSearch: trimmedSearch.isNotEmpty),
         keepEmptyQueryParameters: keepEmptyParams,
       );
     }

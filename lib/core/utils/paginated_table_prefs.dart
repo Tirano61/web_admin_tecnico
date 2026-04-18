@@ -2,11 +2,15 @@ List<int> buildRowsPerPageOptions(
   int rowsPerPage, {
   List<int> defaults = const <int>[6],
 }) {
-  final values = defaults.where((value) => value > 0).toSet().toList()..sort();
-  if (values.isEmpty) {
+  final values = defaults.where((value) => value > 0).toSet();
+  if (rowsPerPage > 0) {
+    values.add(rowsPerPage);
+  }
+  final sorted = values.toList()..sort();
+  if (sorted.isEmpty) {
     return const <int>[6];
   }
-  return values;
+  return sorted;
 }
 
 int normalizeRowsPerPage(
