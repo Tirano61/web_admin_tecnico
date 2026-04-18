@@ -31,6 +31,21 @@ class _CatalogosViewState extends State<_CatalogosView> {
   static const List<String> _tipos = <String>['todos', 'zona', 'categoria', 'producto'];
   static const List<int> _rowsPerPageDefaults = <int>[20, 40, 60];
 
+  String _tipoLabel(String tipo) {
+    switch (tipo) {
+      case 'todos':
+        return 'TODOS';
+      case 'zona':
+        return 'ZONAS';
+      case 'categoria':
+        return 'CATEGORIAS';
+      case 'producto':
+        return 'PRODUCTOS';
+      default:
+        return tipo.toUpperCase();
+    }
+  }
+
   void _requestPage({int page = 1, int? limit}) {
     context.read<CatalogosBloc>().add(
           CatalogosRequested(
@@ -300,56 +315,54 @@ class _CatalogosViewState extends State<_CatalogosView> {
               ),
               child: Column(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
-                          style: const TextStyle(color: Color(0xFFEAF3FF)),
-                          decoration: InputDecoration(
-                            hintText: 'Buscar por ID o nombre...',
-                            prefixIcon: const Icon(Icons.search),
-                            isDense: true,
-                            filled: true,
-                            fillColor: const Color(0xFF122B4A),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0x334EA6FF)),
-                            ),
-                          ),
-                        ),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nombre...',
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFF122B4A),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0x334EA6FF)),
                       ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF122B4A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0x334EA6FF)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _tipoFilter,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() => _tipoFilter = value);
-                              _requestPage(page: 1, limit: currentLimit);
-                            },
-                            items: _tipos
-                                .map(
-                                  (tipo) => DropdownMenuItem<String>(
-                                    value: tipo,
-                                    child: Text(tipo.toUpperCase()),
-                                  ),
-                                )
-                                .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _tipos.map((tipo) {
+                        final isSelected = _tipoFilter == tipo;
+                        return ChoiceChip(
+                          label: Text(_tipoLabel(tipo)),
+                          selected: isSelected,
+                          showCheckmark: false,
+                          selectedColor: const Color(0x334EA6FF),
+                          backgroundColor: const Color(0xFF122B4A),
+                          side: BorderSide(
+                            color: isSelected ? const Color(0xFF5BA8FF) : const Color(0x334EA6FF),
                           ),
-                        ),
-                      ),
-                    ],
+                          labelStyle: TextStyle(
+                            color: isSelected ? const Color(0xFFEAF3FF) : const Color(0xFFB8CCE8),
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
+                          onSelected: (_) {
+                            if (_tipoFilter == tipo) {
+                              return;
+                            }
+                            setState(() => _tipoFilter = tipo);
+                            _requestPage(page: 1, limit: currentLimit);
+                          },
+                        );
+                      }).toList(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
@@ -362,7 +375,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
                               child: PaginatedDataTable(
                                 headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
                                 columns: const <DataColumn>[
-                                  DataColumn(label: Text('ID')),
                                   DataColumn(label: Text('Nombre')),
                                   DataColumn(label: Text('Tipo')),
                                   DataColumn(label: Text('Estado')),
@@ -436,7 +448,6 @@ class _CatalogosTableSource extends DataTableSource {
     return DataRow.byIndex(
       index: index,
       cells: <DataCell>[
-        DataCell(Text(item.id)),
         DataCell(Text(item.nombre)),
         DataCell(ModuleStatusChip(label: item.tipo.toUpperCase())),
         DataCell(
