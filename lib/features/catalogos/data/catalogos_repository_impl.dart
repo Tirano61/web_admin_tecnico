@@ -117,20 +117,19 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     dynamic payload;
     final isQuickSearchEndpoint = endpoint == '/repuestos';
     final isAdminRepuestosEndpoint = endpoint == '/repuestos/listado';
+    final supportsServerPagination = endpoint != '/productos';
     final supportsSearch = isQuickSearchEndpoint || isAdminRepuestosEndpoint;
     final supportsActivoFilter = isAdminRepuestosEndpoint;
-    final supportsCategoriaVacia = endpoint == '/productos';
     final trimmedSearch = query.search.trim();
     final includeSearchParam = supportsSearch && (trimmedSearch.isNotEmpty || isQuickSearchEndpoint);
-    final keepEmptyParams = isQuickSearchEndpoint || supportsCategoriaVacia;
+    final keepEmptyParams = isQuickSearchEndpoint;
 
     Map<String, String> buildQueryParameters({required bool includeSearch}) {
       return <String, String>{
         if (includeSearchParam && includeSearch) 'q': trimmedSearch,
         if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
-        if (supportsCategoriaVacia) 'categoriaId': '',
-        if (usePagination) 'page': query.page.toString(),
-        if (usePagination) 'limit': query.limit.toString(),
+        if (usePagination && supportsServerPagination) 'page': query.page.toString(),
+        if (usePagination && supportsServerPagination) 'limit': query.limit.toString(),
       };
     }
 
@@ -174,6 +173,21 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       fallbackPage: query.page,
       fallbackLimit: query.limit,
     );
+
+    if (usePagination && !supportsServerPagination) {
+      final start = (query.page - 1) * query.limit;
+      final end = start + query.limit;
+      final pageItems = start >= paged.items.length
+          ? <CatalogoItem>[]
+          : paged.items.sublist(start, end > paged.items.length ? paged.items.length : end);
+
+      return PagedResult<CatalogoItem>(
+        items: pageItems,
+        total: paged.items.length,
+        page: query.page,
+        limit: query.limit,
+      );
+    }
 
     return paged;
   }
