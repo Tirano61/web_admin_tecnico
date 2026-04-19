@@ -301,15 +301,16 @@ class _CatalogosViewState extends State<_CatalogosView> {
             return ModulePageLayout(
               title: 'Catalogos',
               subtitle: 'Parametros operativos para zonas, categorias y productos.',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   OutlinedButton.icon(
                     onPressed: () => _openCreateDialog(context),
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Nuevo registro'),
                   ),
-                  const SizedBox(width: 8),
                   ModuleStatusChip(label: '${state.total} total'),
                 ],
               ),

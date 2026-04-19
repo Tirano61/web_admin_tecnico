@@ -304,15 +304,16 @@ class _ClientesViewState extends State<_ClientesView> {
             return ModulePageLayout(
               title: 'Clientes',
               subtitle: 'Base operativa de clientes para ordenes y seguimiento.',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   OutlinedButton.icon(
                     onPressed: () => _openCreateDialog(context),
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Nuevo cliente'),
                   ),
-                  const SizedBox(width: 8),
                   ModuleStatusChip(label: '${state.total} total'),
                 ],
               ),

@@ -72,9 +72,16 @@ class _ServiciosViewState extends State<_ServiciosView> {
         if (state is ServiciosLoaded) {
           final estados = <String>{'todos', 'abierta', 'cerrada', 'firmada'};
           final canales = <String>{'todos', 'campo', 'remoto', 'fabrica'};
-          final currentLimit = state.limit;
-          final rowsPerPage = normalizeRowsPerPage(state.limit);
-          final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+          final effectiveLimit = state.limit > 0 ? state.limit : 6;
+          final currentLimit = effectiveLimit;
+          final rowsPerPage = normalizeRowsPerPage(effectiveLimit);
+          final rowsPerPageOptions = buildRowsPerPageOptions(effectiveLimit);
+          final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
+          final hasFilters =
+            state.search.trim().isNotEmpty || state.estado != 'todos' || state.canal != 'todos';
+          final emptyMessage = hasFilters
+            ? 'No hay servicios para los filtros seleccionados.'
+            : 'No hay servicios disponibles para mostrar.';
 
           return ModulePageLayout(
             title: 'Servicios',
@@ -82,121 +89,151 @@ class _ServiciosViewState extends State<_ServiciosView> {
             trailing: ModuleStatusChip(label: '${state.total} total'),
             child: Column(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: InputDecoration(
-                          hintText: 'Buscar por ID o descripcion...',
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          filled: true,
-                          fillColor: const Color(0xFF122B4A),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0x334EA6FF)),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
+                  style: const TextStyle(color: Color(0xFFEAF3FF)),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por ID o descripcion...',
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFF122B4A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0x334EA6FF)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF122B4A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0x334EA6FF)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _estadoFilter,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+                              setState(() => _estadoFilter = value);
+                              _requestPage(page: 1, limit: currentLimit);
+                            },
+                            items: estados
+                                .map(
+                                  (estado) => DropdownMenuItem<String>(
+                                    value: estado,
+                                    child: Text(estado.toUpperCase()),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF122B4A),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0x334EA6FF)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _estadoFilter,
-                          onChanged: (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            setState(() => _estadoFilter = value);
-                            _requestPage(page: 1, limit: currentLimit);
-                          },
-                          items: estados
-                              .map(
-                                (estado) => DropdownMenuItem<String>(
-                                  value: estado,
-                                  child: Text(estado.toUpperCase()),
-                                ),
-                              )
-                              .toList(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF122B4A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0x334EA6FF)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _canalFilter,
+                            onChanged: (value) {
+                              if (value == null) {
+                                return;
+                              }
+                              setState(() => _canalFilter = value);
+                              _requestPage(page: 1, limit: currentLimit);
+                            },
+                            items: canales
+                                .map(
+                                  (canal) => DropdownMenuItem<String>(
+                                    value: canal,
+                                    child: Text(canal.toUpperCase()),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF122B4A),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0x334EA6FF)),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _canalFilter,
-                          onChanged: (value) {
-                            if (value == null) {
-                              return;
-                            }
-                            setState(() => _canalFilter = value);
-                            _requestPage(page: 1, limit: currentLimit);
-                          },
-                          items: canales
-                              .map(
-                                (canal) => DropdownMenuItem<String>(
-                                  value: canal,
-                                  child: Text(canal.toUpperCase()),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: Card(
-                    child: PaginatedDataTable(
-                      headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                      columns: const <DataColumn>[
-                        DataColumn(label: Text('ID')),
-                        DataColumn(label: Text('Descripcion')),
-                        DataColumn(label: Text('Estado')),
-                        DataColumn(label: Text('Accion')),
-                      ],
-                      source: _ServiciosTableSource(
-                        items: state.items,
-                        total: state.total,
-                        page: state.page,
-                        limit: state.limit,
-                        onOpen: _openDetalle,
-                      ),
-                      rowsPerPage: rowsPerPage,
-                      availableRowsPerPage: rowsPerPageOptions,
-                      onRowsPerPageChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        _requestPage(page: 1, limit: value);
-                      },
-                      onPageChanged: (firstRowIndex) {
-                        final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
-                        if (nextPage != state.page) {
-                          _requestPage(page: nextPage, limit: rowsPerPage);
-                        }
-                      },
-                      showFirstLastButtons: true,
-                    ),
-                  ),
+                  child: state.items.isEmpty
+                      ? Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0x1F122B4A),
+                            border: Border.all(color: const Color(0x334EA6FF)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(emptyMessage),
+                        )
+                      : Card(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                  child: PaginatedDataTable(
+                                    key: ValueKey<String>(
+                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
+                                    ),
+                                    initialFirstRowIndex: initialFirstRowIndex < 0
+                                        ? 0
+                                        : initialFirstRowIndex,
+                                    headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                    columns: const <DataColumn>[
+                                      DataColumn(label: Text('ID')),
+                                      DataColumn(label: Text('Descripcion')),
+                                      DataColumn(label: Text('Estado')),
+                                      DataColumn(label: Text('Accion')),
+                                    ],
+                                    source: _ServiciosTableSource(
+                                      items: state.items,
+                                      total: state.total,
+                                      page: state.page,
+                                      limit: effectiveLimit,
+                                      onOpen: _openDetalle,
+                                    ),
+                                    rowsPerPage: rowsPerPage,
+                                    availableRowsPerPage: rowsPerPageOptions,
+                                    showEmptyRows: false,
+                                    onRowsPerPageChanged: (value) {
+                                      if (value == null) {
+                                        return;
+                                      }
+                                      _requestPage(page: 1, limit: value);
+                                    },
+                                    onPageChanged: (firstRowIndex) {
+                                      final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
+                                      if (nextPage != state.page) {
+                                        _requestPage(page: nextPage, limit: effectiveLimit);
+                                      }
+                                    },
+                                    showFirstLastButtons: true,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                 ),
               ],
             ),
