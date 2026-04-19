@@ -727,8 +727,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
           }
 
           if (state is LiquidacionesLoaded) {
-            final rowsPerPage = normalizeRowsPerPage(state.limit);
-            final rowsPerPageOptions = buildRowsPerPageOptions(state.limit);
+            final effectiveLimit = state.limit > 0 ? state.limit : 6;
+            final rowsPerPage = normalizeRowsPerPage(effectiveLimit);
+            final rowsPerPageOptions = buildRowsPerPageOptions(effectiveLimit);
+            final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
+            final hasFilters = state.search.trim().isNotEmpty || state.estado != 'todos';
+            final emptyMessage = hasFilters
+                ? 'No hay liquidaciones para los filtros seleccionados.'
+                : 'No hay liquidaciones disponibles para mostrar.';
             return ModulePageLayout(
               title: 'Liquidaciones',
               subtitle: 'Alta, aprobacion y gestion de items de liquidacion tecnica.',
@@ -749,7 +755,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 children: <Widget>[
                   TextField(
                     controller: _searchController,
-                    onChanged: (_) => _requestPage(page: 1, limit: state.limit),
+                    onChanged: (_) => _requestPage(page: 1, limit: effectiveLimit),
                     style: const TextStyle(color: Color(0xFFEAF3FF)),
                     decoration: InputDecoration(
                       hintText: 'Buscar por ID de liquidacion o servicio...',
@@ -785,7 +791,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                   return;
                                 }
                                 setState(() => _estadoFilter = value);
-                                _requestPage(page: 1, limit: state.limit);
+                                _requestPage(page: 1, limit: effectiveLimit);
                               },
                               items: const <DropdownMenuItem<String>>[
                                 DropdownMenuItem(value: 'todos', child: Text('TODOS')),
@@ -800,43 +806,72 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: Card(
-                      child: PaginatedDataTable(
-                        headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                        columns: const <DataColumn>[
-                          DataColumn(label: Text('ID')),
-                          DataColumn(label: Text('Servicio')),
-                          DataColumn(label: Text('Monto USD')),
-                          DataColumn(label: Text('Estado')),
-                          DataColumn(label: Text('Acciones')),
-                        ],
-                        source: _LiquidacionesTableSource(
-                          items: state.items,
-                          total: state.total,
-                          page: state.page,
-                          limit: state.limit,
-                          onEditHeader: (item) => _openEditHeaderDialog(state, item),
-                          onApproveLiquidacion: _confirmApproveLiquidacion,
-                          onAddItem: (item) => _openAddItemDialog(state, item),
-                          onManageItems: _openItemsDialog,
-                        ),
-                        rowsPerPage: rowsPerPage,
-                        availableRowsPerPage: rowsPerPageOptions,
-                        onRowsPerPageChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
-                          _requestPage(page: 1, limit: value);
-                        },
-                        onPageChanged: (firstRowIndex) {
-                          final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
-                          if (nextPage != state.page) {
-                            _requestPage(page: nextPage, limit: rowsPerPage);
-                          }
-                        },
-                        showFirstLastButtons: true,
-                      ),
-                    ),
+                    child: state.items.isEmpty
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0x1F122B4A),
+                              border: Border.all(color: const Color(0x334EA6FF)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(emptyMessage),
+                          )
+                        : Card(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                    child: PaginatedDataTable(
+                                      key: ValueKey<String>(
+                                        'liquidaciones_${state.page}_${state.limit}_${state.total}_${state.estado}',
+                                      ),
+                                      initialFirstRowIndex: initialFirstRowIndex < 0
+                                          ? 0
+                                          : initialFirstRowIndex,
+                                      headingRowColor:
+                                          WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                      columns: const <DataColumn>[
+                                        DataColumn(label: Text('ID')),
+                                        DataColumn(label: Text('Servicio')),
+                                        DataColumn(label: Text('Monto USD')),
+                                        DataColumn(label: Text('Estado')),
+                                        DataColumn(label: Text('Acciones')),
+                                      ],
+                                      source: _LiquidacionesTableSource(
+                                        items: state.items,
+                                        total: state.total,
+                                        page: state.page,
+                                        limit: effectiveLimit,
+                                        onEditHeader: (item) => _openEditHeaderDialog(state, item),
+                                        onApproveLiquidacion: _confirmApproveLiquidacion,
+                                        onAddItem: (item) => _openAddItemDialog(state, item),
+                                        onManageItems: _openItemsDialog,
+                                      ),
+                                      rowsPerPage: rowsPerPage,
+                                      availableRowsPerPage: rowsPerPageOptions,
+                                      showEmptyRows: false,
+                                      onRowsPerPageChanged: (value) {
+                                        if (value == null) {
+                                          return;
+                                        }
+                                        _requestPage(page: 1, limit: value);
+                                      },
+                                      onPageChanged: (firstRowIndex) {
+                                        final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
+                                        if (nextPage != state.page) {
+                                          _requestPage(page: nextPage, limit: effectiveLimit);
+                                        }
+                                      },
+                                      showFirstLastButtons: true,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                   ),
                 ],
               ),
