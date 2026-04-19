@@ -87,7 +87,13 @@ class ModulePageLayout extends StatelessWidget {
                           children: <Widget>[
                             titleBlock,
                             const SizedBox(height: 12),
-                            trailing!,
+                            SizedBox(
+                              width: double.infinity,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: trailing!,
+                              ),
+                            ),
                           ],
                         );
                       }
@@ -97,7 +103,15 @@ class ModulePageLayout extends StatelessWidget {
                         children: <Widget>[
                           Expanded(child: titleBlock),
                           const SizedBox(width: 16),
-                          trailing!,
+                          Flexible(
+                            child: Align(
+                              alignment: Alignment.topRight,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: trailing!,
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     },

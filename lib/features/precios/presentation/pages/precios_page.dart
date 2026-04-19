@@ -268,21 +268,21 @@ class _PreciosViewState extends State<_PreciosView> {
             return ModulePageLayout(
               title: 'Precios',
               subtitle: 'Cotizacion y tarifas activas para calculo operativo.',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   OutlinedButton.icon(
                     onPressed: () => _openCreateCotizacionDialog(context),
                     icon: const Icon(Icons.add_chart, size: 18),
                     label: const Text('Nueva cotizacion'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () => _openCreateTarifaKmDialog(context),
                     icon: const Icon(Icons.alt_route, size: 18),
                     label: const Text('Nueva tarifa km'),
                   ),
-                  const SizedBox(width: 8),
                   ModuleStatusChip(label: '${state.total} total'),
                 ],
               ),

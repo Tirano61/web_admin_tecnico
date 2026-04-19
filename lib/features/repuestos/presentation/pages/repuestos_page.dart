@@ -334,70 +334,74 @@ class _RepuestosViewState extends State<_RepuestosView> {
             return ModulePageLayout(
               title: 'Repuestos',
               subtitle: 'Listado y mantenimiento operativo de repuestos.',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+              trailing: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   OutlinedButton.icon(
                     onPressed: () => _openCreateDialog(context),
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Nuevo repuesto'),
                   ),
-                  const SizedBox(width: 8),
                   ModuleStatusChip(label: '${state.total} total'),
                 ],
               ),
               child: Column(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (_) => _requestPage(page: 1, limit: state.limit),
-                          style: const TextStyle(color: Color(0xFFEAF3FF)),
-                          decoration: InputDecoration(
-                            hintText: 'Buscar repuesto por ID o nombre...',
-                            prefixIcon: const Icon(Icons.search),
-                            isDense: true,
-                            filled: true,
-                            fillColor: const Color(0xFF122B4A),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0x334EA6FF)),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (_) => _requestPage(page: 1, limit: state.limit),
+                    style: const TextStyle(color: Color(0xFFEAF3FF)),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar repuesto por ID o nombre...',
+                      prefixIcon: const Icon(Icons.search),
+                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFF122B4A),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0x334EA6FF)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF122B4A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0x334EA6FF)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _estadoFilter,
+                              onChanged: (value) {
+                                if (value == null) {
+                                  return;
+                                }
+                                setState(() => _estadoFilter = value);
+                                _requestPage(page: 1, limit: state.limit);
+                              },
+                              items: const <DropdownMenuItem<String>>[
+                                DropdownMenuItem<String>(value: 'todos', child: Text('TODOS')),
+                                DropdownMenuItem<String>(value: 'activos', child: Text('ACTIVOS')),
+                                DropdownMenuItem<String>(
+                                  value: 'inactivos',
+                                  child: Text('INACTIVOS'),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF122B4A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0x334EA6FF)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _estadoFilter,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() => _estadoFilter = value);
-                              _requestPage(page: 1, limit: state.limit);
-                            },
-                            items: const <DropdownMenuItem<String>>[
-                              DropdownMenuItem<String>(value: 'todos', child: Text('TODOS')),
-                              DropdownMenuItem<String>(value: 'activos', child: Text('ACTIVOS')),
-                              DropdownMenuItem<String>(
-                                value: 'inactivos',
-                                child: Text('INACTIVOS'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
