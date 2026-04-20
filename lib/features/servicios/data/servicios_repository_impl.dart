@@ -11,31 +11,7 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
 
   @override
   Future<PagedResult<ServicioItem>> fetchServicios({required ServiciosQuery query}) async {
-    dynamic payload;
-    try {
-      payload = await _httpClient.getJson(
-        '/servicios',
-        queryParameters: <String, String>{
-          'q': query.search,
-          'estadoOrden': query.estado == 'todos' ? '' : query.estado,
-          'canal': query.canal == 'todos' ? '' : query.canal,
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
-      }
-      payload = await _httpClient.getJson(
-        '/servicios',
-        queryParameters: <String, String>{
-          'q': query.search,
-          'estadoOrden': query.estado == 'todos' ? '' : query.estado,
-          'canal': query.canal == 'todos' ? '' : query.canal,
-        },
-      );
-    }
+    final payload = await _fetchServiciosPayload(query: query);
 
     final result = PagedResult<ServicioItem>.fromDynamic(
       payload,
@@ -44,9 +20,7 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
         return ServicioItem(
           id: _resolveId(json, servicioNode),
           descripcion: _resolveDescripcion(json, servicioNode),
-          estadoOrden:
-              (json['estadoOrden'] ?? json['estado_orden'] ?? servicioNode['estadoOrden'] ?? 'sin_estado')
-                  .toString(),
+          estadoOrden: _resolveEstadoOrden(json, servicioNode),
         );
       },
       fallbackPage: query.page,
@@ -71,6 +45,62 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     );
   }
 
+  Future<dynamic> _fetchServiciosPayload({required ServiciosQuery query}) async {
+    AppFailure? lastFailure;
+
+    for (final params in _buildServiciosQueryCandidates(query)) {
+      try {
+        return await _httpClient.getJson(
+          '/servicios',
+          queryParameters: params,
+        );
+      } on AppFailure catch (error) {
+        if (error.statusCode != 400) {
+          rethrow;
+        }
+        lastFailure = error;
+      }
+    }
+
+    throw lastFailure ?? const AppFailure('No se pudo obtener servicios');
+  }
+
+  List<Map<String, String>> _buildServiciosQueryCandidates(ServiciosQuery query) {
+    final search = query.search.trim();
+    final estado = query.estado.trim().toLowerCase();
+    final canal = query.canal.trim().toLowerCase();
+
+    final estadoValue = estado == 'todos' ? '' : estado;
+    final canalValue = canal == 'todos' ? '' : canal;
+    final signatures = <String>{};
+    final candidates = <Map<String, String>>[];
+    final estadoParamKeys = estadoValue.isEmpty
+        ? <String?>[null]
+        : <String?>['estado', 'estadoOrden', 'estado_orden'];
+
+    void addCandidate({required bool includePagination, String? estadoParamKey}) {
+      final params = <String, String>{
+        'q': search,
+        if (estadoParamKey != null) estadoParamKey: estadoValue,
+        'canal': canalValue,
+        if (includePagination) 'page': query.page.toString(),
+        if (includePagination) 'limit': query.limit.toString(),
+      };
+
+      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+      if (signatures.add(signature)) {
+        candidates.add(params);
+      }
+    }
+
+    for (final key in estadoParamKeys) {
+      addCandidate(includePagination: true, estadoParamKey: key);
+      addCandidate(includePagination: false, estadoParamKey: key);
+    }
+
+    return candidates;
+  }
+
   @override
   Future<ServicioDetalle> fetchServicioDetalle(String servicioId) async {
     final payload = await _httpClient.getJson('/servicios/$servicioId');
@@ -90,8 +120,7 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
 
     return ServicioDetalle(
       id: resolvedId,
-      estadoOrden: (root['estadoOrden'] ?? root['estado_orden'] ?? servicioNode['estadoOrden'] ?? 'sin_estado')
-          .toString(),
+      estadoOrden: _resolveEstadoOrden(root, servicioNode),
       canal: canal,
       clienteNombre: _stringOrNull(clienteNode['nombre']),
       lugar: _stringOrNull(lugar),
@@ -177,6 +206,17 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
 
     final fallbackId = _resolveId(root, servicioNode);
     return fallbackId.isEmpty ? 'Servicio sin descripcion' : 'Servicio $fallbackId';
+  }
+
+  String _resolveEstadoOrden(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
+    return (root['estadoOrden'] ??
+            root['estado_orden'] ??
+            root['estado'] ??
+            servicioNode['estadoOrden'] ??
+            servicioNode['estado_orden'] ??
+            servicioNode['estado'] ??
+            'sin_estado')
+        .toString();
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
