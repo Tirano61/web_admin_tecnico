@@ -14,7 +14,7 @@ class CatalogosPage extends StatelessWidget {
     final repository = CatalogosRepositoryImpl();
 
     return BlocProvider<CatalogosBloc>(
-      create: (_) => CatalogosBloc(repository)..add(CatalogosRequested()),
+      create: (_) => CatalogosBloc(repository)..add(CatalogosRequested(tipo: 'zona')),
       child: _CatalogosView(repository: repository),
     );
   }
@@ -31,14 +31,12 @@ class _CatalogosView extends StatefulWidget {
 
 class _CatalogosViewState extends State<_CatalogosView> {
   final TextEditingController _searchController = TextEditingController();
-  String _tipoFilter = 'todos';
-  static const List<String> _tipos = <String>['todos', 'zona', 'categoria', 'producto'];
+  String _tipoFilter = 'zona';
+  static const List<String> _tipos = <String>['zona', 'categoria', 'producto'];
   static const List<int> _rowsPerPageDefaults = <int>[20, 40, 60];
 
   String _tipoLabel(String tipo) {
     switch (tipo) {
-      case 'todos':
-        return 'TODOS';
       case 'zona':
         return 'ZONAS';
       case 'categoria':
@@ -47,6 +45,18 @@ class _CatalogosViewState extends State<_CatalogosView> {
         return 'PRODUCTOS';
       default:
         return tipo.toUpperCase();
+    }
+  }
+
+  String _tipoLegend(String tipo) {
+    switch (tipo) {
+      case 'categoria':
+        return 'Categorias: Categoria de los productos para seleccionar en el diagnostico de la orden de servicio.';
+      case 'producto':
+        return 'Productos: Estos productos estan asociados a una categoria; se seleccionan en la orden de servicio para marcar que estaba fallando.';
+      case 'zona':
+      default:
+        return 'Zonas: Se utiliza en la orden de servicio para cargar la zona donde se realiza el servicio a campo.';
     }
   }
 
@@ -63,8 +73,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
 
   Future<void> _openCreateDialog() async {
     final formKey = GlobalKey<FormState>();
-    final nombreController = TextEditingController();
-    var selectedTipo = _tipoFilter == 'todos' ? 'zona' : _tipoFilter;
+    var nombre = '';
+    var selectedTipo = _tipoFilter;
     String? selectedCategoriaId;
     List<CatalogoItem> categorias = const <CatalogoItem>[];
     Object? categoriasError;
@@ -105,7 +115,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
                       initialValue: selectedTipo,
                       decoration: const InputDecoration(labelText: 'Tipo'),
                       items: _tipos
-                          .where((tipo) => tipo != 'todos')
                           .map(
                             (tipo) => DropdownMenuItem<String>(
                               value: tipo,
@@ -134,7 +143,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
-                      controller: nombreController,
+                      initialValue: nombre,
+                      onChanged: (value) => nombre = value,
                       autofocus: true,
                       style: const TextStyle(color: Color(0xFFEAF3FF)),
                       decoration: const InputDecoration(
@@ -204,7 +214,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
                             CatalogosCreateRequested(
                               input: CreateCatalogoInput(
                                 tipo: selectedTipo,
-                                nombre: nombreController.text,
+                                nombre: nombre,
                                 categoriaId: selectedCategoriaId,
                               ),
                             ),
@@ -221,13 +231,12 @@ class _CatalogosViewState extends State<_CatalogosView> {
       },
     );
 
-    nombreController.dispose();
   }
 
   Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
     final formKey = GlobalKey<FormState>();
-    final nombreController = TextEditingController(text: item.nombre);
-    final categoriaIdController = TextEditingController();
+    var nombre = item.nombre;
+    var categoriaId = '';
     var activo = item.activo;
 
     await showDialog<void>(
@@ -249,7 +258,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
-                      controller: nombreController,
+                      initialValue: nombre,
+                      onChanged: (value) => nombre = value,
                       autofocus: true,
                       style: const TextStyle(color: Color(0xFFEAF3FF)),
                       decoration: const InputDecoration(
@@ -265,7 +275,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                     if (item.tipo == 'producto') ...<Widget>[
                       const SizedBox(height: 10),
                       TextFormField(
-                        controller: categoriaIdController,
+                        initialValue: categoriaId,
+                        onChanged: (value) => categoriaId = value,
                         style: const TextStyle(color: Color(0xFFEAF3FF)),
                         decoration: const InputDecoration(
                           labelText: 'Categoria ID (opcional)',
@@ -296,8 +307,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                               input: UpdateCatalogoInput(
                                 id: item.id,
                                 tipo: item.tipo,
-                                nombre: nombreController.text,
-                                categoriaId: categoriaIdController.text,
+                                nombre: nombre,
+                                categoriaId: categoriaId,
                                 activo: activo,
                               ),
                             ),
@@ -314,8 +325,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
       },
     );
 
-    nombreController.dispose();
-    categoriaIdController.dispose();
   }
 
   @override
@@ -429,6 +438,23 @@ class _CatalogosViewState extends State<_CatalogosView> {
                           },
                         );
                       }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1A4EA6FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0x334EA6FF)),
+                    ),
+                    child: Text(
+                      _tipoLegend(_tipoFilter),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFFB8CCE8),
+                            height: 1.35,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 12),
