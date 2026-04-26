@@ -101,6 +101,8 @@ class CatalogosQuery {
 abstract class CatalogosRepository {
   Future<PagedResult<CatalogoItem>> fetchCatalogos({required CatalogosQuery query});
 
+  Future<List<CatalogoItem>> fetchCategorias();
+
   Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search});
 
   Future<void> createCatalogo({required CreateCatalogoInput input});

@@ -54,23 +54,31 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   }
 
   @override
-  Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search}) async {
-    final categoriasPayload = await _httpClient.getJson('/categorias-producto');
-    final categoriasPaged = PagedResult<CatalogoItem>.fromDynamic(
-      categoriasPayload,
+  Future<List<CatalogoItem>> fetchCategorias() async {
+    final payload = await _httpClient.getJson('/categorias-producto');
+    final paged = PagedResult<CatalogoItem>.fromDynamic(
+      payload,
       (json) => CatalogoItem(
         id: (json['id'] ?? '').toString(),
         nombre: (json['nombre'] ?? json['descripcion'] ?? 'Sin categoria').toString(),
         tipo: 'categoria',
+        activo: json['activo'] is bool ? json['activo'] as bool : true,
       ),
       fallbackPage: 1,
       fallbackLimit: 100,
     );
 
+    return paged.items.where((item) => item.id.trim().isNotEmpty).toList();
+  }
+
+  @override
+  Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search}) async {
+    final categorias = await fetchCategorias();
+
     final normalizedSearch = search.trim().toLowerCase();
 
     final grouped = await Future.wait<ProductosPorCategoria>(
-      categoriasPaged.items
+      categorias
           .where((categoria) => categoria.id.trim().isNotEmpty)
           .map((categoria) async {
         final payload = await _httpClient.getJson(
