@@ -187,47 +187,57 @@ class _ServiciosViewState extends State<_ServiciosView> {
                       : Card(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
+                              const minTableWidth = 900.0;
+                              final availableWidth = constraints.maxWidth.isFinite
+                                  ? constraints.maxWidth
+                                  : minTableWidth;
+                              final tableWidth = availableWidth < minTableWidth
+                                  ? minTableWidth
+                                  : availableWidth;
+
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                  child: PaginatedDataTable(
-                                    key: ValueKey<String>(
-                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
+                                child: SizedBox(
+                                  width: tableWidth,
+                                  child: SingleChildScrollView(
+                                    child: PaginatedDataTable(
+                                      key: ValueKey<String>(
+                                        'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
+                                      ),
+                                      initialFirstRowIndex: initialFirstRowIndex < 0
+                                          ? 0
+                                          : initialFirstRowIndex,
+                                      headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                      columns: const <DataColumn>[
+                                        DataColumn(label: Text('ID')),
+                                        DataColumn(label: Text('Descripcion')),
+                                        DataColumn(label: Text('Estado')),
+                                        DataColumn(label: Text('Accion')),
+                                      ],
+                                      source: _ServiciosTableSource(
+                                        items: state.items,
+                                        total: state.total,
+                                        page: state.page,
+                                        limit: effectiveLimit,
+                                        onOpen: _openDetalle,
+                                      ),
+                                      rowsPerPage: rowsPerPage,
+                                      availableRowsPerPage: rowsPerPageOptions,
+                                      showEmptyRows: false,
+                                      onRowsPerPageChanged: (value) {
+                                        if (value == null) {
+                                          return;
+                                        }
+                                        _requestPage(page: 1, limit: value);
+                                      },
+                                      onPageChanged: (firstRowIndex) {
+                                        final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
+                                        if (nextPage != state.page) {
+                                          _requestPage(page: nextPage, limit: effectiveLimit);
+                                        }
+                                      },
+                                      showFirstLastButtons: true,
                                     ),
-                                    initialFirstRowIndex: initialFirstRowIndex < 0
-                                        ? 0
-                                        : initialFirstRowIndex,
-                                    headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                                    columns: const <DataColumn>[
-                                      DataColumn(label: Text('ID')),
-                                      DataColumn(label: Text('Descripcion')),
-                                      DataColumn(label: Text('Estado')),
-                                      DataColumn(label: Text('Accion')),
-                                    ],
-                                    source: _ServiciosTableSource(
-                                      items: state.items,
-                                      total: state.total,
-                                      page: state.page,
-                                      limit: effectiveLimit,
-                                      onOpen: _openDetalle,
-                                    ),
-                                    rowsPerPage: rowsPerPage,
-                                    availableRowsPerPage: rowsPerPageOptions,
-                                    showEmptyRows: false,
-                                    onRowsPerPageChanged: (value) {
-                                      if (value == null) {
-                                        return;
-                                      }
-                                      _requestPage(page: 1, limit: value);
-                                    },
-                                    onPageChanged: (firstRowIndex) {
-                                      final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
-                                      if (nextPage != state.page) {
-                                        _requestPage(page: nextPage, limit: effectiveLimit);
-                                      }
-                                    },
-                                    showFirstLastButtons: true,
                                   ),
                                 ),
                               );
