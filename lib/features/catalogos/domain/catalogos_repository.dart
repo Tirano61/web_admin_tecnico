@@ -8,6 +8,8 @@ class CatalogoItem {
     this.activo = true,
     this.codigo,
     this.precioUsd,
+    this.categoriaId,
+    this.categoriaNombre,
   });
 
   final String id;
@@ -16,6 +18,20 @@ class CatalogoItem {
   final bool activo;
   final String? codigo;
   final double? precioUsd;
+  final String? categoriaId;
+  final String? categoriaNombre;
+}
+
+class ProductosPorCategoria {
+  const ProductosPorCategoria({
+    required this.categoriaId,
+    required this.categoriaNombre,
+    required this.productos,
+  });
+
+  final String categoriaId;
+  final String categoriaNombre;
+  final List<CatalogoItem> productos;
 }
 
 class CreateCatalogoInput {
@@ -84,6 +100,8 @@ class CatalogosQuery {
 
 abstract class CatalogosRepository {
   Future<PagedResult<CatalogoItem>> fetchCatalogos({required CatalogosQuery query});
+
+  Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search});
 
   Future<void> createCatalogo({required CreateCatalogoInput input});
 

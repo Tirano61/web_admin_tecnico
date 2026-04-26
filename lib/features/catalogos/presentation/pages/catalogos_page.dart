@@ -300,7 +300,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
 
             return ModulePageLayout(
               title: 'Catalogos',
-              subtitle: 'Parametros operativos para zonas, categorias y productos.',
+              subtitle: 'Parametros operativos para zonas, categorias y productos por categoria.',
               trailing: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -367,48 +367,53 @@ class _CatalogosViewState extends State<_CatalogosView> {
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: Card(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return SingleChildScrollView(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                              child: PaginatedDataTable(
-                                headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                                columns: const <DataColumn>[
-                                  DataColumn(label: Text('Nombre')),
-                                  DataColumn(label: Text('Tipo')),
-                                  DataColumn(label: Text('Estado')),
-                                  DataColumn(label: Text('Accion')),
-                                ],
-                                source: _CatalogosTableSource(
-                                  items: state.items,
-                                  total: state.total,
-                                  page: state.page,
-                                  limit: state.limit,
-                                  onEdit: (item) => _openEditDialog(context, item),
-                                ),
-                                rowsPerPage: rowsPerPage,
-                                availableRowsPerPage: rowsPerPageOptions,
-                                onRowsPerPageChanged: (value) {
-                                  if (value == null) {
-                                    return;
-                                  }
-                                  _requestPage(page: 1, limit: value);
-                                },
-                                onPageChanged: (firstRowIndex) {
-                                  final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
-                                  if (nextPage != state.page) {
-                                    _requestPage(page: nextPage, limit: rowsPerPage);
-                                  }
-                                },
-                                showFirstLastButtons: true,
-                              ),
+                    child: _tipoFilter == 'producto'
+                        ? _ProductosPorCategoriaView(
+                            groups: state.productosPorCategoria,
+                            onEdit: (item) => _openEditDialog(context, item),
+                          )
+                        : Card(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                                    child: PaginatedDataTable(
+                                      headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                      columns: const <DataColumn>[
+                                        DataColumn(label: Text('Nombre')),
+                                        DataColumn(label: Text('Tipo')),
+                                        DataColumn(label: Text('Estado')),
+                                        DataColumn(label: Text('Accion')),
+                                      ],
+                                      source: _CatalogosTableSource(
+                                        items: state.items,
+                                        total: state.total,
+                                        page: state.page,
+                                        limit: state.limit,
+                                        onEdit: (item) => _openEditDialog(context, item),
+                                      ),
+                                      rowsPerPage: rowsPerPage,
+                                      availableRowsPerPage: rowsPerPageOptions,
+                                      onRowsPerPageChanged: (value) {
+                                        if (value == null) {
+                                          return;
+                                        }
+                                        _requestPage(page: 1, limit: value);
+                                      },
+                                      onPageChanged: (firstRowIndex) {
+                                        final nextPage = (firstRowIndex ~/ rowsPerPage) + 1;
+                                        if (nextPage != state.page) {
+                                          _requestPage(page: nextPage, limit: rowsPerPage);
+                                        }
+                                      },
+                                      showFirstLastButtons: true,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          ),
                   ),
                 ],
               ),
@@ -417,6 +422,104 @@ class _CatalogosViewState extends State<_CatalogosView> {
 
           return const SizedBox.shrink();
         },
+      ),
+    );
+  }
+}
+
+class _ProductosPorCategoriaView extends StatelessWidget {
+  const _ProductosPorCategoriaView({
+    required this.groups,
+    required this.onEdit,
+  });
+
+  final List<ProductosPorCategoria> groups;
+  final ValueChanged<CatalogoItem> onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (groups.isEmpty) {
+      return const Card(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No hay productos para mostrar con los filtros actuales.'),
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: groups.length,
+        separatorBuilder: (_, index) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final group = groups[index];
+          return _CategoriaProductosCard(group: group, onEdit: onEdit);
+        },
+      ),
+    );
+  }
+}
+
+class _CategoriaProductosCard extends StatelessWidget {
+  const _CategoriaProductosCard({
+    required this.group,
+    required this.onEdit,
+  });
+
+  final ProductosPorCategoria group;
+  final ValueChanged<CatalogoItem> onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF122B4A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x334EA6FF)),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        collapsedIconColor: const Color(0xFFB8CCE8),
+        iconColor: const Color(0xFFEAF3FF),
+        title: Text(
+          group.categoriaNombre,
+          style: const TextStyle(
+            color: Color(0xFFEAF3FF),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          '${group.productos.length} producto(s)',
+          style: const TextStyle(color: Color(0xFFB8CCE8)),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: group.productos
+                  .map(
+                    (item) => ActionChip(
+                      backgroundColor: const Color(0x1A4EA6FF),
+                      side: const BorderSide(color: Color(0x334EA6FF)),
+                      avatar: Icon(
+                        item.activo ? Icons.inventory_2_outlined : Icons.inventory_2,
+                        size: 16,
+                        color: item.activo ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B),
+                      ),
+                      label: Text(item.nombre),
+                      onPressed: () => onEdit(item),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

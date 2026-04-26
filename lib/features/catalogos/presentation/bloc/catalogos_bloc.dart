@@ -40,6 +40,7 @@ class CatalogosLoading extends CatalogosState {}
 class CatalogosLoaded extends CatalogosState {
   CatalogosLoaded({
     required this.items,
+    required this.productosPorCategoria,
     required this.total,
     required this.page,
     required this.limit,
@@ -49,6 +50,7 @@ class CatalogosLoaded extends CatalogosState {
   });
 
   final List<CatalogoItem> items;
+  final List<ProductosPorCategoria> productosPorCategoria;
   final int total;
   final int page;
   final int limit;
@@ -87,9 +89,13 @@ class CatalogosBloc extends Bloc<CatalogosEvent, CatalogosState> {
     emit(CatalogosLoading());
     try {
       final result = await _repository.fetchCatalogos(query: _lastQuery);
+      final groupedProducts = _lastQuery.tipo.toLowerCase() == 'producto'
+          ? await _repository.fetchProductosPorCategoria(search: _lastQuery.search)
+          : const <ProductosPorCategoria>[];
       emit(
         CatalogosLoaded(
           items: result.items,
+          productosPorCategoria: groupedProducts,
           total: result.total,
           page: result.page,
           limit: result.limit,
@@ -109,10 +115,14 @@ class CatalogosBloc extends Bloc<CatalogosEvent, CatalogosState> {
     try {
       await _repository.createCatalogo(input: event.input);
       final result = await _repository.fetchCatalogos(query: _lastQuery.copyWith(page: 1));
+      final groupedProducts = _lastQuery.tipo.toLowerCase() == 'producto'
+          ? await _repository.fetchProductosPorCategoria(search: _lastQuery.search)
+          : const <ProductosPorCategoria>[];
       _lastQuery = _lastQuery.copyWith(page: 1);
       emit(
         CatalogosLoaded(
           items: result.items,
+          productosPorCategoria: groupedProducts,
           total: result.total,
           page: result.page,
           limit: result.limit,
@@ -133,9 +143,13 @@ class CatalogosBloc extends Bloc<CatalogosEvent, CatalogosState> {
     try {
       await _repository.updateCatalogo(input: event.input);
       final result = await _repository.fetchCatalogos(query: _lastQuery);
+      final groupedProducts = _lastQuery.tipo.toLowerCase() == 'producto'
+          ? await _repository.fetchProductosPorCategoria(search: _lastQuery.search)
+          : const <ProductosPorCategoria>[];
       emit(
         CatalogosLoaded(
           items: result.items,
+          productosPorCategoria: groupedProducts,
           total: result.total,
           page: result.page,
           limit: result.limit,
