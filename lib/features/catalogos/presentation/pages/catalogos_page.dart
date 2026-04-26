@@ -11,15 +11,19 @@ class CatalogosPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final repository = CatalogosRepositoryImpl();
+
     return BlocProvider<CatalogosBloc>(
-      create: (_) => CatalogosBloc(CatalogosRepositoryImpl())..add(CatalogosRequested()),
-      child: const _CatalogosView(),
+      create: (_) => CatalogosBloc(repository)..add(CatalogosRequested()),
+      child: _CatalogosView(repository: repository),
     );
   }
 }
 
 class _CatalogosView extends StatefulWidget {
-  const _CatalogosView();
+  const _CatalogosView({required this.repository});
+
+  final CatalogosRepository repository;
 
   @override
   State<_CatalogosView> createState() => _CatalogosViewState();
@@ -57,11 +61,32 @@ class _CatalogosViewState extends State<_CatalogosView> {
         );
   }
 
-  Future<void> _openCreateDialog(BuildContext context) async {
+  Future<void> _openCreateDialog() async {
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController();
-    final categoriaIdController = TextEditingController();
     var selectedTipo = _tipoFilter == 'todos' ? 'zona' : _tipoFilter;
+    String? selectedCategoriaId;
+    List<CatalogoItem> categorias = const <CatalogoItem>[];
+    Object? categoriasError;
+
+    Future<void> loadCategorias() async {
+      if (categorias.isNotEmpty || categoriasError != null) {
+        return;
+      }
+
+      try {
+        categorias = await widget.repository.fetchCategorias();
+      } catch (error) {
+        categoriasError = error;
+      }
+    }
+
+    if (selectedTipo == 'producto') {
+      await loadCategorias();
+      if (!mounted) {
+        return;
+      }
+    }
 
     await showDialog<void>(
       context: context,
@@ -92,7 +117,19 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         if (value == null) {
                           return;
                         }
-                        setDialogState(() => selectedTipo = value);
+                        setDialogState(() {
+                          selectedTipo = value;
+                          if (selectedTipo != 'producto') {
+                            selectedCategoriaId = null;
+                          }
+                        });
+                        if (value == 'producto' && categorias.isEmpty && categoriasError == null) {
+                          loadCategorias().then((_) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() {});
+                            }
+                          });
+                        }
                       },
                     ),
                     const SizedBox(height: 10),
@@ -113,14 +150,44 @@ class _CatalogosViewState extends State<_CatalogosView> {
                     ),
                     if (selectedTipo == 'producto') ...<Widget>[
                       const SizedBox(height: 10),
-                      TextFormField(
-                        controller: categoriaIdController,
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: const InputDecoration(
-                          labelText: 'Categoria ID (opcional)',
-                          hintText: 'UUID categoria-producto',
+                      if (categoriasError != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'No se pudieron cargar las categorias. Cerra y reintenta.',
+                            style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                                  color: const Color(0xFFFFD98B),
+                                ),
+                          ),
+                        )
+                      else if (categorias.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: LinearProgressIndicator(minHeight: 3),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedCategoriaId,
+                          decoration: const InputDecoration(
+                            labelText: 'Categoria',
+                            hintText: 'Seleccionar categoria',
+                          ),
+                          items: categorias
+                              .map(
+                                (categoria) => DropdownMenuItem<String>(
+                                  value: categoria.id,
+                                  child: Text(categoria.nombre),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) => setDialogState(() => selectedCategoriaId = value),
+                          validator: (value) {
+                            if (selectedTipo == 'producto' && (value == null || value.trim().isEmpty)) {
+                              return 'Selecciona una categoria';
+                            }
+                            return null;
+                          },
                         ),
-                      ),
                     ],
                   ],
                 ),
@@ -138,7 +205,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
                               input: CreateCatalogoInput(
                                 tipo: selectedTipo,
                                 nombre: nombreController.text,
-                                categoriaId: categoriaIdController.text,
+                                categoriaId: selectedCategoriaId,
                               ),
                             ),
                           );
@@ -155,7 +222,6 @@ class _CatalogosViewState extends State<_CatalogosView> {
     );
 
     nombreController.dispose();
-    categoriaIdController.dispose();
   }
 
   Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
@@ -307,7 +373,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   OutlinedButton.icon(
-                    onPressed: () => _openCreateDialog(context),
+                    onPressed: _openCreateDialog,
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Nuevo registro'),
                   ),
