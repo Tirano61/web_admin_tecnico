@@ -54,6 +54,65 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   }
 
   @override
+  Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search}) async {
+    final categoriasPayload = await _httpClient.getJson('/categorias-producto');
+    final categoriasPaged = PagedResult<CatalogoItem>.fromDynamic(
+      categoriasPayload,
+      (json) => CatalogoItem(
+        id: (json['id'] ?? '').toString(),
+        nombre: (json['nombre'] ?? json['descripcion'] ?? 'Sin categoria').toString(),
+        tipo: 'categoria',
+      ),
+      fallbackPage: 1,
+      fallbackLimit: 100,
+    );
+
+    final normalizedSearch = search.trim().toLowerCase();
+
+    final grouped = await Future.wait<ProductosPorCategoria>(
+      categoriasPaged.items
+          .where((categoria) => categoria.id.trim().isNotEmpty)
+          .map((categoria) async {
+        final payload = await _httpClient.getJson(
+          '/productos',
+          queryParameters: <String, String>{'categoriaId': categoria.id},
+        );
+
+        final productosPaged = PagedResult<CatalogoItem>.fromDynamic(
+          payload,
+          (json) {
+            final nombre = (json['nombre'] ?? json['descripcion'] ?? '').toString();
+            return CatalogoItem(
+              id: (json['id'] ?? '').toString(),
+              nombre: nombre.isEmpty ? 'Sin nombre' : nombre,
+              tipo: 'producto',
+              activo: json['activo'] is bool ? json['activo'] as bool : true,
+              categoriaId: categoria.id,
+              categoriaNombre: categoria.nombre,
+            );
+          },
+          fallbackPage: 1,
+          fallbackLimit: 100,
+        );
+
+        final productos = normalizedSearch.isEmpty
+            ? productosPaged.items
+            : productosPaged.items
+                .where((item) => item.nombre.toLowerCase().contains(normalizedSearch))
+                .toList();
+
+        return ProductosPorCategoria(
+          categoriaId: categoria.id,
+          categoriaNombre: categoria.nombre,
+          productos: productos,
+        );
+      }),
+    );
+
+    return grouped.where((group) => group.productos.isNotEmpty).toList();
+  }
+
+  @override
   Future<void> createCatalogo({required CreateCatalogoInput input}) async {
     final endpoint = _endpointByTipo(input.tipo);
     final candidates = _buildBodyCandidates(
@@ -168,6 +227,12 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
           activo: activoRaw is bool ? activoRaw : true,
           codigo: codigo.isEmpty ? null : codigo,
           precioUsd: precioUsd,
+          categoriaId: (json['categoriaId'] ?? json['categoria_id'] ?? '').toString().trim().isEmpty
+              ? null
+              : (json['categoriaId'] ?? json['categoria_id']).toString().trim(),
+          categoriaNombre: (json['categoriaNombre'] ?? json['categoria_nombre'] ?? '').toString().trim().isEmpty
+              ? null
+              : (json['categoriaNombre'] ?? json['categoria_nombre']).toString().trim(),
         );
       },
       fallbackPage: query.page,
