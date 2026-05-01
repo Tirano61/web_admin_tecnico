@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
@@ -12,6 +15,10 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
   @override
   Future<PagedResult<ServicioItem>> fetchServicios({required ServiciosQuery query}) async {
     final payload = await _fetchServiciosPayload(query: query);
+    developer.log(
+      '>>> GET /servicios response:\n${const JsonEncoder.withIndent('  ').convert(payload)}',
+      name: 'ServiciosRepository',
+    );
 
     final result = PagedResult<ServicioItem>.fromDynamic(
       payload,
@@ -104,6 +111,10 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
   @override
   Future<ServicioDetalle> fetchServicioDetalle(String servicioId) async {
     final payload = await _httpClient.getJson('/servicios/$servicioId');
+    developer.log(
+      '>>> GET /servicios/$servicioId response:\n${const JsonEncoder.withIndent('  ').convert(payload)}',
+      name: 'ServiciosRepository',
+    );
     final root = _asMap(payload);
     final servicioNode = _asMap(root['servicio']);
     final clienteNode = _asMap(servicioNode['cliente']);

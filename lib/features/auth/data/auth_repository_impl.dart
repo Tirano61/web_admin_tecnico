@@ -47,6 +47,9 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     if (payload == null) {
+      if (lastFailure != null && (lastFailure.statusCode == 400 || lastFailure.statusCode == 401)) {
+        throw const AppFailure('Usuario o contrasena incorrectos', statusCode: 401);
+      }
       throw lastFailure ?? const AppFailure('No fue posible autenticar usuario', statusCode: 401);
     }
 
