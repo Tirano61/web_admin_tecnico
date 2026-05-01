@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/auth/auth_session.dart';
+import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/auth/domain/auth_repository.dart';
 
 abstract class AuthEvent {}
@@ -46,9 +47,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         LoginInput(email: event.email, password: event.password),
       );
       emit(AuthAuthenticated(session));
+    } on AppFailure catch (error) {
+      emit(AuthFailureState(_messageForFailure(error)));
     } catch (error) {
-      emit(AuthFailureState(error.toString()));
+      emit(AuthFailureState('No se pudo iniciar sesion. Reintenta en unos segundos.'));
     }
+  }
+
+  String _messageForFailure(AppFailure failure) {
+    final statusCode = failure.statusCode;
+    if (statusCode == 400 || statusCode == 401) {
+      return 'Usuario o contrasena incorrectos';
+    }
+
+    final message = failure.message.trim();
+    if (message.isEmpty) {
+      return 'No se pudo iniciar sesion. Reintenta en unos segundos.';
+    }
+
+    return message;
   }
 
   Future<void> _onLogoutRequested(
