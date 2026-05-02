@@ -117,29 +117,40 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     );
     final root = _asMap(payload);
     final servicioNode = _asMap(root['servicio']);
-    final clienteNode = _asMap(servicioNode['cliente']);
+    final servicioData = servicioNode.isEmpty ? root : servicioNode;
+    final clienteNode = _asMap(servicioData['cliente']);
+    final lugarProvinciaNode = _asMap(root['lugarProvincia']);
     final facturacionNode = _asMap(root['facturacion']);
     final facturacionItemsNode = _asList(root['facturacionItems']);
+    final facturacionItemsNestedNode = _asList(facturacionNode['items']);
 
-    final resolvedId = (root['servicioId'] ?? root['id'] ?? servicioNode['id'] ?? servicioId).toString();
-    final canal = (servicioNode['canal'] ?? root['canal'] ?? 'sin_canal').toString();
-    final lugarProvincia = (servicioNode['lugarProvinciaNombre'] ?? '').toString();
-    final lugarDetalle = (servicioNode['lugarDetalle'] ?? '').toString();
+    final resolvedId = (root['servicioId'] ?? root['id'] ?? servicioData['id'] ?? servicioId).toString();
+    final canal = (servicioData['canal'] ?? root['canal'] ?? 'sin_canal').toString();
+    final lugarProvincia = (servicioData['lugarProvinciaNombre'] ??
+            lugarProvinciaNode['nombre'] ??
+            lugarProvinciaNode['provincia'] ??
+            '')
+        .toString();
+    final lugarDetalle = (servicioData['lugarDetalle'] ?? '').toString();
     final lugar = [lugarProvincia, lugarDetalle]
         .where((part) => part.trim().isNotEmpty)
         .join(' - ');
+    final facturacionItemsResolved =
+        facturacionItemsNode.isNotEmpty ? facturacionItemsNode : facturacionItemsNestedNode;
 
     return ServicioDetalle(
       id: resolvedId,
-      estadoOrden: _resolveEstadoOrden(root, servicioNode),
+      estadoOrden: _resolveEstadoOrden(root, servicioData),
       canal: canal,
-      clienteNombre: _stringOrNull(clienteNode['nombre']),
+      clienteNombre: _stringOrNull(
+        clienteNode['nombre'] ?? servicioData['clienteNombre'] ?? root['clienteNombre'],
+      ),
       lugar: _stringOrNull(lugar),
-      equipoSerie: _stringOrNull(servicioNode['equipoNroSerie'] ?? servicioNode['equipo_nro_serie']),
-      sintoma: _stringOrNull(servicioNode['sintoma']),
-      diagnosticoDetalle: _stringOrNull(servicioNode['diagnosticoDetalle']),
-      observaciones: _stringOrNull(servicioNode['observaciones']),
-      fechaHoraServicio: _stringOrNull(root['fechaHoraServicio'] ?? servicioNode['fechaHoraServicio']),
+      equipoSerie: _stringOrNull(servicioData['equipoNroSerie'] ?? servicioData['equipo_nro_serie']),
+      sintoma: _stringOrNull(servicioData['sintoma']),
+      diagnosticoDetalle: _stringOrNull(servicioData['diagnosticoDetalle']),
+      observaciones: _stringOrNull(servicioData['observaciones']),
+      fechaHoraServicio: _stringOrNull(root['fechaHoraServicio'] ?? servicioData['fechaHoraServicio']),
       facturacion: facturacionNode.isEmpty
           ? null
           : ServicioFacturacionResumen(
@@ -154,7 +165,7 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
               descuentoPorcentaje: _toDouble(facturacionNode['descuentoPorcentaje']),
               totalFinalArs: _toDouble(facturacionNode['totalFinalArs']),
             ),
-      facturacionItems: facturacionItemsNode
+      facturacionItems: facturacionItemsResolved
           .map((raw) {
             final item = _asMap(raw);
             return ServicioFacturacionItem(
