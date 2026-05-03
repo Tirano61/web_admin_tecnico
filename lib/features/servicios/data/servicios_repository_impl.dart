@@ -28,6 +28,9 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
           id: _resolveId(json, servicioNode),
           descripcion: _resolveDescripcion(json, servicioNode),
           estadoOrden: _resolveEstadoOrden(json, servicioNode),
+          fechaHoraServicio: _resolveFechaHoraServicio(json, servicioNode),
+          equipoSerie: _resolveEquipoSerie(json, servicioNode),
+          equipoModelo: _resolveEquipoModelo(json, servicioNode),
         );
       },
       fallbackPage: query.page,
@@ -147,6 +150,8 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       ),
       lugar: _stringOrNull(lugar),
       equipoSerie: _stringOrNull(servicioData['equipoNroSerie'] ?? servicioData['equipo_nro_serie']),
+      equipoModelo: _stringOrNull(servicioData['equipoModelo'] ?? servicioData['equipo_modelo']),
+      equipoAnio: _toInt(servicioData['equipoAnio'] ?? servicioData['equipo_anio']),
       sintoma: _stringOrNull(servicioData['sintoma']),
       diagnosticoDetalle: _stringOrNull(servicioData['diagnosticoDetalle']),
       observaciones: _stringOrNull(servicioData['observaciones']),
@@ -241,6 +246,42 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
         .toString();
   }
 
+  String? _resolveFechaHoraServicio(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
+    final value = root['fechaHoraServicio'] ??
+        root['fecha_hora_servicio'] ??
+        root['fecha'] ??
+        root['createdAt'] ??
+        servicioNode['fechaHoraServicio'] ??
+        servicioNode['fecha_hora_servicio'] ??
+        servicioNode['fecha'] ??
+        servicioNode['createdAt'];
+    return _stringOrNull(value);
+  }
+
+  String? _resolveEquipoSerie(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
+    final value = root['equipoNroSerie'] ??
+        root['equipo_nro_serie'] ??
+        root['numeroIndicador'] ??
+        root['numero_indicador'] ??
+        servicioNode['equipoNroSerie'] ??
+        servicioNode['equipo_nro_serie'] ??
+        servicioNode['numeroIndicador'] ??
+        servicioNode['numero_indicador'];
+    return _stringOrNull(value);
+  }
+
+  String? _resolveEquipoModelo(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
+    final value = root['equipoModelo'] ??
+        root['equipo_modelo'] ??
+        root['modeloIndicador'] ??
+        root['modelo_indicador'] ??
+        servicioNode['equipoModelo'] ??
+        servicioNode['equipo_modelo'] ??
+        servicioNode['modeloIndicador'] ??
+        servicioNode['modelo_indicador'];
+    return _stringOrNull(value);
+  }
+
   Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map<String, dynamic>) {
       return value;
@@ -275,6 +316,22 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     }
     if (value is String) {
       return double.tryParse(value);
+    }
+    return null;
+  }
+
+  int? _toInt(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
     }
     return null;
   }

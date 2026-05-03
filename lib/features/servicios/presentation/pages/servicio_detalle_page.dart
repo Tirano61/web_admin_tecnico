@@ -231,7 +231,7 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Servicio ${detalle?.id ?? widget.servicioId}'),
+        title: const Text('Detalle de servicio'),
         actions: <Widget>[
           IconButton(
             tooltip: 'Refrescar',
@@ -253,7 +253,6 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
                 spacing: 10,
                 runSpacing: 10,
                 children: <Widget>[
-                  _InfoTile(label: 'ID', value: detalle?.id ?? '-'),
                   _InfoTile(label: 'Canal', value: (detalle?.canal ?? '-').toUpperCase()),
                   _InfoTile(label: 'Cliente', value: detalle?.clienteNombre ?? '-'),
                   _InfoTile(label: 'Fecha', value: detalle?.fechaHoraServicio ?? '-'),
@@ -263,6 +262,13 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
               _InfoTile(label: 'Lugar', value: detalle?.lugar ?? '-'),
               const SizedBox(height: 10),
               _InfoTile(label: 'Equipo serie', value: detalle?.equipoSerie ?? '-'),
+              const SizedBox(height: 10),
+              _InfoTile(label: 'Modelo indicador', value: detalle?.equipoModelo ?? '-'),
+              const SizedBox(height: 10),
+              _InfoTile(
+                label: 'Año equipo',
+                value: detalle?.equipoAnio != null ? detalle!.equipoAnio.toString() : '-',
+              ),
               const SizedBox(height: 10),
               _InfoTile(label: 'Sintoma', value: detalle?.sintoma ?? '-'),
               const SizedBox(height: 10),
