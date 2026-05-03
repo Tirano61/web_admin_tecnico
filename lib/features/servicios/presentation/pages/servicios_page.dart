@@ -187,7 +187,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                       : Card(
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              const minTableWidth = 900.0;
+                              const minTableWidth = 1300.0;
                               final availableWidth = constraints.maxWidth.isFinite
                                   ? constraints.maxWidth
                                   : minTableWidth;
@@ -209,7 +209,9 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                           : initialFirstRowIndex,
                                       headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
                                       columns: const <DataColumn>[
-                                        DataColumn(label: Text('ID')),
+                                        DataColumn(label: Text('Fecha')),
+                                        DataColumn(label: Text('Numero indicador')),
+                                        DataColumn(label: Text('Modelo indicador')),
                                         DataColumn(label: Text('Descripcion')),
                                         DataColumn(label: Text('Estado')),
                                         DataColumn(label: Text('Accion')),
@@ -309,7 +311,9 @@ class _ServiciosTableSource extends DataTableSource {
     return DataRow.byIndex(
       index: index,
       cells: <DataCell>[
-        DataCell(Text(item.id)),
+        DataCell(Text(_formatFecha(item.fechaHoraServicio))),
+        DataCell(Text(item.equipoSerie ?? '-')),
+        DataCell(Text(item.equipoModelo ?? '-')),
         DataCell(Text(item.descripcion)),
         DataCell(_EstadoChip(estado: item.estadoOrden)),
         DataCell(
@@ -331,4 +335,23 @@ class _ServiciosTableSource extends DataTableSource {
 
   @override
   int get selectedRowCount => 0;
+
+  String _formatFecha(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return '-';
+    }
+
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      return raw;
+    }
+
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    final day = twoDigits(parsed.day);
+    final month = twoDigits(parsed.month);
+    final year = parsed.year.toString();
+    final hour = twoDigits(parsed.hour);
+    final minute = twoDigits(parsed.minute);
+    return '$day/$month/$year $hour:$minute';
+  }
 }

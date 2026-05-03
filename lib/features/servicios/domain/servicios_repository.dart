@@ -5,11 +5,17 @@ class ServicioItem {
     required this.id,
     required this.descripcion,
     required this.estadoOrden,
+    this.fechaHoraServicio,
+    this.equipoSerie,
+    this.equipoModelo,
   });
 
   final String id;
   final String descripcion;
   final String estadoOrden;
+  final String? fechaHoraServicio;
+  final String? equipoSerie;
+  final String? equipoModelo;
 }
 
 class ServicioDetalle {
@@ -20,6 +26,8 @@ class ServicioDetalle {
     this.clienteNombre,
     this.lugar,
     this.equipoSerie,
+    this.equipoModelo,
+    this.equipoAnio,
     this.sintoma,
     this.diagnosticoDetalle,
     this.observaciones,
@@ -34,6 +42,8 @@ class ServicioDetalle {
   final String? clienteNombre;
   final String? lugar;
   final String? equipoSerie;
+  final String? equipoModelo;
+  final int? equipoAnio;
   final String? sintoma;
   final String? diagnosticoDetalle;
   final String? observaciones;
