@@ -249,107 +249,100 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: <Widget>[
-                  _InfoTile(label: 'Canal', value: (detalle?.canal ?? '-').toUpperCase()),
-                  _InfoTile(label: 'Cliente', value: detalle?.clienteNombre ?? '-'),
-                  _InfoTile(label: 'Fecha', value: detalle?.fechaHoraServicio ?? '-'),
-                ],
+              _DetailSectionCard(
+                title: 'Informacion operativa',
+                child: _buildInfoGrid(
+                  <Widget>[
+                    _InfoTile(label: 'Canal', value: (detalle?.canal ?? '-').toUpperCase()),
+                    _InfoTile(label: 'Cliente', value: detalle?.clienteNombre ?? '-'),
+                    _InfoTile(label: 'Fecha', value: detalle?.fechaHoraServicio ?? '-'),
+                    _InfoTile(label: 'Lugar', value: detalle?.lugar ?? '-'),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
-              _InfoTile(label: 'Lugar', value: detalle?.lugar ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Equipo serie', value: detalle?.equipoSerie ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Modelo indicador', value: detalle?.equipoModelo ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Año equipo',
-                value: detalle?.equipoAnio != null ? detalle!.equipoAnio.toString() : '-',
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Sintoma', value: detalle?.sintoma ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Diagnostico', value: detalle?.diagnosticoDetalle ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Observaciones', value: detalle?.observaciones ?? '-'),
-              const SizedBox(height: 18),
-              const Divider(color: Color(0x334EA6FF)),
-              const SizedBox(height: 14),
-              Text(
-                'Facturacion',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFFEAF3FF),
-                      fontWeight: FontWeight.w600,
+              _DetailSectionCard(
+                title: 'Equipo',
+                child: _buildInfoGrid(
+                  <Widget>[
+                    _InfoTile(label: 'Numero indicador', value: detalle?.equipoSerie ?? '-'),
+                    _InfoTile(label: 'Modelo indicador', value: detalle?.equipoModelo ?? '-'),
+                    _InfoTile(
+                      label: 'Año equipo',
+                      value: detalle?.equipoAnio != null ? detalle!.equipoAnio.toString() : '-',
                     ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Cotizacion dolar snapshot',
-                value: _formatMoney(detalle?.facturacion?.cotizacionDolarSnapshot),
+              const SizedBox(height: 14),
+              _DetailSectionCard(
+                title: 'Diagnostico y observaciones',
+                child: _buildInfoGrid(
+                  <Widget>[
+                    _InfoTile(label: 'Sintoma', value: detalle?.sintoma ?? '-'),
+                    _InfoTile(label: 'Diagnostico', value: detalle?.diagnosticoDetalle ?? '-'),
+                    _InfoTile(label: 'Observaciones', value: detalle?.observaciones ?? '-'),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Tarifa km snapshot (USD)',
-                value: _formatMoney(detalle?.facturacion?.valorKmUsdSnapshot),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Subtotal general USD',
-                value: _formatMoney(detalle?.facturacion?.subtotalGeneralUsd),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Subtotal general ARS',
-                value: _formatMoney(detalle?.facturacion?.subtotalGeneralArs),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'IVA %',
-                value: _formatMoney(detalle?.facturacion?.ivaPorcentaje),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Total con IVA ARS',
-                value: _formatMoney(detalle?.facturacion?.totalConIvaArs),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Descuento %',
-                value: _formatMoney(detalle?.facturacion?.descuentoPorcentaje),
-              ),
-              const SizedBox(height: 10),
-              _InfoTile(
-                label: 'Total final ARS',
-                value: _formatMoney(detalle?.facturacion?.totalFinalArs),
+              const SizedBox(height: 14),
+              _DetailSectionCard(
+                title: 'Facturacion',
+                child: _buildInfoGrid(
+                  <Widget>[
+                    _InfoTile(
+                      label: 'Cotizacion dolar snapshot',
+                      value: _formatMoney(detalle?.facturacion?.cotizacionDolarSnapshot),
+                    ),
+                    _InfoTile(
+                      label: 'Tarifa km snapshot (USD)',
+                      value: _formatMoney(detalle?.facturacion?.valorKmUsdSnapshot),
+                    ),
+                    _InfoTile(
+                      label: 'Subtotal general USD',
+                      value: _formatMoney(detalle?.facturacion?.subtotalGeneralUsd),
+                    ),
+                    _InfoTile(
+                      label: 'Subtotal general ARS',
+                      value: _formatMoney(detalle?.facturacion?.subtotalGeneralArs),
+                    ),
+                    _InfoTile(
+                      label: 'IVA %',
+                      value: _formatMoney(detalle?.facturacion?.ivaPorcentaje),
+                    ),
+                    _InfoTile(
+                      label: 'Total con IVA ARS',
+                      value: _formatMoney(detalle?.facturacion?.totalConIvaArs),
+                    ),
+                    _InfoTile(
+                      label: 'Descuento %',
+                      value: _formatMoney(detalle?.facturacion?.descuentoPorcentaje),
+                    ),
+                    _InfoTile(
+                      label: 'Total final ARS',
+                      value: _formatMoney(detalle?.facturacion?.totalFinalArs),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               if ((detalle?.facturacionItems ?? const <ServicioFacturacionItem>[]).isNotEmpty)
                 _FacturacionItems(items: detalle!.facturacionItems)
               else
                 const _InfoTile(label: 'Items facturados', value: 'Sin items'),
-              const SizedBox(height: 18),
-              const Divider(color: Color(0x334EA6FF)),
               const SizedBox(height: 14),
-              Text(
-                'Documento',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFFEAF3FF),
-                      fontWeight: FontWeight.w600,
-                    ),
+              _DetailSectionCard(
+                title: 'Documento',
+                child: _buildInfoGrid(
+                  <Widget>[
+                    _InfoTile(label: 'Hash SHA256', value: documento?.pdfHashSha256 ?? '-'),
+                    _InfoTile(label: 'Firma cliente', value: documento?.firmaClienteNombre ?? '-'),
+                    _InfoTile(label: 'Documento firma', value: documento?.firmaClienteDocumento ?? '-'),
+                    _InfoTile(label: 'Fecha firma', value: documento?.firmaFechaHora ?? '-'),
+                    _InfoTile(label: 'URL PDF', value: documento?.pdfUrl ?? '-'),
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Hash SHA256', value: documento?.pdfHashSha256 ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Firma cliente', value: documento?.firmaClienteNombre ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Documento firma', value: documento?.firmaClienteDocumento ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'Fecha firma', value: documento?.firmaFechaHora ?? '-'),
-              const SizedBox(height: 10),
-              _InfoTile(label: 'URL PDF', value: documento?.pdfUrl ?? '-'),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 10,
@@ -389,6 +382,71 @@ class _ServicioDetallePageState extends State<ServicioDetallePage> {
       return '-';
     }
     return value.toStringAsFixed(2);
+  }
+
+  Widget _buildInfoGrid(List<Widget> tiles) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        const minTileWidth = 220.0;
+        final width = constraints.maxWidth;
+
+        var columns = ((width + spacing) / (minTileWidth + spacing)).floor();
+        if (columns < 1) {
+          columns = 1;
+        }
+        if (columns > 4) {
+          columns = 4;
+        }
+
+        final itemWidth = (width - ((columns - 1) * spacing)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: tiles
+              .map((tile) => SizedBox(width: itemWidth, child: tile))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _DetailSectionCard extends StatelessWidget {
+  const _DetailSectionCard({
+    required this.title,
+    required this.child,
+  });
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x1F122B4A),
+        border: Border.all(color: const Color(0x334EA6FF)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFFEAF3FF),
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -460,14 +518,8 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0x1F122B4A),
-        border: Border.all(color: const Color(0x334EA6FF)),
-        borderRadius: BorderRadius.circular(10),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -475,7 +527,7 @@ class _InfoTile extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF9AB1CC),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 4),
@@ -485,6 +537,8 @@ class _InfoTile extends StatelessWidget {
                   color: const Color(0xFFEAF3FF),
                 ),
           ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0x223E86CE)),
         ],
       ),
     );
