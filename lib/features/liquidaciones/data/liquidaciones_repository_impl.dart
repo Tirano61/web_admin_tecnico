@@ -4,6 +4,11 @@ import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 
 class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
+  static const bool enableItemsGetEndpoint = bool.fromEnvironment(
+    'LIQUIDACIONES_ENABLE_ITEMS_GET',
+    defaultValue: true,
+  );
+
   LiquidacionesRepositoryImpl({AuthenticatedHttpClient? httpClient})
       : _httpClient = httpClient ?? AuthenticatedHttpClient();
 
@@ -13,47 +18,65 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
     required LiquidacionesQuery query,
   }) async {
-    dynamic payload;
-    try {
-      payload = await _httpClient.getJson(
-        '/liquidaciones',
-        queryParameters: <String, String>{
-          'q': query.search,
-          'estado': query.estado == 'todos' ? '' : query.estado,
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
-      }
-      payload = await _httpClient.getJson(
-        '/liquidaciones',
-        queryParameters: <String, String>{
-          'q': query.search,
-          'estado': query.estado == 'todos' ? '' : query.estado,
-        },
-      );
-    }
+    final payload = await _fetchLiquidacionesPayload(query: query);
 
     final result = PagedResult<LiquidacionItem>.fromDynamic(
       payload,
       (json) {
+        final root = _asMap(json);
         final servicioNode = _asMap(json['servicio']);
-        final estado = _stringOrNull(json['estado'] ?? json['estadoLiquidacion'] ?? json['status']);
+        final tecnicoNode = _asMap(json['tecnico']);
+        final tipoSalidaNode = _asMap(json['tipoSalida']);
+
+        final precioTipoSalida = _toDouble(
+          root['tipoSalidaPrecioUsd'] ??
+              root['tipo_salida_precio_usd'] ??
+              tipoSalidaNode['precioUsd'] ??
+              tipoSalidaNode['precio_usd'],
+        );
+        final precioKmSnapshot = _toDouble(
+          root['precioKmUsdSnapshot'] ??
+              root['precio_km_usd_snapshot'] ??
+              root['precioKmUsd'] ??
+              root['precio_km_usd'],
+        );
+
         return LiquidacionItem(
-          id: (json['id'] ?? json['liquidacionId'] ?? '').toString(),
-          servicioId: (json['servicioId'] ?? json['servicio_id'] ?? servicioNode['id'] ?? '').toString(),
-          montoUsd: _toDouble(
-            json['montoUsd'] ??
-                json['monto_usd'] ??
-                json['totalUsd'] ??
-                json['total_usd'] ??
-                json['monto'],
+          id: _stringOrNull(root['id'] ?? root['liquidacionId'] ?? root['liquidacion_id']) ?? '-',
+          servicioId: _stringOrNull(
+                root['servicioId'] ?? root['servicio_id'] ?? servicioNode['id'],
+              ) ??
+              '-',
+          servicioCanal: _stringOrNull(servicioNode['canal'] ?? root['canal']) ?? '-',
+          tecnicoId: _stringOrNull(root['tecnicoId'] ?? root['tecnico_id'] ?? tecnicoNode['id']),
+          tecnicoNombre: _stringOrNull(
+            root['tecnicoNombre'] ??
+                root['tecnico_nombre'] ??
+                tecnicoNode['fullName'] ??
+                tecnicoNode['full_name'] ??
+                tecnicoNode['nombre'],
           ),
-          aprobada: _toBool(json['aprobada'] ?? estado),
-          estado: estado,
+          tecnicoEmail: _stringOrNull(
+            root['tecnicoEmail'] ??
+                root['tecnico_email'] ??
+                tecnicoNode['email'],
+          ),
+          tipoSalidaId: _stringOrNull(
+            root['tipoSalidaId'] ?? root['tipo_salida_id'] ?? tipoSalidaNode['id'],
+          ),
+          tipoSalidaNombre: _stringOrNull(
+            root['tipoSalidaNombre'] ??
+                root['tipo_salida_nombre'] ??
+                tipoSalidaNode['nombre'],
+          ),
+          tipoSalidaPrecioUsd: precioTipoSalida,
+          km: _toInt(root['km']) ?? 0,
+          precioKmUsdSnapshot: precioKmSnapshot,
+          aprobada: _toBool(root['aprobado'] ?? root['aprobada']),
+          fechaAprobacion: _stringOrNull(
+            root['fechaAprobacion'] ?? root['fecha_aprobacion'],
+          ),
+          createdAt: _stringOrNull(root['createdAt'] ?? root['created_at']),
         );
       },
       fallbackPage: query.page,
@@ -79,35 +102,37 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   @override
-  Future<LiquidacionItemsResponse> fetchLiquidacionItems(String liquidacionId) async {
-    final payload = await _httpClient.getJson('/liquidaciones/${liquidacionId.trim()}/items');
+  Future<LiquidacionItemsResponse?> fetchLiquidacionItems(String liquidacionId) async {
+    if (!enableItemsGetEndpoint) {
+      return null;
+    }
+
+    dynamic payload;
+    try {
+      payload = await _httpClient.getJson('/liquidaciones/${liquidacionId.trim()}/items');
+    } on AppFailure catch (error) {
+      if (_isItemsEndpointUnavailable(error)) {
+        return null;
+      }
+      rethrow;
+    }
+
     final root = _asMap(payload);
+    final dataNode = _asMap(root['data']);
+    final source = dataNode.isEmpty ? root : dataNode;
 
     final liquidacionIdResponse =
-        _stringOrNull(root['liquidacionId'] ?? root['liquidacion_id']) ?? liquidacionId;
+        _stringOrNull(source['liquidacionId'] ?? source['liquidacion_id']) ?? liquidacionId;
 
-    final itemsRaw = root['items'];
+    final itemsRaw = source['items'];
     final itemsList = itemsRaw is List ? itemsRaw : const <dynamic>[];
     final items = itemsList
         .map(_asMap)
-        .where((json) => _stringOrNull(json['id']) != null)
-        .map(
-          (json) => LiquidacionItemDetalle(
-            id: _stringOrNull(json['id'])!,
-            tipoServicioId: _stringOrNull(json['tipoServicioId'] ?? json['tipo_servicio_id']) ?? '-',
-            tipoServicioNombre:
-                _stringOrNull(json['tipoServicioNombre'] ?? json['tipo_servicio_nombre']) ?? '-',
-            precioUsdSnapshot: _toDouble(
-              json['precioUsdSnapshot'] ?? json['precio_usd_snapshot'] ?? json['precioUsd'] ?? 0,
-            ),
-            aprobado: _toBool(json['aprobado']),
-            fechaAprobacion: _stringOrNull(json['fechaAprobacion'] ?? json['fecha_aprobacion']),
-            createdAt: _stringOrNull(json['createdAt'] ?? json['created_at']),
-          ),
-        )
+        .map((json) => _mapLiquidacionItemDetalle(json))
+        .whereType<LiquidacionItemDetalle>()
         .toList();
 
-    final metaJson = _asMap(root['meta']);
+    final metaJson = _asMap(source['meta']);
     final computedAprobados = items.where((item) => item.aprobado).length;
     final totalItems = _toInt(metaJson['totalItems']) ?? items.length;
     final aprobados = _toInt(metaJson['aprobados']) ?? computedAprobados;
@@ -124,19 +149,67 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         pendientes: pendientes < 0 ? 0 : pendientes,
         subtotalUsdTotal: subtotalUsd,
       ),
+      remoteEnabled: true,
     );
   }
 
   @override
-  Future<List<LiquidacionCatalogoItem>> fetchTiposSalida() async {
+  Future<List<TipoSalidaCatalogoItem>> fetchTiposSalida() async {
     final payload = await _httpClient.getJson('/tipos-salida');
-    return _mapCatalogItems(payload);
+    final entries = _extractItems(payload);
+    final output = <TipoSalidaCatalogoItem>[];
+    final seenIds = <String>{};
+
+    for (final raw in entries) {
+      final json = _asMap(raw);
+      final id = _stringOrNull(json['id']);
+      if (id == null || seenIds.contains(id)) {
+        continue;
+      }
+
+      output.add(
+        TipoSalidaCatalogoItem(
+          id: id,
+          nombre: _stringOrNull(json['nombre']) ?? id,
+          kmHasta: _toInt(json['kmHasta'] ?? json['km_hasta']),
+          precioUsd: _toDouble(json['precioUsd'] ?? json['precio_usd']),
+          activo: _toBool(json['activo'] ?? true),
+        ),
+      );
+      seenIds.add(id);
+    }
+
+    output.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    return output;
   }
 
   @override
-  Future<List<LiquidacionCatalogoItem>> fetchTiposServicio() async {
+  Future<List<TipoServicioCatalogoItem>> fetchTiposServicio() async {
     final payload = await _httpClient.getJson('/tipos-servicio');
-    return _mapCatalogItems(payload);
+    final entries = _extractItems(payload);
+    final output = <TipoServicioCatalogoItem>[];
+    final seenIds = <String>{};
+
+    for (final raw in entries) {
+      final json = _asMap(raw);
+      final id = _stringOrNull(json['id']);
+      if (id == null || seenIds.contains(id)) {
+        continue;
+      }
+
+      output.add(
+        TipoServicioCatalogoItem(
+          id: id,
+          nombre: _stringOrNull(json['nombre']) ?? id,
+          precioUsd: _toDouble(json['precioUsd'] ?? json['precio_usd']),
+          activo: _toBool(json['activo'] ?? true),
+        ),
+      );
+      seenIds.add(id);
+    }
+
+    output.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+    return output;
   }
 
   @override
@@ -148,7 +221,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       <String, dynamic>{'servicioId': servicioId, 'km': km},
     ];
 
-    await _sendWithFallback(
+    await _sendWithFallback<dynamic>(
       candidates,
       (body) => _httpClient.postJson('/liquidaciones', body: body),
     );
@@ -163,7 +236,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       <String, dynamic>{'tipoSalidaId': tipoSalidaId},
     ];
 
-    await _sendWithFallback(
+    await _sendWithFallback<dynamic>(
       candidates,
       (body) => _httpClient.patchJson('/liquidaciones/$liquidacionId', body: body),
     );
@@ -175,7 +248,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   @override
-  Future<void> addLiquidacionItem({required AddLiquidacionItemInput input}) async {
+  Future<LiquidacionItemDetalle?> addLiquidacionItem({
+    required AddLiquidacionItemInput input,
+  }) async {
     final liquidacionId = input.liquidacionId.trim();
     final tipoServicioId = input.tipoServicioId.trim();
     final candidates = <Map<String, dynamic>>[
@@ -183,10 +258,37 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       <String, dynamic>{'tipoServicioId': tipoServicioId},
     ];
 
-    await _sendWithFallback(
+    final payload = await _sendWithFallback<dynamic>(
       candidates,
       (body) => _httpClient.postJson('/liquidaciones/$liquidacionId/items', body: body),
     );
+
+    final root = _asMap(payload);
+    final direct = _mapLiquidacionItemDetalle(
+      root,
+      fallbackTipoServicioId: tipoServicioId,
+    );
+    if (direct != null) {
+      return direct;
+    }
+
+    final fromData = _mapLiquidacionItemDetalle(
+      _asMap(root['data']),
+      fallbackTipoServicioId: tipoServicioId,
+    );
+    if (fromData != null) {
+      return fromData;
+    }
+
+    final fromItem = _mapLiquidacionItemDetalle(
+      _asMap(root['item']),
+      fallbackTipoServicioId: tipoServicioId,
+    );
+    if (fromItem != null) {
+      return fromItem;
+    }
+
+    return null;
   }
 
   @override
@@ -203,15 +305,136 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     await _httpClient.deleteJson('/liquidaciones/$liquidacionId/items/$itemId');
   }
 
-  Future<void> _sendWithFallback(
+  @override
+  Future<void> createTipoSalida({required CreateTipoSalidaInput input}) async {
+    final body = <String, dynamic>{
+      'nombre': input.nombre.trim(),
+      'precioUsd': input.precioUsd,
+      if (input.kmHasta != null) 'kmHasta': input.kmHasta,
+    };
+    await _httpClient.postJson('/tipos-salida', body: body);
+  }
+
+  @override
+  Future<void> updateTipoSalida({required UpdateTipoSalidaInput input}) async {
+    final body = <String, dynamic>{
+      if (input.nombre != null) 'nombre': input.nombre!.trim(),
+      if (input.kmHasta != null) 'kmHasta': input.kmHasta,
+      if (input.precioUsd != null) 'precioUsd': input.precioUsd,
+      if (input.activo != null) 'activo': input.activo,
+    };
+    await _httpClient.patchJson('/tipos-salida/${input.id.trim()}', body: body);
+  }
+
+  @override
+  Future<void> createTipoServicio({required CreateTipoServicioInput input}) async {
+    final body = <String, dynamic>{
+      'nombre': input.nombre.trim(),
+      'precioUsd': input.precioUsd,
+    };
+    await _httpClient.postJson('/tipos-servicio', body: body);
+  }
+
+  @override
+  Future<void> updateTipoServicio({required UpdateTipoServicioInput input}) async {
+    final body = <String, dynamic>{
+      if (input.nombre != null) 'nombre': input.nombre!.trim(),
+      if (input.precioUsd != null) 'precioUsd': input.precioUsd,
+      if (input.activo != null) 'activo': input.activo,
+    };
+    await _httpClient.patchJson('/tipos-servicio/${input.id.trim()}', body: body);
+  }
+
+  Future<dynamic> _fetchLiquidacionesPayload({required LiquidacionesQuery query}) async {
+    final pagedParams = <String, String>{
+      'page': query.page.toString(),
+      'limit': query.limit.toString(),
+      if (_stringOrNull(query.tecnicoId) != null) 'tecnicoId': query.tecnicoId!.trim(),
+      if (query.aprobado != null) 'aprobado': query.aprobado! ? 'true' : 'false',
+    };
+
+    try {
+      return await _httpClient.getJson('/liquidaciones', queryParameters: pagedParams);
+    } on AppFailure catch (error) {
+      if (error.statusCode != 400) {
+        rethrow;
+      }
+
+      final fallbackParams = <String, String>{
+        if (_stringOrNull(query.tecnicoId) != null) 'tecnicoId': query.tecnicoId!.trim(),
+        if (query.aprobado != null) 'aprobado': query.aprobado! ? 'true' : 'false',
+      };
+      return _httpClient.getJson('/liquidaciones', queryParameters: fallbackParams);
+    }
+  }
+
+  bool _isItemsEndpointUnavailable(AppFailure error) {
+    final status = error.statusCode;
+    if (status == 404 || status == 405 || status == 501) {
+      return true;
+    }
+
+    final message = error.message.toLowerCase();
+    return message.contains('cannot get') && message.contains('/items');
+  }
+
+  LiquidacionItemDetalle? _mapLiquidacionItemDetalle(
+    Map<String, dynamic> json, {
+    String? fallbackTipoServicioId,
+    String? fallbackTipoServicioNombre,
+    double? fallbackPrecioUsd,
+  }) {
+    if (json.isEmpty) {
+      return null;
+    }
+
+    final tipoServicioNode = _asMap(json['tipoServicio']);
+    final id = _stringOrNull(json['id']);
+    if (id == null) {
+      return null;
+    }
+
+    return LiquidacionItemDetalle(
+      id: id,
+      tipoServicioId: _stringOrNull(
+            json['tipoServicioId'] ??
+                json['tipo_servicio_id'] ??
+                tipoServicioNode['id'],
+          ) ??
+          fallbackTipoServicioId ??
+          '-',
+      tipoServicioNombre: _stringOrNull(
+            json['tipoServicioNombre'] ??
+                json['tipo_servicio_nombre'] ??
+                json['nombreSnapshot'] ??
+                json['nombre_snapshot'] ??
+                tipoServicioNode['nombre'],
+          ) ??
+          fallbackTipoServicioNombre ??
+          '-',
+      precioUsdSnapshot: _toDouble(
+        json['precioUsdSnapshot'] ??
+            json['precio_usd_snapshot'] ??
+            json['precioUsd'] ??
+            json['precio_usd'] ??
+            tipoServicioNode['precioUsd'] ??
+            tipoServicioNode['precio_usd'] ??
+            fallbackPrecioUsd,
+      ),
+      aprobado: _toBool(json['aprobado'] ?? json['aprobada']),
+      fechaAprobacion: _stringOrNull(json['fechaAprobacion'] ?? json['fecha_aprobacion']),
+      createdAt: _stringOrNull(json['createdAt'] ?? json['created_at']),
+    );
+  }
+
+  Future<T> _sendWithFallback<T>(
     List<Map<String, dynamic>> candidates,
-    Future<dynamic> Function(Map<String, dynamic> body) sender,
+    Future<T> Function(Map<String, dynamic> body) sender,
   ) async {
     AppFailure? lastFailure;
     for (final body in candidates) {
       try {
-        await sender(body);
-        return;
+        return await sender(body);
       } on AppFailure catch (error) {
         if (error.statusCode == 400 || error.statusCode == 422) {
           lastFailure = error;
@@ -222,30 +445,6 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     }
 
     throw lastFailure ?? const AppFailure('No se pudo completar la operacion de liquidacion');
-  }
-
-  List<LiquidacionCatalogoItem> _mapCatalogItems(dynamic payload) {
-    final entries = _extractItems(payload);
-    final output = <LiquidacionCatalogoItem>[];
-    final seenIds = <String>{};
-
-    for (final raw in entries) {
-      final json = _asMap(raw);
-      final id = _stringOrNull(json['id']);
-      if (id == null || seenIds.contains(id)) {
-        continue;
-      }
-
-      final nombre = _stringOrNull(
-            json['nombre'] ?? json['descripcion'] ?? json['detalle'] ?? json['tipo'],
-          ) ??
-          id;
-      seenIds.add(id);
-      output.add(LiquidacionCatalogoItem(id: id, nombre: nombre));
-    }
-
-    output.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
-    return output;
   }
 
   List<dynamic> _extractItems(dynamic payload) {
@@ -307,6 +506,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     if (value is String) {
       return double.tryParse(value) ?? 0;
     }
+    if (value is bool) {
+      return value ? 1 : 0;
+    }
     return 0;
   }
 
@@ -320,6 +522,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     if (value is String) {
       return int.tryParse(value);
     }
+    if (value is bool) {
+      return value ? 1 : 0;
+    }
     return null;
   }
 
@@ -331,8 +536,13 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       final normalized = value.toLowerCase();
       return normalized == 'aprobada' ||
           normalized == 'aprobado' ||
+          normalized == 'si' ||
+          normalized == 'yes' ||
           normalized == 'true' ||
           normalized == 'approved';
+    }
+    if (value is num) {
+      return value > 0;
     }
     return false;
   }

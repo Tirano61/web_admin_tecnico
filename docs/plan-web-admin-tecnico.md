@@ -232,8 +232,8 @@ Entrega: version candidata a produccion interna.
   - Mitigacion: caso de prueba temprano en Sprint 1 con endpoint real.
 - Diferencias snake_case/camelCase en algunos payloads.
   - Mitigacion: normalizar mappers y agregar tests de serializacion.
-- Falta de endpoint de lectura de items por liquidacion puede forzar ingreso manual de `itemId` en UI.
-  - Mitigacion: cerrar contrato con `GET /liquidaciones/:id/items` antes del desarrollo de pantallas de aprobacion/eliminacion.
+- El endpoint `GET /liquidaciones/:id/items` ya esta implementado en backend; falta coordinar activacion del consumo en frontend.
+  - Mitigacion: encender flag frontend y validar flujo de aprobacion/eliminacion de items con Postman + UI.
 
 ## 10) Decisiones a cerrar antes de construir
 
@@ -242,4 +242,4 @@ Entrega: version candidata a produccion interna.
 3. Definir comportamiento de ordenes `remoto/fabrica` respecto a firma y estados en la interfaz.
 4. Confirmar si se requiere export CSV operativo para admin-tecnico (no analytics).
 5. Definir estrategia de auditoria visual (quien cambio precios/liquidaciones y cuando) en frontend.
-6. Confirmar disponibilidad de `GET /liquidaciones/:id/items` para evitar ingreso manual de `itemId`.
+6. Definir fecha de activacion del consumo de `GET /liquidaciones/:id/items` en web admin-tecnico.
