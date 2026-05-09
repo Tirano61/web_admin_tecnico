@@ -1,18 +1,19 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 
 abstract class LiquidacionesEvent {}
 
 class LiquidacionesRequested extends LiquidacionesEvent {
   LiquidacionesRequested({
-    this.search = '',
-    this.estado = 'todos',
+    this.tecnicoId,
+    this.aprobado,
     this.page = 1,
-    this.limit = 6,
+    this.limit = 20,
   });
 
-  final String search;
-  final String estado;
+  final String? tecnicoId;
+  final bool? aprobado;
   final int page;
   final int limit;
 }
@@ -35,22 +36,28 @@ class LiquidacionesApproveRequested extends LiquidacionesEvent {
   final String liquidacionId;
 }
 
-class LiquidacionesAddItemRequested extends LiquidacionesEvent {
-  LiquidacionesAddItemRequested({required this.input});
+class LiquidacionesCreateTipoSalidaRequested extends LiquidacionesEvent {
+  LiquidacionesCreateTipoSalidaRequested({required this.input});
 
-  final AddLiquidacionItemInput input;
+  final CreateTipoSalidaInput input;
 }
 
-class LiquidacionesApproveItemRequested extends LiquidacionesEvent {
-  LiquidacionesApproveItemRequested({required this.input});
+class LiquidacionesUpdateTipoSalidaRequested extends LiquidacionesEvent {
+  LiquidacionesUpdateTipoSalidaRequested({required this.input});
 
-  final ApproveLiquidacionItemInput input;
+  final UpdateTipoSalidaInput input;
 }
 
-class LiquidacionesDeleteItemRequested extends LiquidacionesEvent {
-  LiquidacionesDeleteItemRequested({required this.input});
+class LiquidacionesCreateTipoServicioRequested extends LiquidacionesEvent {
+  LiquidacionesCreateTipoServicioRequested({required this.input});
 
-  final DeleteLiquidacionItemInput input;
+  final CreateTipoServicioInput input;
+}
+
+class LiquidacionesUpdateTipoServicioRequested extends LiquidacionesEvent {
+  LiquidacionesUpdateTipoServicioRequested({required this.input});
+
+  final UpdateTipoServicioInput input;
 }
 
 abstract class LiquidacionesState {}
@@ -65,8 +72,8 @@ class LiquidacionesLoaded extends LiquidacionesState {
     required this.total,
     required this.page,
     required this.limit,
-    required this.search,
-    required this.estado,
+    required this.tecnicoId,
+    required this.aprobado,
     required this.tiposSalida,
     required this.tiposServicio,
     this.message,
@@ -76,10 +83,10 @@ class LiquidacionesLoaded extends LiquidacionesState {
   final int total;
   final int page;
   final int limit;
-  final String search;
-  final String estado;
-  final List<LiquidacionCatalogoItem> tiposSalida;
-  final List<LiquidacionCatalogoItem> tiposServicio;
+  final String? tecnicoId;
+  final bool? aprobado;
+  final List<TipoSalidaCatalogoItem> tiposSalida;
+  final List<TipoServicioCatalogoItem> tiposServicio;
   final String? message;
 }
 
@@ -95,9 +102,10 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     on<LiquidacionesCreateRequested>(_onCreateRequested);
     on<LiquidacionesUpdateRequested>(_onUpdateRequested);
     on<LiquidacionesApproveRequested>(_onApproveRequested);
-    on<LiquidacionesAddItemRequested>(_onAddItemRequested);
-    on<LiquidacionesApproveItemRequested>(_onApproveItemRequested);
-    on<LiquidacionesDeleteItemRequested>(_onDeleteItemRequested);
+    on<LiquidacionesCreateTipoSalidaRequested>(_onCreateTipoSalidaRequested);
+    on<LiquidacionesUpdateTipoSalidaRequested>(_onUpdateTipoSalidaRequested);
+    on<LiquidacionesCreateTipoServicioRequested>(_onCreateTipoServicioRequested);
+    on<LiquidacionesUpdateTipoServicioRequested>(_onUpdateTipoServicioRequested);
   }
 
   final LiquidacionesRepository _repository;
@@ -108,8 +116,8 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     Emitter<LiquidacionesState> emit,
   ) async {
     _lastQuery = LiquidacionesQuery(
-      search: event.search,
-      estado: event.estado,
+      tecnicoId: event.tecnicoId,
+      aprobado: event.aprobado,
       page: event.page,
       limit: event.limit,
     );
@@ -128,7 +136,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
         successMessage: 'Liquidacion creada correctamente',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
@@ -143,7 +151,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
         successMessage: 'Cabecera de liquidacion actualizada',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
@@ -158,52 +166,67 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
         successMessage: 'Liquidacion aprobada correctamente',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
-  Future<void> _onAddItemRequested(
-    LiquidacionesAddItemRequested event,
+  Future<void> _onCreateTipoSalidaRequested(
+    LiquidacionesCreateTipoSalidaRequested event,
     Emitter<LiquidacionesState> emit,
   ) async {
     try {
-      await _repository.addLiquidacionItem(input: event.input);
+      await _repository.createTipoSalida(input: event.input);
       await _loadAndEmit(
         emit: emit,
-        successMessage: 'Item agregado a liquidacion',
+        successMessage: 'Tipo salida creado correctamente',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
-  Future<void> _onApproveItemRequested(
-    LiquidacionesApproveItemRequested event,
+  Future<void> _onUpdateTipoSalidaRequested(
+    LiquidacionesUpdateTipoSalidaRequested event,
     Emitter<LiquidacionesState> emit,
   ) async {
     try {
-      await _repository.approveLiquidacionItem(input: event.input);
+      await _repository.updateTipoSalida(input: event.input);
       await _loadAndEmit(
         emit: emit,
-        successMessage: 'Item aprobado correctamente',
+        successMessage: 'Tipo salida actualizado correctamente',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
-  Future<void> _onDeleteItemRequested(
-    LiquidacionesDeleteItemRequested event,
+  Future<void> _onCreateTipoServicioRequested(
+    LiquidacionesCreateTipoServicioRequested event,
     Emitter<LiquidacionesState> emit,
   ) async {
     try {
-      await _repository.deleteLiquidacionItem(input: event.input);
+      await _repository.createTipoServicio(input: event.input);
       await _loadAndEmit(
         emit: emit,
-        successMessage: 'Item eliminado correctamente',
+        successMessage: 'Tipo servicio creado correctamente',
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
+    }
+  }
+
+  Future<void> _onUpdateTipoServicioRequested(
+    LiquidacionesUpdateTipoServicioRequested event,
+    Emitter<LiquidacionesState> emit,
+  ) async {
+    try {
+      await _repository.updateTipoServicio(input: event.input);
+      await _loadAndEmit(
+        emit: emit,
+        successMessage: 'Tipo servicio actualizado correctamente',
+      );
+    } catch (error) {
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
   }
 
@@ -231,15 +254,27 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
           total: result.total,
           page: result.page,
           limit: result.limit,
-          search: _lastQuery.search,
-          estado: _lastQuery.estado,
+          tecnicoId: _lastQuery.tecnicoId,
+          aprobado: _lastQuery.aprobado,
           tiposSalida: tiposSalida,
           tiposServicio: tiposServicio,
           message: successMessage,
         ),
       );
     } catch (error) {
-      emit(LiquidacionesFailure(error.toString()));
+      emit(LiquidacionesFailure(_errorMessage(error)));
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is AppFailure) {
+      return error.message;
+    }
+
+    final text = error.toString().trim();
+    if (text.startsWith('Exception: ')) {
+      return text.replaceFirst('Exception: ', '').trim();
+    }
+    return text;
   }
 }

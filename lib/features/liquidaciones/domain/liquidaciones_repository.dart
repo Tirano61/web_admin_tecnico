@@ -1,10 +1,33 @@
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
 
-class LiquidacionCatalogoItem {
-  const LiquidacionCatalogoItem({required this.id, required this.nombre});
+class TipoSalidaCatalogoItem {
+  const TipoSalidaCatalogoItem({
+    required this.id,
+    required this.nombre,
+    required this.precioUsd,
+    this.kmHasta,
+    this.activo = true,
+  });
 
   final String id;
   final String nombre;
+  final int? kmHasta;
+  final double precioUsd;
+  final bool activo;
+}
+
+class TipoServicioCatalogoItem {
+  const TipoServicioCatalogoItem({
+    required this.id,
+    required this.nombre,
+    required this.precioUsd,
+    this.activo = true,
+  });
+
+  final String id;
+  final String nombre;
+  final double precioUsd;
+  final bool activo;
 }
 
 class LiquidacionItemDetalle {
@@ -14,6 +37,7 @@ class LiquidacionItemDetalle {
     required this.tipoServicioNombre,
     required this.precioUsdSnapshot,
     required this.aprobado,
+    this.isPersisted = true,
     this.fechaAprobacion,
     this.createdAt,
   });
@@ -23,8 +47,31 @@ class LiquidacionItemDetalle {
   final String tipoServicioNombre;
   final double precioUsdSnapshot;
   final bool aprobado;
+  final bool isPersisted;
   final String? fechaAprobacion;
   final String? createdAt;
+
+  LiquidacionItemDetalle copyWith({
+    String? id,
+    String? tipoServicioId,
+    String? tipoServicioNombre,
+    double? precioUsdSnapshot,
+    bool? aprobado,
+    bool? isPersisted,
+    String? fechaAprobacion,
+    String? createdAt,
+  }) {
+    return LiquidacionItemDetalle(
+      id: id ?? this.id,
+      tipoServicioId: tipoServicioId ?? this.tipoServicioId,
+      tipoServicioNombre: tipoServicioNombre ?? this.tipoServicioNombre,
+      precioUsdSnapshot: precioUsdSnapshot ?? this.precioUsdSnapshot,
+      aprobado: aprobado ?? this.aprobado,
+      isPersisted: isPersisted ?? this.isPersisted,
+      fechaAprobacion: fechaAprobacion ?? this.fechaAprobacion,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class LiquidacionItemsMeta {
@@ -46,27 +93,49 @@ class LiquidacionItemsResponse {
     required this.liquidacionId,
     required this.items,
     required this.meta,
+    required this.remoteEnabled,
   });
 
   final String liquidacionId;
   final List<LiquidacionItemDetalle> items;
   final LiquidacionItemsMeta meta;
+  final bool remoteEnabled;
 }
 
 class LiquidacionItem {
   const LiquidacionItem({
     required this.id,
     required this.servicioId,
-    required this.montoUsd,
+    required this.servicioCanal,
+    required this.tipoSalidaPrecioUsd,
+    required this.km,
+    required this.precioKmUsdSnapshot,
     required this.aprobada,
-    this.estado,
+    this.tecnicoId,
+    this.tecnicoNombre,
+    this.tecnicoEmail,
+    this.tipoSalidaId,
+    this.tipoSalidaNombre,
+    this.fechaAprobacion,
+    this.createdAt,
   });
 
   final String id;
   final String servicioId;
-  final double montoUsd;
+  final String servicioCanal;
+  final String? tecnicoId;
+  final String? tecnicoNombre;
+  final String? tecnicoEmail;
+  final String? tipoSalidaId;
+  final String? tipoSalidaNombre;
+  final double tipoSalidaPrecioUsd;
+  final int km;
+  final double precioKmUsdSnapshot;
   final bool aprobada;
-  final String? estado;
+  final String? fechaAprobacion;
+  final String? createdAt;
+
+  double get subtotalEstimadoUsd => tipoSalidaPrecioUsd + (km * precioKmUsdSnapshot);
 }
 
 class CreateLiquidacionInput {
@@ -119,23 +188,84 @@ class DeleteLiquidacionItemInput {
   final String itemId;
 }
 
-class LiquidacionesQuery {
-  const LiquidacionesQuery({
-    this.search = '',
-    this.estado = 'todos',
-    this.page = 1,
-    this.limit = 6,
+class CreateTipoSalidaInput {
+  const CreateTipoSalidaInput({
+    required this.nombre,
+    required this.precioUsd,
+    this.kmHasta,
   });
 
-  final String search;
-  final String estado;
+  final String nombre;
+  final int? kmHasta;
+  final double precioUsd;
+}
+
+class UpdateTipoSalidaInput {
+  const UpdateTipoSalidaInput({
+    required this.id,
+    this.nombre,
+    this.kmHasta,
+    this.precioUsd,
+    this.activo,
+  });
+
+  final String id;
+  final String? nombre;
+  final int? kmHasta;
+  final double? precioUsd;
+  final bool? activo;
+}
+
+class CreateTipoServicioInput {
+  const CreateTipoServicioInput({
+    required this.nombre,
+    required this.precioUsd,
+  });
+
+  final String nombre;
+  final double precioUsd;
+}
+
+class UpdateTipoServicioInput {
+  const UpdateTipoServicioInput({
+    required this.id,
+    this.nombre,
+    this.precioUsd,
+    this.activo,
+  });
+
+  final String id;
+  final String? nombre;
+  final double? precioUsd;
+  final bool? activo;
+}
+
+const Object _aprobadoNoChange = Object();
+
+class LiquidacionesQuery {
+  const LiquidacionesQuery({
+    this.tecnicoId,
+    this.aprobado,
+    this.page = 1,
+    this.limit = 20,
+  });
+
+  final String? tecnicoId;
+  final bool? aprobado;
   final int page;
   final int limit;
 
-  LiquidacionesQuery copyWith({String? search, String? estado, int? page, int? limit}) {
+  LiquidacionesQuery copyWith({
+    String? tecnicoId,
+    Object? aprobado = _aprobadoNoChange,
+    int? page,
+    int? limit,
+  }) {
     return LiquidacionesQuery(
-      search: search ?? this.search,
-      estado: estado ?? this.estado,
+      tecnicoId: tecnicoId ?? this.tecnicoId,
+      aprobado: identical(aprobado, _aprobadoNoChange)
+          ? this.aprobado
+          : aprobado as bool?,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
@@ -145,11 +275,11 @@ class LiquidacionesQuery {
 abstract class LiquidacionesRepository {
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({required LiquidacionesQuery query});
 
-  Future<LiquidacionItemsResponse> fetchLiquidacionItems(String liquidacionId);
+  Future<LiquidacionItemsResponse?> fetchLiquidacionItems(String liquidacionId);
 
-  Future<List<LiquidacionCatalogoItem>> fetchTiposSalida();
+  Future<List<TipoSalidaCatalogoItem>> fetchTiposSalida();
 
-  Future<List<LiquidacionCatalogoItem>> fetchTiposServicio();
+  Future<List<TipoServicioCatalogoItem>> fetchTiposServicio();
 
   Future<void> createLiquidacion({required CreateLiquidacionInput input});
 
@@ -157,9 +287,17 @@ abstract class LiquidacionesRepository {
 
   Future<void> approveLiquidacion(String liquidacionId);
 
-  Future<void> addLiquidacionItem({required AddLiquidacionItemInput input});
+  Future<LiquidacionItemDetalle?> addLiquidacionItem({required AddLiquidacionItemInput input});
 
   Future<void> approveLiquidacionItem({required ApproveLiquidacionItemInput input});
 
   Future<void> deleteLiquidacionItem({required DeleteLiquidacionItemInput input});
+
+  Future<void> createTipoSalida({required CreateTipoSalidaInput input});
+
+  Future<void> updateTipoSalida({required UpdateTipoSalidaInput input});
+
+  Future<void> createTipoServicio({required CreateTipoServicioInput input});
+
+  Future<void> updateTipoServicio({required UpdateTipoServicioInput input});
 }
