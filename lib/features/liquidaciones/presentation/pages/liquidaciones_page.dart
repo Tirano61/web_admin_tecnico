@@ -196,6 +196,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<void> _openCreateDialog(LiquidacionesLoaded state) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     List<ServicioItem> serviciosCampo;
     try {
       serviciosCampo = await _loadServiciosCanalCampo();
@@ -299,7 +301,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                       return;
                     }
 
-                    context.read<LiquidacionesBloc>().add(
+                    liquidacionesBloc.add(
                           LiquidacionesCreateRequested(
                             input: CreateLiquidacionInput(
                               servicioId: selectedServicioId,
@@ -325,6 +327,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     LiquidacionesLoaded state,
     LiquidacionItem item,
   ) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     if (item.aprobada) {
       _showMessage('La liquidacion aprobada no permite editar cabecera.');
       return;
@@ -417,7 +421,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                       return;
                     }
 
-                    context.read<LiquidacionesBloc>().add(
+                    liquidacionesBloc.add(
                           LiquidacionesUpdateRequested(
                             input: UpdateLiquidacionInput(
                               liquidacionId: item.id,
@@ -440,6 +444,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<void> _confirmApproveLiquidacion(LiquidacionItem item) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     if (item.aprobada) {
       _showMessage('La liquidacion ya se encuentra aprobada.');
       return;
@@ -459,7 +465,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             ),
             FilledButton(
               onPressed: () {
-                context.read<LiquidacionesBloc>().add(
+                liquidacionesBloc.add(
                       LiquidacionesApproveRequested(item.id),
                     );
                 Navigator.of(dialogContext).pop();
@@ -506,6 +512,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   Future<void> _openTipoSalidaFormDialog({
     TipoSalidaCatalogoItem? initialItem,
   }) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     final isEdit = initialItem != null;
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController(text: initialItem?.nombre ?? '');
@@ -609,7 +617,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     final kmHasta = kmRaw.isEmpty ? null : _parsePositiveInt(kmRaw);
 
                     if (isEdit) {
-                      context.read<LiquidacionesBloc>().add(
+                      liquidacionesBloc.add(
                             LiquidacionesUpdateTipoSalidaRequested(
                               input: UpdateTipoSalidaInput(
                                 id: initialItem.id,
@@ -621,7 +629,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             ),
                           );
                     } else {
-                      context.read<LiquidacionesBloc>().add(
+                      liquidacionesBloc.add(
                             LiquidacionesCreateTipoSalidaRequested(
                               input: CreateTipoSalidaInput(
                                 nombre: nombreController.text.trim(),
@@ -651,6 +659,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   Future<void> _openTipoServicioFormDialog({
     TipoServicioCatalogoItem? initialItem,
   }) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     final isEdit = initialItem != null;
     final formKey = GlobalKey<FormState>();
     final nombreController = TextEditingController(text: initialItem?.nombre ?? '');
@@ -730,7 +740,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     }
 
                     if (isEdit) {
-                      context.read<LiquidacionesBloc>().add(
+                      liquidacionesBloc.add(
                             LiquidacionesUpdateTipoServicioRequested(
                               input: UpdateTipoServicioInput(
                                 id: initialItem.id,
@@ -741,7 +751,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             ),
                           );
                     } else {
-                      context.read<LiquidacionesBloc>().add(
+                      liquidacionesBloc.add(
                             LiquidacionesCreateTipoServicioRequested(
                               input: CreateTipoServicioInput(
                                 nombre: nombreController.text.trim(),
@@ -767,130 +777,135 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<void> _openTiposSalidaDialog(LiquidacionesLoaded fallbackState) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: const Color(0xFF102845),
-          child: SizedBox(
-            width: 820,
-            height: 520,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: BlocBuilder<LiquidacionesBloc, LiquidacionesState>(
-                builder: (context, state) {
-                  final loadedState =
-                      state is LiquidacionesLoaded ? state : fallbackState;
-                  final tiposSalida = loadedState.tiposSalida;
+        return BlocProvider<LiquidacionesBloc>.value(
+          value: liquidacionesBloc,
+          child: Dialog(
+            backgroundColor: const Color(0xFF102845),
+            child: SizedBox(
+              width: 820,
+              height: 520,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: BlocBuilder<LiquidacionesBloc, LiquidacionesState>(
+                  builder: (context, state) {
+                    final loadedState =
+                        state is LiquidacionesLoaded ? state : fallbackState;
+                    final tiposSalida = loadedState.tiposSalida;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Text(
-                            'Tipos de salida',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const Spacer(),
-                          OutlinedButton.icon(
-                            onPressed: () => _openTipoSalidaFormDialog(),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Nuevo tipo'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: tiposSalida.isEmpty
-                            ? const Center(
-                                child: Text('No hay tipos de salida cargados.'),
-                              )
-                            : ListView.separated(
-                                itemCount: tiposSalida.length,
-                              separatorBuilder: (_, index) => const SizedBox(height: 8),
-                                itemBuilder: (context, index) {
-                                  final item = tiposSalida[index];
-                                  return Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0x1F122B4A),
-                                      border: Border.all(
-                                        color: const Color(0x334EA6FF),
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Text(
-                                                item.nombre,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Wrap(
-                                                spacing: 8,
-                                                runSpacing: 8,
-                                                children: <Widget>[
-                                                  ModuleStatusChip(
-                                                    label:
-                                                        'USD ${item.precioUsd.toStringAsFixed(2)}',
-                                                  ),
-                                                  ModuleStatusChip(
-                                                    label: item.kmHasta == null
-                                                        ? 'KM hasta: sin limite'
-                                                        : 'KM hasta: ${item.kmHasta}',
-                                                  ),
-                                                  ModuleStatusChip(
-                                                    label: item.activo
-                                                        ? 'ACTIVO'
-                                                        : 'INACTIVO',
-                                                    backgroundColor: item.activo
-                                                        ? const Color(0x1F0FA960)
-                                                        : const Color(0x1FF4B942),
-                                                    foregroundColor: item.activo
-                                                        ? const Color(0xFF8FF0BC)
-                                                        : const Color(0xFFFFD98B),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        IconButton(
-                                          tooltip: 'Editar tipo salida',
-                                          onPressed: () =>
-                                              _openTipoSalidaFormDialog(
-                                            initialItem: item,
-                                          ),
-                                          icon: const Icon(Icons.edit_outlined),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Cerrar'),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Text(
+                              'Tipos de salida',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            OutlinedButton.icon(
+                              onPressed: () => _openTipoSalidaFormDialog(),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Nuevo tipo'),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  );
-                },
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: tiposSalida.isEmpty
+                              ? const Center(
+                                  child: Text('No hay tipos de salida cargados.'),
+                                )
+                              : ListView.separated(
+                                  itemCount: tiposSalida.length,
+                                  separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                  itemBuilder: (context, index) {
+                                    final item = tiposSalida[index];
+                                    return Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x1F122B4A),
+                                        border: Border.all(
+                                          color: const Color(0x334EA6FF),
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: <Widget>[
+                                                Text(
+                                                  item.nombre,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 8,
+                                                  children: <Widget>[
+                                                    ModuleStatusChip(
+                                                      label:
+                                                          'USD ${item.precioUsd.toStringAsFixed(2)}',
+                                                    ),
+                                                    ModuleStatusChip(
+                                                      label: item.kmHasta == null
+                                                          ? 'KM hasta: sin limite'
+                                                          : 'KM hasta: ${item.kmHasta}',
+                                                    ),
+                                                    ModuleStatusChip(
+                                                      label: item.activo
+                                                          ? 'ACTIVO'
+                                                          : 'INACTIVO',
+                                                      backgroundColor: item.activo
+                                                          ? const Color(0x1F0FA960)
+                                                          : const Color(0x1FF4B942),
+                                                      foregroundColor: item.activo
+                                                          ? const Color(0xFF8FF0BC)
+                                                          : const Color(0xFFFFD98B),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'Editar tipo salida',
+                                            onPressed: () =>
+                                                _openTipoSalidaFormDialog(
+                                              initialItem: item,
+                                            ),
+                                            icon: const Icon(Icons.edit_outlined),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Cerrar'),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -900,125 +915,130 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<void> _openTiposServicioDialog(LiquidacionesLoaded fallbackState) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: const Color(0xFF102845),
-          child: SizedBox(
-            width: 760,
-            height: 500,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: BlocBuilder<LiquidacionesBloc, LiquidacionesState>(
-                builder: (context, state) {
-                  final loadedState =
-                      state is LiquidacionesLoaded ? state : fallbackState;
-                  final tiposServicio = loadedState.tiposServicio;
+        return BlocProvider<LiquidacionesBloc>.value(
+          value: liquidacionesBloc,
+          child: Dialog(
+            backgroundColor: const Color(0xFF102845),
+            child: SizedBox(
+              width: 760,
+              height: 500,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: BlocBuilder<LiquidacionesBloc, LiquidacionesState>(
+                  builder: (context, state) {
+                    final loadedState =
+                        state is LiquidacionesLoaded ? state : fallbackState;
+                    final tiposServicio = loadedState.tiposServicio;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Text(
-                            'Tipos de servicio',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const Spacer(),
-                          OutlinedButton.icon(
-                            onPressed: () => _openTipoServicioFormDialog(),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Nuevo tipo'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: tiposServicio.isEmpty
-                            ? const Center(
-                                child: Text('No hay tipos de servicio cargados.'),
-                              )
-                            : ListView.separated(
-                                itemCount: tiposServicio.length,
-                              separatorBuilder: (_, index) => const SizedBox(height: 8),
-                                itemBuilder: (context, index) {
-                                  final item = tiposServicio[index];
-                                  return Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0x1F122B4A),
-                                      border: Border.all(
-                                        color: const Color(0x334EA6FF),
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: <Widget>[
-                                              Text(
-                                                item.nombre,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Wrap(
-                                                spacing: 8,
-                                                runSpacing: 8,
-                                                children: <Widget>[
-                                                  ModuleStatusChip(
-                                                    label:
-                                                        'USD ${item.precioUsd.toStringAsFixed(2)}',
-                                                  ),
-                                                  ModuleStatusChip(
-                                                    label: item.activo
-                                                        ? 'ACTIVO'
-                                                        : 'INACTIVO',
-                                                    backgroundColor: item.activo
-                                                        ? const Color(0x1F0FA960)
-                                                        : const Color(0x1FF4B942),
-                                                    foregroundColor: item.activo
-                                                        ? const Color(0xFF8FF0BC)
-                                                        : const Color(0xFFFFD98B),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        IconButton(
-                                          tooltip: 'Editar tipo servicio',
-                                          onPressed: () =>
-                                              _openTipoServicioFormDialog(
-                                            initialItem: item,
-                                          ),
-                                          icon: const Icon(Icons.edit_outlined),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Cerrar'),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Text(
+                              'Tipos de servicio',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const Spacer(),
+                            OutlinedButton.icon(
+                              onPressed: () => _openTipoServicioFormDialog(),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Nuevo tipo'),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  );
-                },
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: tiposServicio.isEmpty
+                              ? const Center(
+                                  child: Text('No hay tipos de servicio cargados.'),
+                                )
+                              : ListView.separated(
+                                  itemCount: tiposServicio.length,
+                                  separatorBuilder: (_, index) => const SizedBox(height: 8),
+                                  itemBuilder: (context, index) {
+                                    final item = tiposServicio[index];
+                                    return Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x1F122B4A),
+                                        border: Border.all(
+                                          color: const Color(0x334EA6FF),
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: <Widget>[
+                                                Text(
+                                                  item.nombre,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 8,
+                                                  children: <Widget>[
+                                                    ModuleStatusChip(
+                                                      label:
+                                                          'USD ${item.precioUsd.toStringAsFixed(2)}',
+                                                    ),
+                                                    ModuleStatusChip(
+                                                      label: item.activo
+                                                          ? 'ACTIVO'
+                                                          : 'INACTIVO',
+                                                      backgroundColor: item.activo
+                                                          ? const Color(0x1F0FA960)
+                                                          : const Color(0x1FF4B942),
+                                                      foregroundColor: item.activo
+                                                          ? const Color(0xFF8FF0BC)
+                                                          : const Color(0xFFFFD98B),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'Editar tipo servicio',
+                                            onPressed: () =>
+                                                _openTipoServicioFormDialog(
+                                              initialItem: item,
+                                            ),
+                                            icon: const Icon(Icons.edit_outlined),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Cerrar'),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -1031,6 +1051,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     LiquidacionesLoaded state,
     LiquidacionItem liquidacion,
   ) async {
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
     final manualTipoServicioController = TextEditingController();
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
 
@@ -1114,8 +1136,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
               if (actionInProgress) {
                 return;
               }
-
-              final liquidacionesBloc = context.read<LiquidacionesBloc>();
 
               setDialogState(() => actionInProgress = true);
 
