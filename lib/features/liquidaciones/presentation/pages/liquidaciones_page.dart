@@ -160,6 +160,10 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     );
   }
 
+  bool _isCanalCampo(String? canal) {
+    return _isCanalCampoValue(canal);
+  }
+
   String? _firstTipoServicioId(List<TipoServicioCatalogoItem> tiposServicio) {
     for (final item in tiposServicio) {
       if (item.activo) {
@@ -370,6 +374,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   ) async {
     final liquidacionesBloc = context.read<LiquidacionesBloc>();
 
+    if (!_isCanalCampo(item.servicioCanal)) {
+      _showMessage('Solo las liquidaciones de canal campo permiten editar cabecera.');
+      return;
+    }
+
     if (item.aprobada) {
       _showMessage('La liquidacion aprobada no permite editar cabecera.');
       return;
@@ -486,6 +495,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
   Future<void> _confirmApproveLiquidacion(LiquidacionItem item) async {
     final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
+    if (!_isCanalCampo(item.servicioCanal)) {
+      _showMessage('Solo las liquidaciones de canal campo pueden aprobarse.');
+      return;
+    }
 
     if (item.aprobada) {
       _showMessage('La liquidacion ya se encuentra aprobada.');
@@ -1094,6 +1108,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   ) async {
     final liquidacionesBloc = context.read<LiquidacionesBloc>();
 
+    if (!_isCanalCampo(liquidacion.servicioCanal)) {
+      _showMessage('Solo las liquidaciones de canal campo permiten gestionar items.');
+      return;
+    }
+
     final manualTipoServicioController = TextEditingController();
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
 
@@ -1651,6 +1670,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
           if (state is LiquidacionesLoaded) {
             final effectiveLimit = state.limit > 0 ? state.limit : 20;
+            final approvedCount = state.items.where((item) => item.aprobada).length;
+            final pendingCount = state.items.length - approvedCount;
             final rowsPerPage = normalizeRowsPerPage(
               effectiveLimit,
               defaults: const <int>[20, 40, 60],
@@ -1691,6 +1712,16 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     onPressed: () => _openTiposServicioDialog(state),
                     icon: const Icon(Icons.build_outlined, size: 18),
                     label: const Text('Tipos servicio'),
+                  ),
+                  ModuleStatusChip(
+                    label: 'APROBADAS $approvedCount',
+                    backgroundColor: const Color(0x1F0FA960),
+                    foregroundColor: const Color(0xFF8FF0BC),
+                  ),
+                  ModuleStatusChip(
+                    label: 'PENDIENTES $pendingCount',
+                    backgroundColor: const Color(0x1FF4B942),
+                    foregroundColor: const Color(0xFFFFD98B),
                   ),
                   ModuleStatusChip(label: '${state.total} total'),
                 ],
@@ -1887,6 +1918,7 @@ class _LiquidacionesTableSource extends DataTableSource {
 
     final item = items[localIndex];
     final approved = item.aprobada;
+    final isCanalCampo = _isCanalCampoValue(item.servicioCanal);
 
     return DataRow.byIndex(
       index: index,
@@ -1932,26 +1964,35 @@ class _LiquidacionesTableSource extends DataTableSource {
             itemBuilder: (context) => <PopupMenuEntry<String>>[
               PopupMenuItem<String>(
                 value: 'editar',
-                enabled: !approved,
+                enabled: !approved && isCanalCampo,
                 child: Text(
                   approved
                       ? 'Editar cabecera (bloqueado)'
-                      : 'Editar cabecera',
+                      : (isCanalCampo
+                          ? 'Editar cabecera'
+                          : 'Editar cabecera (solo canal campo)'),
                 ),
               ),
               PopupMenuItem<String>(
                 value: 'aprobar',
-                enabled: !approved,
+                enabled: !approved && isCanalCampo,
                 child: Text(
                   approved
                       ? 'Aprobar liquidacion (ya aprobada)'
-                      : 'Aprobar liquidacion',
+                      : (isCanalCampo
+                          ? 'Aprobar liquidacion'
+                          : 'Aprobar liquidacion (solo canal campo)'),
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'items',
-                child: Text('Gestionar items'),
+                enabled: isCanalCampo,
+                child: Text(
+                  isCanalCampo
+                      ? 'Gestionar items'
+                      : 'Gestionar items (solo canal campo)',
+                ),
               ),
             ],
           ),
@@ -1968,6 +2009,11 @@ class _LiquidacionesTableSource extends DataTableSource {
 
   @override
   int get selectedRowCount => 0;
+}
+
+bool _isCanalCampoValue(String? canal) {
+  final normalized = (canal ?? '').trim().toLowerCase();
+  return normalized == 'campo';
 }
 
 class _AprobadaChip extends StatelessWidget {

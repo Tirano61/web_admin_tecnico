@@ -30,7 +30,7 @@ class ModulePageLayout extends StatelessWidget {
               border: Border.all(color: const Color(0x3357AAE5)),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: const Color(0xFF030C17).withOpacity(0.38),
+                  color: const Color(0xFF030C17).withValues(alpha: 0.38),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                 ),
@@ -149,7 +149,7 @@ class ModuleStatusChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: foregroundColor.withOpacity(0.35)),
+        border: Border.all(color: foregroundColor.withValues(alpha: 0.35)),
       ),
       child: Text(
         label,
