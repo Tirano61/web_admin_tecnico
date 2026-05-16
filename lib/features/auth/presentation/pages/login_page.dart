@@ -83,7 +83,7 @@ class _TopBar extends StatelessWidget {
       height: 78,
       padding: const EdgeInsets.symmetric(horizontal: 36),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: const Color(0xFF4EA6FF).withOpacity(0.25))),
+        border: Border(bottom: BorderSide(color: const Color(0xFF4EA6FF).withValues(alpha: 0.25))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -151,12 +151,12 @@ class _LoginPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0B203C).withOpacity(0.52),
+        color: const Color(0xFF0B203C).withValues(alpha: 0.52),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF4EA6FF).withOpacity(0.24)),
+        border: Border.all(color: const Color(0xFF4EA6FF).withValues(alpha: 0.24)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: const Color(0xFF08131F).withOpacity(0.55),
+            color: const Color(0xFF08131F).withValues(alpha: 0.55),
             blurRadius: 28,
             offset: const Offset(0, 14),
           ),
@@ -345,7 +345,7 @@ class _FooterBar extends StatelessWidget {
       height: 74,
       width: double.infinity,
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: const Color(0xFF4EA6FF).withOpacity(0.25))),
+        border: Border(top: BorderSide(color: const Color(0xFF4EA6FF).withValues(alpha: 0.25))),
       ),
       child: Center(
         child: Column(

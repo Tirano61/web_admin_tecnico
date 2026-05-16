@@ -46,12 +46,12 @@ class _CircuitBackgroundPainter extends CustomPainter {
     canvas.drawRect(Offset.zero & size, glowPaint);
 
     final linePaint = Paint()
-      ..color = const Color(0xFF2F6FAE).withOpacity(0.22)
+      ..color = const Color(0xFF2F6FAE).withValues(alpha: 0.22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.3;
 
     final dotPaint = Paint()
-      ..color = const Color(0xFF4EA6FF).withOpacity(0.22)
+      ..color = const Color(0xFF4EA6FF).withValues(alpha: 0.22)
       ..style = PaintingStyle.fill;
 
     final path1 = Path()
@@ -99,7 +99,7 @@ class _CircuitBackgroundPainter extends CustomPainter {
       canvas.drawCircle(
         dot,
         1.8,
-        Paint()..color = const Color(0xFF8FD0FF).withOpacity(0.5),
+        Paint()..color = const Color(0xFF8FD0FF).withValues(alpha: 0.5),
       );
     }
   }

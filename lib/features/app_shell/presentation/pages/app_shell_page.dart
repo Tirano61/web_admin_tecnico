@@ -166,7 +166,7 @@ class _TopShellNavigation extends StatelessWidget {
             border: Border.all(color: const Color(0x335CA8E8)),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: const Color(0xFF04111F).withOpacity(0.35),
+                color: const Color(0xFF04111F).withValues(alpha: 0.35),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
