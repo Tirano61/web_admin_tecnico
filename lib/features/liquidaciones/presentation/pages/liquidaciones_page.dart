@@ -161,38 +161,55 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<List<ServicioItem>> _loadServiciosCanalCampo() async {
-    final output = <ServicioItem>[];
-    final seenIds = <String>{};
+    Future<List<ServicioItem>> collectServicios({required String canal}) async {
+      final output = <ServicioItem>[];
+      final seenIds = <String>{};
 
-    var page = 1;
-    const limit = 50;
-    var total = 0;
+      var page = 1;
+      const limit = 50;
+      var total = 0;
 
-    while (page <= 10) {
-      final response = await widget.serviciosRepository.fetchServicios(
-        query: ServiciosQuery(
-          canal: 'campo',
-          estado: 'todos',
-          page: page,
-          limit: limit,
-        ),
-      );
+      while (page <= 10) {
+        final response = await widget.serviciosRepository.fetchServicios(
+          query: ServiciosQuery(
+            canal: canal,
+            estado: 'todos',
+            page: page,
+            limit: limit,
+          ),
+        );
 
-      total = response.total;
-      for (final item in response.items) {
-        if (seenIds.add(item.id)) {
-          output.add(item);
+        total = response.total;
+        for (final item in response.items) {
+          if (seenIds.add(item.id)) {
+            output.add(item);
+          }
         }
+
+        if (response.items.isEmpty || output.length >= total) {
+          break;
+        }
+
+        page += 1;
       }
 
-      if (response.items.isEmpty || output.length >= total) {
-        break;
-      }
-
-      page += 1;
+      return output;
     }
 
-    return output;
+    final withBackendFilter = await collectServicios(canal: 'campo');
+    if (withBackendFilter.isNotEmpty) {
+      return withBackendFilter;
+    }
+
+    final withoutFilter = await collectServicios(canal: 'todos');
+    final filteredLocally = withoutFilter
+        .where((servicio) => (servicio.canal ?? '').trim().toLowerCase() == 'campo')
+        .toList();
+    if (filteredLocally.isNotEmpty) {
+      return filteredLocally;
+    }
+
+    return withBackendFilter;
   }
 
   Future<void> _openCreateDialog(LiquidacionesLoaded state) async {

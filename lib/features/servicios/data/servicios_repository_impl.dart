@@ -28,6 +28,7 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
           id: _resolveId(json, servicioNode),
           descripcion: _resolveDescripcion(json, servicioNode),
           estadoOrden: _resolveEstadoOrden(json, servicioNode),
+          canal: _resolveCanal(json, servicioNode),
           fechaHoraServicio: _resolveFechaHoraServicio(json, servicioNode),
           equipoSerie: _resolveEquipoSerie(json, servicioNode),
           equipoModelo: _resolveEquipoModelo(json, servicioNode),
@@ -80,19 +81,29 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     final estado = query.estado.trim().toLowerCase();
     final canal = query.canal.trim().toLowerCase();
 
-    final estadoValue = estado == 'todos' ? '' : estado;
-    final canalValue = canal == 'todos' ? '' : canal;
+    final searchValue = search.isEmpty ? null : search;
+    final estadoValue = (estado.isEmpty || estado == 'todos') ? null : estado;
+    final canalValue = (canal.isEmpty || canal == 'todos') ? null : canal;
     final signatures = <String>{};
     final candidates = <Map<String, String>>[];
-    final estadoParamKeys = estadoValue.isEmpty
+    final searchParamKeys = searchValue == null ? <String?>[null] : <String?>['q', 'search'];
+    final estadoParamKeys = estadoValue == null
         ? <String?>[null]
         : <String?>['estado', 'estadoOrden', 'estado_orden'];
+    final canalParamKeys = canalValue == null
+        ? <String?>[null]
+        : <String?>['canal', 'canalServicio', 'canal_servicio'];
 
-    void addCandidate({required bool includePagination, String? estadoParamKey}) {
+    void addCandidate({
+      required bool includePagination,
+      String? searchParamKey,
+      String? estadoParamKey,
+      String? canalParamKey,
+    }) {
       final params = <String, String>{
-        'q': search,
-        if (estadoParamKey != null) estadoParamKey: estadoValue,
-        'canal': canalValue,
+        if (searchParamKey != null && searchValue != null) searchParamKey: searchValue,
+        if (estadoParamKey != null && estadoValue != null) estadoParamKey: estadoValue,
+        if (canalParamKey != null && canalValue != null) canalParamKey: canalValue,
         if (includePagination) 'page': query.page.toString(),
         if (includePagination) 'limit': query.limit.toString(),
       };
@@ -103,9 +114,23 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       }
     }
 
-    for (final key in estadoParamKeys) {
-      addCandidate(includePagination: true, estadoParamKey: key);
-      addCandidate(includePagination: false, estadoParamKey: key);
+    for (final searchKey in searchParamKeys) {
+      for (final estadoKey in estadoParamKeys) {
+        for (final canalKey in canalParamKeys) {
+          addCandidate(
+            includePagination: true,
+            searchParamKey: searchKey,
+            estadoParamKey: estadoKey,
+            canalParamKey: canalKey,
+          );
+          addCandidate(
+            includePagination: false,
+            searchParamKey: searchKey,
+            estadoParamKey: estadoKey,
+            canalParamKey: canalKey,
+          );
+        }
+      }
     }
 
     return candidates;
@@ -244,6 +269,16 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
             servicioNode['estado'] ??
             'sin_estado')
         .toString();
+  }
+
+  String? _resolveCanal(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {
+    final value = root['canal'] ??
+        root['canalServicio'] ??
+        root['canal_servicio'] ??
+        servicioNode['canal'] ??
+        servicioNode['canalServicio'] ??
+        servicioNode['canal_servicio'];
+    return _stringOrNull(value);
   }
 
   String? _resolveFechaHoraServicio(Map<String, dynamic> root, Map<String, dynamic> servicioNode) {

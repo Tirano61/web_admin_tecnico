@@ -5,6 +5,7 @@ class ServicioItem {
     required this.id,
     required this.descripcion,
     required this.estadoOrden,
+    this.canal,
     this.fechaHoraServicio,
     this.equipoSerie,
     this.equipoModelo,
@@ -13,6 +14,7 @@ class ServicioItem {
   final String id;
   final String descripcion;
   final String estadoOrden;
+  final String? canal;
   final String? fechaHoraServicio;
   final String? equipoSerie;
   final String? equipoModelo;
