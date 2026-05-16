@@ -50,9 +50,6 @@ class _LiquidacionesView extends StatefulWidget {
 class _LiquidacionesViewState extends State<_LiquidacionesView> {
   bool? _aprobadoFilter;
 
-  final Map<String, List<LiquidacionItemDetalle>> _localItemsByLiquidacion =
-      <String, List<LiquidacionItemDetalle>>{};
-
   void _requestPage({int page = 1, int? limit}) {
     context.read<LiquidacionesBloc>().add(
           LiquidacionesRequested(
@@ -133,6 +130,33 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       aprobados: aprobados,
       pendientes: total - aprobados,
       subtotalUsdTotal: subtotal,
+    );
+  }
+
+  List<LiquidacionItemDetalle> _cachedItemsForLiquidacion({
+    required LiquidacionesBloc bloc,
+    required String liquidacionId,
+  }) {
+    final current = bloc.state;
+    if (current is! LiquidacionesLoaded) {
+      return const <LiquidacionItemDetalle>[];
+    }
+
+    final cached =
+        current.itemDetallesByLiquidacion[liquidacionId] ?? const <LiquidacionItemDetalle>[];
+    return List<LiquidacionItemDetalle>.from(cached);
+  }
+
+  void _updateItemsCache({
+    required LiquidacionesBloc bloc,
+    required String liquidacionId,
+    required List<LiquidacionItemDetalle> items,
+  }) {
+    bloc.add(
+      LiquidacionItemsCacheUpdated(
+        liquidacionId: liquidacionId,
+        items: List<LiquidacionItemDetalle>.from(items),
+      ),
     );
   }
 
@@ -1074,8 +1098,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
 
     var selectedTipoServicioId = _firstTipoServicioId(tiposServicioActivos);
-    var items = List<LiquidacionItemDetalle>.from(
-      _localItemsByLiquidacion[liquidacion.id] ?? const <LiquidacionItemDetalle>[],
+    var items = _cachedItemsForLiquidacion(
+      bloc: liquidacionesBloc,
+      liquidacionId: liquidacion.id,
     );
     var meta = _buildItemsMeta(items);
     var remoteMode = false;
@@ -1101,24 +1126,27 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
                 if (response == null) {
                   remoteMode = false;
-                  items = List<LiquidacionItemDetalle>.from(
-                    _localItemsByLiquidacion[liquidacion.id] ??
-                        const <LiquidacionItemDetalle>[],
+                  items = _cachedItemsForLiquidacion(
+                    bloc: liquidacionesBloc,
+                    liquidacionId: liquidacion.id,
                   );
                   meta = _buildItemsMeta(items);
                 } else {
                   remoteMode = true;
                   items = List<LiquidacionItemDetalle>.from(response.items);
                   meta = _buildItemsMeta(items);
-                  _localItemsByLiquidacion[liquidacion.id] =
-                      List<LiquidacionItemDetalle>.from(items);
+                  _updateItemsCache(
+                    bloc: liquidacionesBloc,
+                    liquidacionId: liquidacion.id,
+                    items: items,
+                  );
                 }
               } catch (error) {
                 remoteMode = false;
                 loadError = _errorMessage(error);
-                items = List<LiquidacionItemDetalle>.from(
-                  _localItemsByLiquidacion[liquidacion.id] ??
-                      const <LiquidacionItemDetalle>[],
+                items = _cachedItemsForLiquidacion(
+                  bloc: liquidacionesBloc,
+                  liquidacionId: liquidacion.id,
                 );
                 meta = _buildItemsMeta(items);
               } finally {
@@ -1142,8 +1170,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
               items = List<LiquidacionItemDetalle>.from(refreshed.items);
               meta = _buildItemsMeta(items);
-              _localItemsByLiquidacion[liquidacion.id] =
-                  List<LiquidacionItemDetalle>.from(items);
+              _updateItemsCache(
+                bloc: liquidacionesBloc,
+                liquidacionId: liquidacion.id,
+                items: items,
+              );
             }
 
             Future<void> runItemAction({
@@ -1160,8 +1191,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 await action();
                 await refreshAfterAction();
 
-                _localItemsByLiquidacion[liquidacion.id] =
-                    List<LiquidacionItemDetalle>.from(items);
+                _updateItemsCache(
+                  bloc: liquidacionesBloc,
+                  liquidacionId: liquidacion.id,
+                  items: items,
+                );
 
                 final currentState = liquidacionesBloc.state;
                 if (currentState is LiquidacionesLoaded) {
@@ -1296,8 +1330,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   items = items.where((candidate) => candidate.id != item.id).toList();
                   meta = _buildItemsMeta(items);
                 });
-                _localItemsByLiquidacion[liquidacion.id] =
-                    List<LiquidacionItemDetalle>.from(items);
+                _updateItemsCache(
+                  bloc: liquidacionesBloc,
+                  liquidacionId: liquidacion.id,
+                  items: items,
+                );
                 _showMessage('Item local eliminado correctamente');
                 return;
               }

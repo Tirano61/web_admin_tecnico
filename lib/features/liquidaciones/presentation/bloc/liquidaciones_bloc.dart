@@ -60,6 +60,16 @@ class LiquidacionesUpdateTipoServicioRequested extends LiquidacionesEvent {
   final UpdateTipoServicioInput input;
 }
 
+class LiquidacionItemsCacheUpdated extends LiquidacionesEvent {
+  LiquidacionItemsCacheUpdated({
+    required this.liquidacionId,
+    required this.items,
+  });
+
+  final String liquidacionId;
+  final List<LiquidacionItemDetalle> items;
+}
+
 abstract class LiquidacionesState {}
 
 class LiquidacionesInitial extends LiquidacionesState {}
@@ -76,6 +86,7 @@ class LiquidacionesLoaded extends LiquidacionesState {
     required this.aprobado,
     required this.tiposSalida,
     required this.tiposServicio,
+    required this.itemDetallesByLiquidacion,
     this.message,
   });
 
@@ -87,8 +98,43 @@ class LiquidacionesLoaded extends LiquidacionesState {
   final bool? aprobado;
   final List<TipoSalidaCatalogoItem> tiposSalida;
   final List<TipoServicioCatalogoItem> tiposServicio;
+  final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
   final String? message;
+
+  LiquidacionesLoaded copyWith({
+    List<LiquidacionItem>? items,
+    int? total,
+    int? page,
+    int? limit,
+    String? tecnicoId,
+    Object? aprobado = _aprobadoNoChange,
+    List<TipoSalidaCatalogoItem>? tiposSalida,
+    List<TipoServicioCatalogoItem>? tiposServicio,
+    Map<String, List<LiquidacionItemDetalle>>? itemDetallesByLiquidacion,
+    Object? message = _messageNoChange,
+  }) {
+    return LiquidacionesLoaded(
+      items: items ?? this.items,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      limit: limit ?? this.limit,
+      tecnicoId: tecnicoId ?? this.tecnicoId,
+      aprobado: identical(aprobado, _aprobadoNoChange)
+          ? this.aprobado
+          : aprobado as bool?,
+      tiposSalida: tiposSalida ?? this.tiposSalida,
+      tiposServicio: tiposServicio ?? this.tiposServicio,
+      itemDetallesByLiquidacion:
+          itemDetallesByLiquidacion ?? this.itemDetallesByLiquidacion,
+      message: identical(message, _messageNoChange)
+          ? this.message
+          : message as String?,
+    );
+  }
 }
+
+const Object _aprobadoNoChange = Object();
+const Object _messageNoChange = Object();
 
 class LiquidacionesFailure extends LiquidacionesState {
   LiquidacionesFailure(this.message);
@@ -106,10 +152,13 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     on<LiquidacionesUpdateTipoSalidaRequested>(_onUpdateTipoSalidaRequested);
     on<LiquidacionesCreateTipoServicioRequested>(_onCreateTipoServicioRequested);
     on<LiquidacionesUpdateTipoServicioRequested>(_onUpdateTipoServicioRequested);
+    on<LiquidacionItemsCacheUpdated>(_onItemsCacheUpdated);
   }
 
   final LiquidacionesRepository _repository;
   LiquidacionesQuery _lastQuery = const LiquidacionesQuery();
+  final Map<String, List<LiquidacionItemDetalle>> _itemsCacheByLiquidacion =
+      <String, List<LiquidacionItemDetalle>>{};
 
   Future<void> _onRequested(
     LiquidacionesRequested event,
@@ -258,12 +307,41 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
           aprobado: _lastQuery.aprobado,
           tiposSalida: tiposSalida,
           tiposServicio: tiposServicio,
+          itemDetallesByLiquidacion: _snapshotItemCache(),
           message: successMessage,
         ),
       );
     } catch (error) {
       emit(LiquidacionesFailure(_errorMessage(error)));
     }
+  }
+
+  Future<void> _onItemsCacheUpdated(
+    LiquidacionItemsCacheUpdated event,
+    Emitter<LiquidacionesState> emit,
+  ) async {
+    _itemsCacheByLiquidacion[event.liquidacionId] =
+        List<LiquidacionItemDetalle>.from(event.items);
+
+    final current = state;
+    if (current is LiquidacionesLoaded) {
+      emit(
+        current.copyWith(
+          itemDetallesByLiquidacion: _snapshotItemCache(),
+          message: null,
+        ),
+      );
+    }
+  }
+
+  Map<String, List<LiquidacionItemDetalle>> _snapshotItemCache() {
+    final snapshot = <String, List<LiquidacionItemDetalle>>{};
+
+    _itemsCacheByLiquidacion.forEach((key, value) {
+      snapshot[key] = List<LiquidacionItemDetalle>.from(value);
+    });
+
+    return snapshot;
   }
 
   String _errorMessage(Object error) {
