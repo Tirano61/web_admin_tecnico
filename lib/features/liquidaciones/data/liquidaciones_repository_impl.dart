@@ -24,59 +24,61 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       payload,
       (json) {
         final root = _asMap(json);
-        final servicioNode = _asMap(json['servicio']);
-        final tecnicoNode = _asMap(json['tecnico']);
-        final tipoSalidaNode = _asMap(json['tipoSalida']);
+        final liquidacionNode = _asMap(root['liquidacion']);
+        final source = liquidacionNode.isEmpty ? root : liquidacionNode;
+        final servicioNode = _asMap(source['servicio']);
+        final tecnicoNode = _asMap(source['tecnico']);
+        final tipoSalidaNode = _asMap(source['tipoSalida'] ?? source['tipo_salida']);
 
         final precioTipoSalida = _toDouble(
-          root['tipoSalidaPrecioUsd'] ??
-              root['tipo_salida_precio_usd'] ??
+          source['tipoSalidaPrecioUsd'] ??
+              source['tipo_salida_precio_usd'] ??
               tipoSalidaNode['precioUsd'] ??
               tipoSalidaNode['precio_usd'],
         );
         final precioKmSnapshot = _toDouble(
-          root['precioKmUsdSnapshot'] ??
-              root['precio_km_usd_snapshot'] ??
-              root['precioKmUsd'] ??
-              root['precio_km_usd'],
+          source['precioKmUsdSnapshot'] ??
+              source['precio_km_usd_snapshot'] ??
+              source['precioKmUsd'] ??
+              source['precio_km_usd'],
         );
 
         return LiquidacionItem(
-          id: _stringOrNull(root['id'] ?? root['liquidacionId'] ?? root['liquidacion_id']) ?? '-',
+          id: _stringOrNull(source['id'] ?? source['liquidacionId'] ?? source['liquidacion_id']) ?? '-',
           servicioId: _stringOrNull(
-                root['servicioId'] ?? root['servicio_id'] ?? servicioNode['id'],
+                source['servicioId'] ?? source['servicio_id'] ?? servicioNode['id'],
               ) ??
               '-',
-          servicioCanal: _stringOrNull(servicioNode['canal'] ?? root['canal']) ?? '-',
-          tecnicoId: _stringOrNull(root['tecnicoId'] ?? root['tecnico_id'] ?? tecnicoNode['id']),
+          servicioCanal: _stringOrNull(servicioNode['canal'] ?? source['canal']) ?? '-',
+          tecnicoId: _stringOrNull(source['tecnicoId'] ?? source['tecnico_id'] ?? tecnicoNode['id']),
           tecnicoNombre: _stringOrNull(
-            root['tecnicoNombre'] ??
-                root['tecnico_nombre'] ??
+            source['tecnicoNombre'] ??
+                source['tecnico_nombre'] ??
                 tecnicoNode['fullName'] ??
                 tecnicoNode['full_name'] ??
                 tecnicoNode['nombre'],
           ),
           tecnicoEmail: _stringOrNull(
-            root['tecnicoEmail'] ??
-                root['tecnico_email'] ??
+            source['tecnicoEmail'] ??
+                source['tecnico_email'] ??
                 tecnicoNode['email'],
           ),
           tipoSalidaId: _stringOrNull(
-            root['tipoSalidaId'] ?? root['tipo_salida_id'] ?? tipoSalidaNode['id'],
+            source['tipoSalidaId'] ?? source['tipo_salida_id'] ?? tipoSalidaNode['id'],
           ),
           tipoSalidaNombre: _stringOrNull(
-            root['tipoSalidaNombre'] ??
-                root['tipo_salida_nombre'] ??
+            source['tipoSalidaNombre'] ??
+                source['tipo_salida_nombre'] ??
                 tipoSalidaNode['nombre'],
           ),
           tipoSalidaPrecioUsd: precioTipoSalida,
-          km: _toInt(root['km']) ?? 0,
+          km: _toInt(source['km']) ?? 0,
           precioKmUsdSnapshot: precioKmSnapshot,
-          aprobada: _toBool(root['aprobado'] ?? root['aprobada']),
+          aprobada: _toBool(source['aprobado'] ?? source['aprobada']),
           fechaAprobacion: _stringOrNull(
-            root['fechaAprobacion'] ?? root['fecha_aprobacion'],
+            source['fechaAprobacion'] ?? source['fecha_aprobacion'],
           ),
-          createdAt: _stringOrNull(root['createdAt'] ?? root['created_at']),
+          createdAt: _stringOrNull(source['createdAt'] ?? source['created_at']),
         );
       },
       fallbackPage: query.page,
@@ -346,26 +348,72 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   Future<dynamic> _fetchLiquidacionesPayload({required LiquidacionesQuery query}) async {
-    final pagedParams = <String, String>{
-      'page': query.page.toString(),
-      'limit': query.limit.toString(),
-      if (_stringOrNull(query.tecnicoId) != null) 'tecnicoId': query.tecnicoId!.trim(),
-      if (query.aprobado != null) 'aprobado': query.aprobado! ? 'true' : 'false',
-    };
+    AppFailure? lastFailure;
 
-    try {
-      return await _httpClient.getJson('/liquidaciones', queryParameters: pagedParams);
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
+    for (final params in _buildLiquidacionesQueryCandidates(query)) {
+      try {
+        return await _httpClient.getJson('/liquidaciones', queryParameters: params);
+      } on AppFailure catch (error) {
+        if (error.statusCode != 400) {
+          rethrow;
+        }
+        lastFailure = error;
       }
-
-      final fallbackParams = <String, String>{
-        if (_stringOrNull(query.tecnicoId) != null) 'tecnicoId': query.tecnicoId!.trim(),
-        if (query.aprobado != null) 'aprobado': query.aprobado! ? 'true' : 'false',
-      };
-      return _httpClient.getJson('/liquidaciones', queryParameters: fallbackParams);
     }
+
+    throw lastFailure ?? const AppFailure('No se pudo obtener liquidaciones');
+  }
+
+  List<Map<String, String>> _buildLiquidacionesQueryCandidates(
+    LiquidacionesQuery query,
+  ) {
+    final tecnicoId = _stringOrNull(query.tecnicoId);
+    final aprobado = query.aprobado;
+    final aprobadoValue = aprobado == null ? null : (aprobado ? 'true' : 'false');
+    final tecnicoKeys = tecnicoId == null
+        ? const <String?>[null]
+        : const <String?>['tecnicoId', 'tecnico_id'];
+    final aprobadoKeys = aprobadoValue == null
+        ? const <String?>[null]
+        : const <String?>['aprobado'];
+
+    final signatures = <String>{};
+    final candidates = <Map<String, String>>[];
+
+    void addCandidate({
+      required bool includePagination,
+      required String? tecnicoKey,
+      required String? aprobadoKey,
+    }) {
+      final params = <String, String>{
+        if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
+        if (aprobadoKey != null && aprobadoValue != null) aprobadoKey: aprobadoValue,
+        if (includePagination) 'page': query.page.toString(),
+        if (includePagination) 'limit': query.limit.toString(),
+      };
+
+      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+      if (signatures.add(signature)) {
+        candidates.add(params);
+      }
+    }
+
+    for (final tecnicoKey in tecnicoKeys) {
+      for (final aprobadoKey in aprobadoKeys) {
+        addCandidate(
+          includePagination: true,
+          tecnicoKey: tecnicoKey,
+          aprobadoKey: aprobadoKey,
+        );
+        addCandidate(
+          includePagination: false,
+          tecnicoKey: tecnicoKey,
+          aprobadoKey: aprobadoKey,
+        );
+      }
+    }
+
+    return candidates;
   }
 
   bool _isItemsEndpointUnavailable(AppFailure error) {
@@ -463,7 +511,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       'results',
       'rows',
       'tiposSalida',
+      'tipos_salida',
       'tiposServicio',
+      'tipos_servicio',
     ];
 
     for (final key in keys) {

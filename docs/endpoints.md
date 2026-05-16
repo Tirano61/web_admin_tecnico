@@ -14,24 +14,24 @@ Authorization: Bearer <token>
 
 ## Auth publico
 
-| Metodo | Endpoint |
-|---|---|
-| POST | `/auth/register` |
-| POST | `/auth/login` |
+| Metodo | Endpoint         |
+| ------ | ---------------- |
+| POST   | `/auth/register` |
+| POST   | `/auth/login`    |
 
 ## Servicios
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| POST | `/servicios` | tecnico |
-| GET | `/servicios/mios` | tecnico |
-| GET | `/servicios` | admin-tecnico, admin-desarrollo, admin |
-| GET | `/servicios/:id` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| PATCH | `/servicios/:id` | tecnico |
-| GET | `/servicios/:id/documento` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| GET | `/servicios/:id/documento/pdf` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| PATCH | `/servicios/:id/documento` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/servicios/:id/documento/firmado` | tecnico, admin-tecnico, admin-desarrollo, admin |
+| Metodo | Endpoint                           | Rol                                             |
+| ------ | ---------------------------------- | ----------------------------------------------- |
+| POST   | `/servicios`                       | tecnico                                         |
+| GET    | `/servicios/mios`                  | tecnico                                         |
+| GET    | `/servicios`                       | admin-tecnico, admin-desarrollo, admin          |
+| GET    | `/servicios/:id`                   | tecnico, admin-tecnico, admin-desarrollo, admin |
+| PATCH  | `/servicios/:id`                   | tecnico                                         |
+| GET    | `/servicios/:id/documento`         | tecnico, admin-tecnico, admin-desarrollo, admin |
+| GET    | `/servicios/:id/documento/pdf`     | tecnico, admin-tecnico, admin-desarrollo, admin |
+| PATCH  | `/servicios/:id/documento`         | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/servicios/:id/documento/firmado` | tecnico, admin-tecnico, admin-desarrollo, admin |
 
 ### Payload ejemplo POST /servicios
 
@@ -277,13 +277,13 @@ Notas:
 
 ## Clientes
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/clientes?page=&limit=` | tecnico, admin-tecnico, admin |
-| GET | `/clientes/buscar?q=` | tecnico, admin-tecnico, admin |
-| GET | `/clientes/:id` | tecnico, admin-tecnico, admin |
-| POST | `/clientes` | tecnico, admin-tecnico |
-| PATCH | `/clientes/:id` | admin-tecnico |
+| Metodo | Endpoint                 | Rol                           |
+| ------ | ------------------------ | ----------------------------- |
+| GET    | `/clientes?page=&limit=` | tecnico, admin-tecnico, admin |
+| GET    | `/clientes/buscar?q=`    | tecnico, admin-tecnico, admin |
+| GET    | `/clientes/:id`          | tecnico, admin-tecnico, admin |
+| POST   | `/clientes`              | tecnico, admin-tecnico        |
+| PATCH  | `/clientes/:id`          | admin-tecnico                 |
 
 ### GET /clientes (listado paginado)
 
@@ -326,39 +326,39 @@ Notas:
 
 ## Catalogos
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/cat/diagnosticos` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/cat/diagnosticos` | admin-desarrollo, admin |
-| PATCH | `/cat/diagnosticos/:id` | admin-desarrollo, admin |
-| GET | `/cat/resoluciones` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/cat/resoluciones` | admin-desarrollo, admin |
-| PATCH | `/cat/resoluciones/:id` | admin-desarrollo, admin |
-| GET | `/zonas` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/zonas` | admin-tecnico, admin |
-| PATCH | `/zonas/:id` | admin-tecnico, admin |
+| Metodo | Endpoint                | Rol                                             |
+| ------ | ----------------------- | ----------------------------------------------- |
+| GET    | `/cat/diagnosticos`     | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/cat/diagnosticos`     | admin-desarrollo, admin                         |
+| PATCH  | `/cat/diagnosticos/:id` | admin-desarrollo, admin                         |
+| GET    | `/cat/resoluciones`     | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/cat/resoluciones`     | admin-desarrollo, admin                         |
+| PATCH  | `/cat/resoluciones/:id` | admin-desarrollo, admin                         |
+| GET    | `/zonas`                | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/zonas`                | admin-tecnico, admin                            |
+| PATCH  | `/zonas/:id`            | admin-tecnico, admin                            |
 
 ## Productos
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/categorias-producto` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/categorias-producto` | admin-tecnico, admin |
-| PATCH | `/categorias-producto/:id` | admin-tecnico, admin |
-| GET | `/productos?categoriaId=` | tecnico, admin-tecnico, admin-desarrollo, admin |
-| POST | `/productos` | admin-tecnico, admin |
-| PATCH | `/productos/:id` | admin-tecnico, admin |
+| Metodo | Endpoint                   | Rol                                             |
+| ------ | -------------------------- | ----------------------------------------------- |
+| GET    | `/categorias-producto`     | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/categorias-producto`     | admin-tecnico, admin                            |
+| PATCH  | `/categorias-producto/:id` | admin-tecnico, admin                            |
+| GET    | `/productos?categoriaId=`  | tecnico, admin-tecnico, admin-desarrollo, admin |
+| POST   | `/productos`               | admin-tecnico, admin                            |
+| PATCH  | `/productos/:id`           | admin-tecnico, admin                            |
 
 ## Repuestos
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/repuestos?q=` | tecnico, admin-tecnico, admin |
-| GET | `/repuestos/listado?page=&limit=&q=&activo=` | admin-tecnico, admin |
-| POST | `/repuestos` | admin-tecnico |
-| PATCH | `/repuestos/:id` | admin-tecnico |
-| POST | `/servicios/:id/repuestos` | tecnico, admin-tecnico, admin |
-| GET | `/servicios/:id/repuestos` | tecnico, admin-tecnico, admin |
+| Metodo | Endpoint                                     | Rol                           |
+| ------ | -------------------------------------------- | ----------------------------- |
+| GET    | `/repuestos?q=`                              | tecnico, admin-tecnico, admin |
+| GET    | `/repuestos/listado?page=&limit=&q=&activo=` | admin-tecnico, admin          |
+| POST   | `/repuestos`                                 | admin-tecnico                 |
+| PATCH  | `/repuestos/:id`                             | admin-tecnico                 |
+| POST   | `/servicios/:id/repuestos`                   | tecnico, admin-tecnico, admin |
+| GET    | `/servicios/:id/repuestos`                   | tecnico, admin-tecnico, admin |
 
 ### GET /repuestos/listado (admin paginado)
 
@@ -414,11 +414,11 @@ Acepta ambos formatos:
 
 ## Cotizacion
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/cotizacion` | tecnico, admin-tecnico, admin |
-| GET | `/cotizacion/historial` | tecnico, admin-tecnico, admin |
-| POST | `/cotizacion` | admin-tecnico |
+| Metodo | Endpoint                | Rol                           |
+| ------ | ----------------------- | ----------------------------- |
+| GET    | `/cotizacion`           | tecnico, admin-tecnico, admin |
+| GET    | `/cotizacion/historial` | tecnico, admin-tecnico, admin |
+| POST   | `/cotizacion`           | admin-tecnico                 |
 
 Notas:
 
@@ -428,11 +428,11 @@ Notas:
 
 ## Tarifa Km
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/tarifa-km` | tecnico, admin-tecnico, admin |
-| GET | `/tarifa-km/historial` | tecnico, admin-tecnico, admin |
-| POST | `/tarifa-km` | admin-tecnico |
+| Metodo | Endpoint               | Rol                           |
+| ------ | ---------------------- | ----------------------------- |
+| GET    | `/tarifa-km`           | tecnico, admin-tecnico, admin |
+| GET    | `/tarifa-km/historial` | tecnico, admin-tecnico, admin |
+| POST   | `/tarifa-km`           | admin-tecnico                 |
 
 ### Payload POST /tarifa-km
 
@@ -450,23 +450,23 @@ Notas:
 
 ## Liquidacion
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/tipos-salida` | tecnico, admin-tecnico |
-| POST | `/tipos-salida` | admin-tecnico |
-| PATCH | `/tipos-salida/:id` | admin-tecnico |
-| GET | `/tipos-servicio` | tecnico, admin-tecnico |
-| POST | `/tipos-servicio` | admin-tecnico |
-| PATCH | `/tipos-servicio/:id` | admin-tecnico |
-| POST | `/liquidaciones` | admin-tecnico |
-| GET | `/liquidaciones/mias` | tecnico |
-| GET | `/liquidaciones` | admin-tecnico |
-| GET | `/liquidaciones/:id/items` | admin-tecnico |
-| PATCH | `/liquidaciones/:id` | admin-tecnico |
-| PATCH | `/liquidaciones/:id/aprobar` | admin-tecnico |
-| POST | `/liquidaciones/:id/items` | admin-tecnico |
-| PATCH | `/liquidaciones/:id/items/:itemId/aprobar` | admin-tecnico |
-| DELETE | `/liquidaciones/:id/items/:itemId` | admin-tecnico |
+| Metodo | Endpoint                                   | Rol                    |
+| ------ | ------------------------------------------ | ---------------------- |
+| GET    | `/tipos-salida`                            | tecnico, admin-tecnico |
+| POST   | `/tipos-salida`                            | admin-tecnico          |
+| PATCH  | `/tipos-salida/:id`                        | admin-tecnico          |
+| GET    | `/tipos-servicio`                          | tecnico, admin-tecnico |
+| POST   | `/tipos-servicio`                          | admin-tecnico          |
+| PATCH  | `/tipos-servicio/:id`                      | admin-tecnico          |
+| POST   | `/liquidaciones`                           | admin-tecnico          |
+| GET    | `/liquidaciones/mias`                      | tecnico                |
+| GET    | `/liquidaciones`                           | admin-tecnico          |
+| GET    | `/liquidaciones/:id/items`                 | admin-tecnico          |
+| PATCH  | `/liquidaciones/:id`                       | admin-tecnico          |
+| PATCH  | `/liquidaciones/:id/aprobar`               | admin-tecnico          |
+| POST   | `/liquidaciones/:id/items`                 | admin-tecnico          |
+| PATCH  | `/liquidaciones/:id/items/:itemId/aprobar` | admin-tecnico          |
+| DELETE | `/liquidaciones/:id/items/:itemId`         | admin-tecnico          |
 
 ### Payloads importantes de liquidacion
 
@@ -526,12 +526,12 @@ Notas:
 
 ## Analytics (feedback)
 
-| Metodo | Endpoint | Rol |
-|---|---|---|
-| GET | `/stats/por-canal` | admin-desarrollo, admin |
-| GET | `/stats/por-diagnostico` | admin-desarrollo, admin |
-| GET | `/stats/por-parte` | admin-desarrollo, admin |
-| GET | `/stats/por-producto` | admin-desarrollo, admin |
-| GET | `/stats/por-periodo` | admin-desarrollo, admin |
-| GET | `/stats/resolucion` | admin-desarrollo, admin |
-| GET | `/export` | admin-desarrollo, admin |
+| Metodo | Endpoint                 | Rol                     |
+| ------ | ------------------------ | ----------------------- |
+| GET    | `/stats/por-canal`       | admin-desarrollo, admin |
+| GET    | `/stats/por-diagnostico` | admin-desarrollo, admin |
+| GET    | `/stats/por-parte`       | admin-desarrollo, admin |
+| GET    | `/stats/por-producto`    | admin-desarrollo, admin |
+| GET    | `/stats/por-periodo`     | admin-desarrollo, admin |
+| GET    | `/stats/resolucion`      | admin-desarrollo, admin |
+| GET    | `/export`                | admin-desarrollo, admin |
