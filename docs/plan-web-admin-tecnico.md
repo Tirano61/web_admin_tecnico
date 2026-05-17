@@ -88,12 +88,39 @@ Nota de permisos UX: diagnosticos/resoluciones se muestran en modo lectura para 
 - Gestion de liquidaciones:
   - crear (`POST /liquidaciones`)
   - listar (`GET /liquidaciones`)
+  - listar servicios pendientes de liquidar (`GET /liquidaciones/pendientes`)
   - listar items por liquidacion (`GET /liquidaciones/:id/items`)
   - editar cabecera (`PATCH /liquidaciones/:id`)
   - aprobar liquidacion (`PATCH /liquidaciones/:id/aprobar`)
   - agregar item (`POST /liquidaciones/:id/items`)
   - aprobar item (`PATCH /liquidaciones/:id/items/:itemId/aprobar`)
   - eliminar item (`DELETE /liquidaciones/:id/items/:itemId`)
+
+#### Comentarios de logica operativa (importante para web admin-tecnico)
+
+- La pantalla debe separar dos vistas:
+  - Pendientes de liquidar: `GET /liquidaciones/pendientes` (servicios `canal=campo` sin liquidacion creada).
+  - Liquidaciones creadas: `GET /liquidaciones` (aprobadas y no aprobadas, segun filtro).
+- El tecnico NO se define manualmente en liquidaciones: se hereda de la orden de servicio asociada.
+- `POST /liquidaciones` crea la cabecera de liquidacion para un servicio puntual y requiere `servicioId`/`servicio_id` + `km`.
+- Reglas de creacion:
+  - Solo se permite para servicios `canal=campo`.
+  - Solo se permite una liquidacion por servicio.
+- Al crear/editar cabecera, backend guarda snapshots de precio para trazabilidad:
+  - `tipoSalidaNombre`
+  - `tipoSalidaPrecioUsd`
+  - `precioKmUsdSnapshot`
+- Los items se gestionan sobre una liquidacion ya creada:
+  - Alta: `POST /liquidaciones/:id/items` (snapshot de nombre/precio del tipo de servicio).
+  - Listado: `GET /liquidaciones/:id/items` (incluye `itemId` y meta para UI).
+  - Maximo: 6 items por liquidacion.
+- Reglas de aprobacion/bloqueo:
+  - Si la liquidacion esta aprobada, no se puede editar cabecera ni agregar items.
+  - Si un item esta aprobado, no se puede eliminar.
+- Para filtro por tecnico en UI:
+  - `tecnicoId` es opcional en `GET /liquidaciones` y `GET /liquidaciones/pendientes`.
+  - El backend tambien devuelve `tecnicoNombre` y `tecnicoEmail` para facilitar seleccion/visualizacion.
+- `GET /liquidaciones/mias` es solo para rol `tecnico` (autogestion), no para la pantalla admin-tecnico.
 
 ## 4) Arquitectura Flutter recomendada (web)
 
@@ -189,6 +216,7 @@ Entrega: mantenimiento operativo completo.
 - Cotizacion y tarifa km (actual + historial + alta).
 - Tipos salida/tipos servicio.
 - Liquidaciones: crear, listar, ver items, editar, aprobacion.
+- Liquidaciones: incluir vista de pendientes de liquidar (servicios `canal=campo` sin liquidacion).
 - Reglas UX para `canal=campo` (evitar liquidar otros canales).
 
 Entrega: circuito de liquidacion cerrado.
