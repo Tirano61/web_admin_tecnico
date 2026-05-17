@@ -18,12 +18,6 @@ class LiquidacionesRequested extends LiquidacionesEvent {
   final int limit;
 }
 
-class LiquidacionesCreateRequested extends LiquidacionesEvent {
-  LiquidacionesCreateRequested({required this.input});
-
-  final CreateLiquidacionInput input;
-}
-
 class LiquidacionesUpdateRequested extends LiquidacionesEvent {
   LiquidacionesUpdateRequested({required this.input});
 
@@ -145,7 +139,6 @@ class LiquidacionesFailure extends LiquidacionesState {
 class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
   LiquidacionesBloc(this._repository) : super(LiquidacionesInitial()) {
     on<LiquidacionesRequested>(_onRequested);
-    on<LiquidacionesCreateRequested>(_onCreateRequested);
     on<LiquidacionesUpdateRequested>(_onUpdateRequested);
     on<LiquidacionesApproveRequested>(_onApproveRequested);
     on<LiquidacionesCreateTipoSalidaRequested>(_onCreateTipoSalidaRequested);
@@ -171,22 +164,6 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
       limit: event.limit,
     );
     await _loadAndEmit(emit: emit, showLoading: true);
-  }
-
-  Future<void> _onCreateRequested(
-    LiquidacionesCreateRequested event,
-    Emitter<LiquidacionesState> emit,
-  ) async {
-    try {
-      await _repository.createLiquidacion(input: event.input);
-      _lastQuery = _lastQuery.copyWith(page: 1);
-      await _loadAndEmit(
-        emit: emit,
-        successMessage: 'Liquidacion creada correctamente',
-      );
-    } catch (error) {
-      emit(LiquidacionesFailure(_errorMessage(error)));
-    }
   }
 
   Future<void> _onUpdateRequested(

@@ -138,16 +138,6 @@ class LiquidacionItem {
   double get subtotalEstimadoUsd => tipoSalidaPrecioUsd + (km * precioKmUsdSnapshot);
 }
 
-class CreateLiquidacionInput {
-  const CreateLiquidacionInput({
-    required this.servicioId,
-    required this.km,
-  });
-
-  final String servicioId;
-  final int km;
-}
-
 class UpdateLiquidacionInput {
   const UpdateLiquidacionInput({
     required this.liquidacionId,
@@ -280,8 +270,6 @@ abstract class LiquidacionesRepository {
   Future<List<TipoSalidaCatalogoItem>> fetchTiposSalida();
 
   Future<List<TipoServicioCatalogoItem>> fetchTiposServicio();
-
-  Future<void> createLiquidacion({required CreateLiquidacionInput input});
 
   Future<void> updateLiquidacion({required UpdateLiquidacionInput input});
 
