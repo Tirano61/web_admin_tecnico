@@ -8,14 +8,24 @@ class LiquidacionesRequested extends LiquidacionesEvent {
   LiquidacionesRequested({
     this.tecnicoId,
     this.aprobado,
-    this.page = 1,
-    this.limit = 20,
+    this.liquidacionesPage = 1,
+    this.liquidacionesLimit = 20,
+    this.pendientesPage = 1,
+    this.pendientesLimit = 20,
   });
 
   final String? tecnicoId;
   final bool? aprobado;
-  final int page;
-  final int limit;
+  final int liquidacionesPage;
+  final int liquidacionesLimit;
+  final int pendientesPage;
+  final int pendientesLimit;
+}
+
+class LiquidacionesCreateRequested extends LiquidacionesEvent {
+  LiquidacionesCreateRequested({required this.input});
+
+  final CreateLiquidacionInput input;
 }
 
 class LiquidacionesUpdateRequested extends LiquidacionesEvent {
@@ -72,10 +82,14 @@ class LiquidacionesLoading extends LiquidacionesState {}
 
 class LiquidacionesLoaded extends LiquidacionesState {
   LiquidacionesLoaded({
-    required this.items,
-    required this.total,
-    required this.page,
-    required this.limit,
+    required this.liquidaciones,
+    required this.liquidacionesTotal,
+    required this.liquidacionesPage,
+    required this.liquidacionesLimit,
+    required this.pendientes,
+    required this.pendientesTotal,
+    required this.pendientesPage,
+    required this.pendientesLimit,
     required this.tecnicoId,
     required this.aprobado,
     required this.tiposSalida,
@@ -84,10 +98,14 @@ class LiquidacionesLoaded extends LiquidacionesState {
     this.message,
   });
 
-  final List<LiquidacionItem> items;
-  final int total;
-  final int page;
-  final int limit;
+  final List<LiquidacionItem> liquidaciones;
+  final int liquidacionesTotal;
+  final int liquidacionesPage;
+  final int liquidacionesLimit;
+  final List<LiquidacionPendienteItem> pendientes;
+  final int pendientesTotal;
+  final int pendientesPage;
+  final int pendientesLimit;
   final String? tecnicoId;
   final bool? aprobado;
   final List<TipoSalidaCatalogoItem> tiposSalida;
@@ -96,10 +114,14 @@ class LiquidacionesLoaded extends LiquidacionesState {
   final String? message;
 
   LiquidacionesLoaded copyWith({
-    List<LiquidacionItem>? items,
-    int? total,
-    int? page,
-    int? limit,
+    List<LiquidacionItem>? liquidaciones,
+    int? liquidacionesTotal,
+    int? liquidacionesPage,
+    int? liquidacionesLimit,
+    List<LiquidacionPendienteItem>? pendientes,
+    int? pendientesTotal,
+    int? pendientesPage,
+    int? pendientesLimit,
     String? tecnicoId,
     Object? aprobado = _aprobadoNoChange,
     List<TipoSalidaCatalogoItem>? tiposSalida,
@@ -108,10 +130,14 @@ class LiquidacionesLoaded extends LiquidacionesState {
     Object? message = _messageNoChange,
   }) {
     return LiquidacionesLoaded(
-      items: items ?? this.items,
-      total: total ?? this.total,
-      page: page ?? this.page,
-      limit: limit ?? this.limit,
+      liquidaciones: liquidaciones ?? this.liquidaciones,
+      liquidacionesTotal: liquidacionesTotal ?? this.liquidacionesTotal,
+      liquidacionesPage: liquidacionesPage ?? this.liquidacionesPage,
+      liquidacionesLimit: liquidacionesLimit ?? this.liquidacionesLimit,
+      pendientes: pendientes ?? this.pendientes,
+      pendientesTotal: pendientesTotal ?? this.pendientesTotal,
+      pendientesPage: pendientesPage ?? this.pendientesPage,
+      pendientesLimit: pendientesLimit ?? this.pendientesLimit,
       tecnicoId: tecnicoId ?? this.tecnicoId,
       aprobado: identical(aprobado, _aprobadoNoChange)
           ? this.aprobado
@@ -139,6 +165,7 @@ class LiquidacionesFailure extends LiquidacionesState {
 class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
   LiquidacionesBloc(this._repository) : super(LiquidacionesInitial()) {
     on<LiquidacionesRequested>(_onRequested);
+    on<LiquidacionesCreateRequested>(_onCreateRequested);
     on<LiquidacionesUpdateRequested>(_onUpdateRequested);
     on<LiquidacionesApproveRequested>(_onApproveRequested);
     on<LiquidacionesCreateTipoSalidaRequested>(_onCreateTipoSalidaRequested);
@@ -149,7 +176,9 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
   }
 
   final LiquidacionesRepository _repository;
-  LiquidacionesQuery _lastQuery = const LiquidacionesQuery();
+  LiquidacionesQuery _lastLiquidacionesQuery = const LiquidacionesQuery();
+  LiquidacionesPendientesQuery _lastPendientesQuery =
+      const LiquidacionesPendientesQuery();
   final Map<String, List<LiquidacionItemDetalle>> _itemsCacheByLiquidacion =
       <String, List<LiquidacionItemDetalle>>{};
 
@@ -157,13 +186,33 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     LiquidacionesRequested event,
     Emitter<LiquidacionesState> emit,
   ) async {
-    _lastQuery = LiquidacionesQuery(
+    _lastLiquidacionesQuery = LiquidacionesQuery(
       tecnicoId: event.tecnicoId,
       aprobado: event.aprobado,
-      page: event.page,
-      limit: event.limit,
+      page: event.liquidacionesPage,
+      limit: event.liquidacionesLimit,
+    );
+    _lastPendientesQuery = LiquidacionesPendientesQuery(
+      tecnicoId: event.tecnicoId,
+      page: event.pendientesPage,
+      limit: event.pendientesLimit,
     );
     await _loadAndEmit(emit: emit, showLoading: true);
+  }
+
+  Future<void> _onCreateRequested(
+    LiquidacionesCreateRequested event,
+    Emitter<LiquidacionesState> emit,
+  ) async {
+    try {
+      await _repository.createLiquidacion(input: event.input);
+      await _loadAndEmit(
+        emit: emit,
+        successMessage: 'Liquidacion creada correctamente',
+      );
+    } catch (error) {
+      emit(LiquidacionesFailure(_errorMessage(error)));
+    }
   }
 
   Future<void> _onUpdateRequested(
@@ -266,22 +315,30 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     }
 
     try {
-      final resultFuture = _repository.fetchLiquidaciones(query: _lastQuery);
+      final liquidacionesFuture =
+          _repository.fetchLiquidaciones(query: _lastLiquidacionesQuery);
+      final pendientesFuture =
+          _repository.fetchLiquidacionesPendientes(query: _lastPendientesQuery);
       final tiposSalidaFuture = _repository.fetchTiposSalida();
       final tiposServicioFuture = _repository.fetchTiposServicio();
 
-      final result = await resultFuture;
+      final liquidacionesResult = await liquidacionesFuture;
+      final pendientesResult = await pendientesFuture;
       final tiposSalida = await tiposSalidaFuture;
       final tiposServicio = await tiposServicioFuture;
 
       emit(
         LiquidacionesLoaded(
-          items: result.items,
-          total: result.total,
-          page: result.page,
-          limit: result.limit,
-          tecnicoId: _lastQuery.tecnicoId,
-          aprobado: _lastQuery.aprobado,
+          liquidaciones: liquidacionesResult.items,
+          liquidacionesTotal: liquidacionesResult.total,
+          liquidacionesPage: liquidacionesResult.page,
+          liquidacionesLimit: liquidacionesResult.limit,
+          pendientes: pendientesResult.items,
+          pendientesTotal: pendientesResult.total,
+          pendientesPage: pendientesResult.page,
+          pendientesLimit: pendientesResult.limit,
+          tecnicoId: _lastLiquidacionesQuery.tecnicoId,
+          aprobado: _lastLiquidacionesQuery.aprobado,
           tiposSalida: tiposSalida,
           tiposServicio: tiposServicio,
           itemDetallesByLiquidacion: _snapshotItemCache(),

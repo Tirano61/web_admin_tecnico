@@ -105,6 +105,108 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   @override
+  Future<PagedResult<LiquidacionPendienteItem>> fetchLiquidacionesPendientes({
+    required LiquidacionesPendientesQuery query,
+  }) async {
+    final payload = await _fetchPendientesPayload(query: query);
+    final normalizedPayload = _normalizePendientesPayload(payload);
+
+    final result = PagedResult<LiquidacionPendienteItem>.fromDynamic(
+      normalizedPayload,
+      (json) {
+        final root = _asMap(json);
+        final servicioNode = _asMap(root['servicio']);
+        final tecnicoNode = _asMap(root['tecnico'] ?? servicioNode['tecnico']);
+        final clienteNode = _asMap(root['cliente'] ?? servicioNode['cliente']);
+        final source = servicioNode.isEmpty ? root : servicioNode;
+
+        return LiquidacionPendienteItem(
+          servicioId: _stringOrNull(
+                root['servicioId'] ??
+                    root['servicio_id'] ??
+                    source['servicioId'] ??
+                    source['servicio_id'] ??
+                    source['id'],
+              ) ??
+              '-',
+          servicioCanal: _stringOrNull(
+                root['canal'] ?? source['canal'],
+              ) ??
+              '-',
+          kmSugerido: _toInt(
+            root['km'] ??
+                root['kmSugerido'] ??
+                root['km_sugerido'] ??
+                source['km'] ??
+                source['kmSugerido'] ??
+                source['km_sugerido'],
+          ),
+          tecnicoId: _stringOrNull(
+            root['tecnicoId'] ??
+                root['tecnico_id'] ??
+                source['tecnicoId'] ??
+                source['tecnico_id'] ??
+                tecnicoNode['id'],
+          ),
+          tecnicoNombre: _stringOrNull(
+            root['tecnicoNombre'] ??
+                root['tecnico_nombre'] ??
+                source['tecnicoNombre'] ??
+                source['tecnico_nombre'] ??
+                tecnicoNode['fullName'] ??
+                tecnicoNode['full_name'] ??
+                tecnicoNode['nombre'],
+          ),
+          tecnicoEmail: _stringOrNull(
+            root['tecnicoEmail'] ??
+                root['tecnico_email'] ??
+                source['tecnicoEmail'] ??
+                source['tecnico_email'] ??
+                tecnicoNode['email'],
+          ),
+          clienteNombre: _stringOrNull(
+            root['clienteNombre'] ??
+                root['cliente_nombre'] ??
+                source['clienteNombre'] ??
+                source['cliente_nombre'] ??
+                clienteNode['nombre'],
+          ),
+          fechaHoraServicio: _stringOrNull(
+            root['fechaHoraServicio'] ??
+                root['fecha_hora_servicio'] ??
+                source['fechaHoraServicio'] ??
+                source['fecha_hora_servicio'] ??
+                source['createdAt'] ??
+                source['created_at'],
+          ),
+        );
+      },
+      fallbackPage: query.page,
+      fallbackLimit: query.limit,
+    );
+
+    if (result.items.length <= query.limit) {
+      return result;
+    }
+
+    final start = (query.page - 1) * query.limit;
+    final end = start + query.limit;
+    final pagedItems = start >= result.items.length
+        ? <LiquidacionPendienteItem>[]
+        : result.items.sublist(
+            start,
+            end > result.items.length ? result.items.length : end,
+          );
+
+    return PagedResult<LiquidacionPendienteItem>(
+      items: pagedItems,
+      total: result.total,
+      page: query.page,
+      limit: query.limit,
+    );
+  }
+
+  @override
   Future<LiquidacionItemsResponse?> fetchLiquidacionItems(String liquidacionId) async {
     if (!enableItemsGetEndpoint) {
       return null;
@@ -213,6 +315,34 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
 
     output.sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
     return output;
+  }
+
+  @override
+  Future<void> createLiquidacion({required CreateLiquidacionInput input}) async {
+    final servicioId = input.servicioId.trim();
+    if (servicioId.isEmpty) {
+      throw const AppFailure('Servicio invalido para crear liquidacion');
+    }
+
+    if (input.km <= 0) {
+      throw const AppFailure('El KM debe ser mayor a 0 para crear la liquidacion');
+    }
+
+    final candidates = <Map<String, dynamic>>[
+      <String, dynamic>{
+        'servicio_id': servicioId,
+        'km': input.km,
+      },
+      <String, dynamic>{
+        'servicioId': servicioId,
+        'km': input.km,
+      },
+    ];
+
+    await _sendWithFallback<dynamic>(
+      candidates,
+      (body) => _httpClient.postJson('/liquidaciones', body: body),
+    );
   }
 
   @override
@@ -350,6 +480,25 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     throw lastFailure ?? const AppFailure('No se pudo obtener liquidaciones');
   }
 
+  Future<dynamic> _fetchPendientesPayload({
+    required LiquidacionesPendientesQuery query,
+  }) async {
+    AppFailure? lastFailure;
+
+    for (final params in _buildPendientesQueryCandidates(query)) {
+      try {
+        return await _httpClient.getJson('/liquidaciones/pendientes', queryParameters: params);
+      } on AppFailure catch (error) {
+        if (error.statusCode != 400) {
+          rethrow;
+        }
+        lastFailure = error;
+      }
+    }
+
+    throw lastFailure ?? const AppFailure('No se pudo obtener pendientes de liquidacion');
+  }
+
   List<Map<String, String>> _buildLiquidacionesQueryCandidates(
     LiquidacionesQuery query,
   ) {
@@ -397,6 +546,41 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
           aprobadoKey: aprobadoKey,
         );
       }
+    }
+
+    return candidates;
+  }
+
+  List<Map<String, String>> _buildPendientesQueryCandidates(
+    LiquidacionesPendientesQuery query,
+  ) {
+    final tecnicoId = _stringOrNull(query.tecnicoId);
+    final tecnicoKeys = tecnicoId == null
+        ? const <String?>[null]
+        : const <String?>['tecnicoId', 'tecnico_id'];
+
+    final signatures = <String>{};
+    final candidates = <Map<String, String>>[];
+
+    void addCandidate({
+      required bool includePagination,
+      required String? tecnicoKey,
+    }) {
+      final params = <String, String>{
+        if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
+        if (includePagination) 'page': query.page.toString(),
+        if (includePagination) 'limit': query.limit.toString(),
+      };
+
+      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
+      if (signatures.add(signature)) {
+        candidates.add(params);
+      }
+    }
+
+    for (final tecnicoKey in tecnicoKeys) {
+      addCandidate(includePagination: true, tecnicoKey: tecnicoKey);
+      addCandidate(includePagination: false, tecnicoKey: tecnicoKey);
     }
 
     return candidates;
@@ -459,6 +643,63 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     };
   }
 
+  dynamic _normalizePendientesPayload(dynamic payload) {
+    if (payload is List) {
+      return <String, dynamic>{'items': payload};
+    }
+
+    final root = _asMap(payload);
+    if (root.isEmpty) {
+      return payload;
+    }
+
+    final directItems = _extractPendientesItems(root);
+    if (directItems != null) {
+      return <String, dynamic>{
+        'items': directItems,
+        if (root['meta'] is Map) 'meta': root['meta'],
+        if (root['pagination'] is Map) 'pagination': root['pagination'],
+        if (root['page'] != null) 'page': root['page'],
+        if (root['limit'] != null) 'limit': root['limit'],
+        if (root['pageSize'] != null) 'pageSize': root['pageSize'],
+        if (root['total'] != null) 'total': root['total'],
+        if (root['count'] != null) 'count': root['count'],
+        if (root['totalItems'] != null) 'totalItems': root['totalItems'],
+      };
+    }
+
+    final dataNode = _asMap(root['data']);
+    if (dataNode.isEmpty) {
+      return payload;
+    }
+
+    final dataItems = _extractPendientesItems(dataNode);
+    if (dataItems == null) {
+      return payload;
+    }
+
+    return <String, dynamic>{
+      'items': dataItems,
+      if (dataNode['meta'] is Map) 'meta': dataNode['meta'] else if (root['meta'] is Map) 'meta': root['meta'],
+      if (dataNode['pagination'] is Map)
+        'pagination': dataNode['pagination']
+      else if (root['pagination'] is Map)
+        'pagination': root['pagination'],
+      if (dataNode['page'] != null) 'page': dataNode['page'] else if (root['page'] != null) 'page': root['page'],
+      if (dataNode['limit'] != null) 'limit': dataNode['limit'] else if (root['limit'] != null) 'limit': root['limit'],
+      if (dataNode['pageSize'] != null)
+        'pageSize': dataNode['pageSize']
+      else if (root['pageSize'] != null)
+        'pageSize': root['pageSize'],
+      if (dataNode['total'] != null) 'total': dataNode['total'] else if (root['total'] != null) 'total': root['total'],
+      if (dataNode['count'] != null) 'count': dataNode['count'] else if (root['count'] != null) 'count': root['count'],
+      if (dataNode['totalItems'] != null)
+        'totalItems': dataNode['totalItems']
+      else if (root['totalItems'] != null)
+        'totalItems': root['totalItems'],
+    };
+  }
+
   List<dynamic>? _extractLiquidacionesItems(Map<String, dynamic> source) {
     const keys = <String>[
       'liquidaciones',
@@ -478,10 +719,34 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     return null;
   }
 
+  List<dynamic>? _extractPendientesItems(Map<String, dynamic> source) {
+    const keys = <String>[
+      'pendientes',
+      'servicios',
+      'items',
+      'results',
+      'rows',
+      'data',
+    ];
+
+    for (final key in keys) {
+      final value = source[key];
+      if (value is List) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
   bool _isItemsEndpointUnavailable(AppFailure error) {
     final status = error.statusCode;
-    if (status == 404 || status == 405 || status == 501) {
+    if (status == 404 || status == 501) {
       return true;
+    }
+
+    if (status != null) {
+      return false;
     }
 
     final message = error.message.toLowerCase();

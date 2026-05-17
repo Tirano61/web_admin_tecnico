@@ -138,6 +138,38 @@ class LiquidacionItem {
   double get subtotalEstimadoUsd => tipoSalidaPrecioUsd + (km * precioKmUsdSnapshot);
 }
 
+class LiquidacionPendienteItem {
+  const LiquidacionPendienteItem({
+    required this.servicioId,
+    required this.servicioCanal,
+    this.kmSugerido,
+    this.tecnicoId,
+    this.tecnicoNombre,
+    this.tecnicoEmail,
+    this.clienteNombre,
+    this.fechaHoraServicio,
+  });
+
+  final String servicioId;
+  final String servicioCanal;
+  final int? kmSugerido;
+  final String? tecnicoId;
+  final String? tecnicoNombre;
+  final String? tecnicoEmail;
+  final String? clienteNombre;
+  final String? fechaHoraServicio;
+}
+
+class CreateLiquidacionInput {
+  const CreateLiquidacionInput({
+    required this.servicioId,
+    required this.km,
+  });
+
+  final String servicioId;
+  final int km;
+}
+
 class UpdateLiquidacionInput {
   const UpdateLiquidacionInput({
     required this.liquidacionId,
@@ -262,14 +294,32 @@ class LiquidacionesQuery {
   }
 }
 
+class LiquidacionesPendientesQuery {
+  const LiquidacionesPendientesQuery({
+    this.tecnicoId,
+    this.page = 1,
+    this.limit = 20,
+  });
+
+  final String? tecnicoId;
+  final int page;
+  final int limit;
+}
+
 abstract class LiquidacionesRepository {
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({required LiquidacionesQuery query});
+
+  Future<PagedResult<LiquidacionPendienteItem>> fetchLiquidacionesPendientes({
+    required LiquidacionesPendientesQuery query,
+  });
 
   Future<LiquidacionItemsResponse?> fetchLiquidacionItems(String liquidacionId);
 
   Future<List<TipoSalidaCatalogoItem>> fetchTiposSalida();
 
   Future<List<TipoServicioCatalogoItem>> fetchTiposServicio();
+
+  Future<void> createLiquidacion({required CreateLiquidacionInput input});
 
   Future<void> updateLiquidacion({required UpdateLiquidacionInput input});
 
