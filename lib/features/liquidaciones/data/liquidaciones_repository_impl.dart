@@ -116,9 +116,18 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       (json) {
         final root = _asMap(json);
         final servicioNode = _asMap(root['servicio']);
-        final tecnicoNode = _asMap(root['tecnico'] ?? servicioNode['tecnico']);
-        final clienteNode = _asMap(root['cliente'] ?? servicioNode['cliente']);
+        final rootTecnicoNode = _asMap(root['tecnico']);
+        final servicioTecnicoNode = _asMap(servicioNode['tecnico']);
+        final tecnicoNode = rootTecnicoNode.isNotEmpty ? rootTecnicoNode : servicioTecnicoNode;
+        final rootClienteNode = _asMap(root['cliente']);
+        final servicioClienteNode = _asMap(servicioNode['cliente']);
+        final clienteNode = rootClienteNode.isNotEmpty ? rootClienteNode : servicioClienteNode;
         final source = servicioNode.isEmpty ? root : servicioNode;
+        final facturacionNode = _asMap(root['facturacion'] ?? source['facturacion']);
+        final clienteRaw = root['cliente'] ?? source['cliente'];
+        final clienteTextoPlano = clienteRaw is String && !_looksLikeUuid(clienteRaw)
+          ? clienteRaw
+          : null;
 
         return LiquidacionPendienteItem(
           servicioId: _stringOrNull(
@@ -137,9 +146,16 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
             root['km'] ??
                 root['kmSugerido'] ??
                 root['km_sugerido'] ??
+                root['kmCantidad'] ??
+                root['km_cantidad'] ??
                 source['km'] ??
                 source['kmSugerido'] ??
-                source['km_sugerido'],
+                source['km_sugerido'] ??
+                source['kmCantidad'] ??
+                source['km_cantidad'] ??
+                facturacionNode['kmCantidad'] ??
+                facturacionNode['km_cantidad'] ??
+                facturacionNode['km'],
           ),
           tecnicoId: _stringOrNull(
             root['tecnicoId'] ??
@@ -164,12 +180,11 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
                 source['tecnico_email'] ??
                 tecnicoNode['email'],
           ),
-          clienteNombre: _stringOrNull(
-            root['clienteNombre'] ??
-                root['cliente_nombre'] ??
-                source['clienteNombre'] ??
-                source['cliente_nombre'] ??
-                clienteNode['nombre'],
+          clienteNombre: _resolveClienteNombrePendiente(
+            root: root,
+            source: source,
+            clienteNode: clienteNode,
+            clienteTextoPlano: clienteTextoPlano,
           ),
           fechaHoraServicio: _stringOrNull(
             root['fechaHoraServicio'] ??
@@ -186,7 +201,16 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     );
 
     if (result.items.length <= query.limit) {
-      return result;
+      final hydratedItems = await _hydratePendientesFromServiciosIfNeeded(
+        result.items,
+      );
+
+      return PagedResult<LiquidacionPendienteItem>(
+        items: hydratedItems,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      );
     }
 
     final start = (query.page - 1) * query.limit;
@@ -198,12 +222,105 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
             end > result.items.length ? result.items.length : end,
           );
 
+    final hydratedPagedItems = await _hydratePendientesFromServiciosIfNeeded(
+      pagedItems,
+    );
+
     return PagedResult<LiquidacionPendienteItem>(
-      items: pagedItems,
+      items: hydratedPagedItems,
       total: result.total,
       page: query.page,
       limit: query.limit,
     );
+  }
+
+  Future<List<LiquidacionPendienteItem>> _hydratePendientesFromServiciosIfNeeded(
+    List<LiquidacionPendienteItem> items,
+  ) async {
+    final indexesToHydrate = <int>[];
+    for (var index = 0; index < items.length; index++) {
+      if (_requiresServicioHydration(items[index])) {
+        indexesToHydrate.add(index);
+      }
+    }
+
+    if (indexesToHydrate.isEmpty) {
+      return items;
+    }
+
+    final hydrated = List<LiquidacionPendienteItem>.from(items);
+    await Future.wait(
+      indexesToHydrate.map((index) async {
+        hydrated[index] = await _hydratePendienteFromServicio(hydrated[index]);
+      }),
+    );
+
+    return hydrated;
+  }
+
+  bool _requiresServicioHydration(LiquidacionPendienteItem item) {
+    final missingCliente = (item.clienteNombre ?? '').trim().isEmpty;
+    final missingKm = item.kmSugerido == null;
+    return missingCliente || missingKm;
+  }
+
+  Future<LiquidacionPendienteItem> _hydratePendienteFromServicio(
+    LiquidacionPendienteItem item,
+  ) async {
+    final servicioId = item.servicioId.trim();
+    if (servicioId.isEmpty || servicioId == '-') {
+      return item;
+    }
+
+    try {
+      final payload = await _httpClient.getJson('/servicios/$servicioId');
+      final root = _asMap(payload);
+      final servicioNode = _asMap(root['servicio']);
+      final source = servicioNode.isEmpty ? root : servicioNode;
+      final clienteNode = _asMap(source['cliente'] ?? root['cliente']);
+      final facturacionNode =
+          _asMap(root['facturacion'] ?? source['facturacion']);
+
+      final clienteNombre = _resolveClienteNombrePendiente(
+        root: root,
+        source: source,
+        clienteNode: clienteNode,
+        clienteTextoPlano: null,
+      );
+      final kmSugerido = _toInt(
+        source['km'] ??
+            source['kmCantidad'] ??
+            source['km_cantidad'] ??
+            root['km'] ??
+            root['kmCantidad'] ??
+            root['km_cantidad'] ??
+            facturacionNode['kmCantidad'] ??
+            facturacionNode['km_cantidad'] ??
+            facturacionNode['km'],
+      );
+      final fechaHoraServicio = _stringOrNull(
+        root['fechaHoraServicio'] ??
+            root['fecha_hora_servicio'] ??
+            source['fechaHoraServicio'] ??
+            source['fecha_hora_servicio'] ??
+            source['createdAt'] ??
+            source['created_at'],
+      );
+      final canal = _stringOrNull(source['canal'] ?? root['canal']);
+
+      return LiquidacionPendienteItem(
+        servicioId: item.servicioId,
+        servicioCanal: canal ?? item.servicioCanal,
+        kmSugerido: kmSugerido ?? item.kmSugerido,
+        tecnicoId: item.tecnicoId,
+        tecnicoNombre: item.tecnicoNombre,
+        tecnicoEmail: item.tecnicoEmail,
+        clienteNombre: clienteNombre ?? item.clienteNombre,
+        fechaHoraServicio: fechaHoraServicio ?? item.fechaHoraServicio,
+      );
+    } on AppFailure {
+      return item;
+    }
   }
 
   @override
@@ -722,6 +839,8 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   List<dynamic>? _extractPendientesItems(Map<String, dynamic> source) {
     const keys = <String>[
       'pendientes',
+      'serviciosPendientes',
+      'servicios_pendientes',
       'servicios',
       'items',
       'results',
@@ -733,6 +852,15 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       final value = source[key];
       if (value is List) {
         return value;
+      }
+      if (value is Map) {
+        final nested = _asMap(value);
+        for (final nestedKey in keys) {
+          final nestedValue = nested[nestedKey];
+          if (nestedValue is List) {
+            return nestedValue;
+          }
+        }
       }
     }
 
@@ -897,7 +1025,19 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       return value.toInt();
     }
     if (value is String) {
-      return int.tryParse(value);
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
+
+      final direct = int.tryParse(trimmed);
+      if (direct != null) {
+        return direct;
+      }
+
+      final normalized = trimmed.replaceAll(',', '.');
+      final parsedDecimal = double.tryParse(normalized);
+      return parsedDecimal?.toInt();
     }
     if (value is bool) {
       return value ? 1 : 0;
@@ -930,5 +1070,130 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       return null;
     }
     return text;
+  }
+
+  String? _resolveClienteNombrePendiente({
+    required Map<String, dynamic> root,
+    required Map<String, dynamic> source,
+    required Map<String, dynamic> clienteNode,
+    String? clienteTextoPlano,
+  }) {
+    final direct = _stringOrNull(
+      root['clienteNombre'] ??
+          root['cliente_nombre'] ??
+          root['razonSocial'] ??
+          root['razon_social'] ??
+          root['clienteRazonSocial'] ??
+          root['cliente_razon_social'] ??
+          source['clienteNombre'] ??
+          source['cliente_nombre'] ??
+          source['razonSocial'] ??
+          source['razon_social'] ??
+          source['clienteRazonSocial'] ??
+          source['cliente_razon_social'] ??
+          clienteNode['nombre'] ??
+          clienteNode['razonSocial'] ??
+          clienteNode['razon_social'] ??
+          clienteNode['nombreFantasia'] ??
+          clienteNode['nombre_fantasia'] ??
+          clienteTextoPlano,
+    );
+
+    if (direct != null && !_looksLikeUuid(direct)) {
+      return direct;
+    }
+
+    return _searchClienteNombre(
+      root,
+      clienteContext: false,
+      depth: 0,
+    );
+  }
+
+  String? _searchClienteNombre(
+    dynamic node, {
+    required bool clienteContext,
+    required int depth,
+  }) {
+    if (depth > 8) {
+      return null;
+    }
+
+    if (node is List) {
+      for (final entry in node) {
+        final found = _searchClienteNombre(
+          entry,
+          clienteContext: clienteContext,
+          depth: depth + 1,
+        );
+        if (found != null) {
+          return found;
+        }
+      }
+      return null;
+    }
+
+    if (node is Map) {
+      final map = _asMap(node);
+
+      final direct = _stringOrNull(
+        map['clienteNombre'] ??
+            map['cliente_nombre'] ??
+            map['clienteRazonSocial'] ??
+            map['cliente_razon_social'],
+      );
+      if (direct != null && !_looksLikeUuid(direct)) {
+        return direct;
+      }
+
+      if (clienteContext) {
+        final nameFromClienteMap = _stringOrNull(
+          map['nombre'] ??
+              map['razonSocial'] ??
+              map['razon_social'] ??
+              map['nombreFantasia'] ??
+              map['nombre_fantasia'],
+        );
+        if (nameFromClienteMap != null && !_looksLikeUuid(nameFromClienteMap)) {
+          return nameFromClienteMap;
+        }
+      }
+
+      for (final entry in map.entries) {
+        final nextClienteContext =
+            clienteContext || entry.key.toLowerCase().contains('cliente');
+        final found = _searchClienteNombre(
+          entry.value,
+          clienteContext: nextClienteContext,
+          depth: depth + 1,
+        );
+        if (found != null) {
+          return found;
+        }
+      }
+
+      return null;
+    }
+
+    if (node is String && clienteContext) {
+      final text = _stringOrNull(node);
+      if (text != null && !_looksLikeUuid(text)) {
+        return text;
+      }
+    }
+
+    return null;
+  }
+
+  bool _looksLikeUuid(String value) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return false;
+    }
+
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[1-5][0-9a-fA-F]{3}\-[89abAB][0-9a-fA-F]{3}\-[0-9a-fA-F]{12}$',
+    );
+    return uuidPattern.hasMatch(text);
   }
 }
