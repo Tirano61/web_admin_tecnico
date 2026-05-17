@@ -6,8 +6,6 @@ import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repository_impl.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
-import 'package:web_admin_tecnico/features/servicios/data/servicios_repository_impl.dart';
-import 'package:web_admin_tecnico/features/servicios/domain/servicios_repository.dart';
 
 class LiquidacionesPage extends StatelessWidget {
   const LiquidacionesPage({super.key});
@@ -15,7 +13,6 @@ class LiquidacionesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final liquidacionesRepository = LiquidacionesRepositoryImpl();
-    final serviciosRepository = ServiciosRepositoryImpl();
 
     return BlocProvider<LiquidacionesBloc>(
       create: (_) => LiquidacionesBloc(liquidacionesRepository)
@@ -28,7 +25,6 @@ class LiquidacionesPage extends StatelessWidget {
         ),
       child: _LiquidacionesView(
         liquidacionesRepository: liquidacionesRepository,
-        serviciosRepository: serviciosRepository,
       ),
     );
   }
@@ -37,11 +33,9 @@ class LiquidacionesPage extends StatelessWidget {
 class _LiquidacionesView extends StatefulWidget {
   const _LiquidacionesView({
     required this.liquidacionesRepository,
-    required this.serviciosRepository,
   });
 
   final LiquidacionesRepository liquidacionesRepository;
-  final ServiciosRepository serviciosRepository;
 
   @override
   State<_LiquidacionesView> createState() => _LiquidacionesViewState();
@@ -186,186 +180,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return null;
     }
     return tiposSalida.first.id;
-  }
-
-  Future<List<ServicioItem>> _loadServiciosCanalCampo() async {
-    Future<List<ServicioItem>> collectServicios({required String canal}) async {
-      final output = <ServicioItem>[];
-      final seenIds = <String>{};
-
-      var page = 1;
-      const limit = 50;
-      var total = 0;
-
-      while (page <= 10) {
-        final response = await widget.serviciosRepository.fetchServicios(
-          query: ServiciosQuery(
-            canal: canal,
-            estado: 'todos',
-            page: page,
-            limit: limit,
-          ),
-        );
-
-        total = response.total;
-        for (final item in response.items) {
-          if (seenIds.add(item.id)) {
-            output.add(item);
-          }
-        }
-
-        if (response.items.isEmpty || output.length >= total) {
-          break;
-        }
-
-        page += 1;
-      }
-
-      return output;
-    }
-
-    final withBackendFilter = await collectServicios(canal: 'campo');
-    if (withBackendFilter.isNotEmpty) {
-      return withBackendFilter;
-    }
-
-    final withoutFilter = await collectServicios(canal: 'todos');
-    final filteredLocally = withoutFilter
-        .where((servicio) => (servicio.canal ?? '').trim().toLowerCase() == 'campo')
-        .toList();
-    if (filteredLocally.isNotEmpty) {
-      return filteredLocally;
-    }
-
-    return withBackendFilter;
-  }
-
-  Future<void> _openCreateDialog(LiquidacionesLoaded state) async {
-    final liquidacionesBloc = context.read<LiquidacionesBloc>();
-
-    List<ServicioItem> serviciosCampo;
-    try {
-      serviciosCampo = await _loadServiciosCanalCampo();
-    } catch (error) {
-      _showMessage(_errorMessage(error));
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    if (serviciosCampo.isEmpty) {
-      _showMessage('No hay servicios de canal campo disponibles para liquidar.');
-      return;
-    }
-
-    final formKey = GlobalKey<FormState>();
-    var selectedServicioId = serviciosCampo.first.id;
-    final kmController = TextEditingController();
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF102845),
-              title: const Text('Nueva liquidacion (canal campo)'),
-              content: SizedBox(
-                width: 560,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      DropdownButtonFormField<String>(
-                        initialValue: selectedServicioId,
-                        decoration: const InputDecoration(
-                          labelText: 'Servicio',
-                          hintText: 'Selecciona servicio de canal campo',
-                        ),
-                        items: serviciosCampo
-                            .map(
-                              (servicio) => DropdownMenuItem<String>(
-                                value: servicio.id,
-                                child: Text(
-                                  '${servicio.id} - ${servicio.descripcion}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) {
-                            return;
-                          }
-                          setDialogState(() => selectedServicioId = value);
-                        },
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Selecciona un servicio canal campo';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: kmController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Color(0xFFEAF3FF)),
-                        decoration: const InputDecoration(
-                          labelText: 'KM',
-                          hintText: 'Ej: 140',
-                        ),
-                        validator: (value) {
-                          if (_parsePositiveInt(value ?? '') == null) {
-                            return 'Ingresa un numero mayor a 0';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (!(formKey.currentState?.validate() ?? false)) {
-                      return;
-                    }
-
-                    final km = _parsePositiveInt(kmController.text);
-                    if (km == null) {
-                      return;
-                    }
-
-                    liquidacionesBloc.add(
-                          LiquidacionesCreateRequested(
-                            input: CreateLiquidacionInput(
-                              servicioId: selectedServicioId,
-                              km: km,
-                            ),
-                          ),
-                        );
-                    Navigator.of(dialogContext).pop();
-                  },
-                  child: const Text('Crear'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    kmController.dispose();
   }
 
   Future<void> _openEditHeaderDialog(
@@ -1684,7 +1498,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             final hasFilters = state.aprobado != null;
             final emptyMessage = hasFilters
                 ? 'No hay liquidaciones para el filtro seleccionado.'
-                : 'No hay liquidaciones disponibles para mostrar.';
+              : 'No hay liquidaciones disponibles para mostrar. Se generan desde servicios realizados.';
 
             final approvedFilterValue = state.aprobado == null
                 ? 'todos'
@@ -1698,11 +1512,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
-                  OutlinedButton.icon(
-                    onPressed: () => _openCreateDialog(state),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Nueva liquidacion'),
-                  ),
+                  const ModuleStatusChip(label: 'SIN ALTA MANUAL'),
                   OutlinedButton.icon(
                     onPressed: () => _openTiposSalidaDialog(state),
                     icon: const Icon(Icons.outbound_outlined, size: 18),

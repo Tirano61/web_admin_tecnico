@@ -19,9 +19,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     required LiquidacionesQuery query,
   }) async {
     final payload = await _fetchLiquidacionesPayload(query: query);
+    final normalizedPayload = _normalizeLiquidacionesPayload(payload);
 
     final result = PagedResult<LiquidacionItem>.fromDynamic(
-      payload,
+      normalizedPayload,
       (json) {
         final root = _asMap(json);
         final liquidacionNode = _asMap(root['liquidacion']);
@@ -215,21 +216,6 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   @override
-  Future<void> createLiquidacion({required CreateLiquidacionInput input}) async {
-    final servicioId = input.servicioId.trim();
-    final km = input.km;
-    final candidates = <Map<String, dynamic>>[
-      <String, dynamic>{'servicio_id': servicioId, 'km': km},
-      <String, dynamic>{'servicioId': servicioId, 'km': km},
-    ];
-
-    await _sendWithFallback<dynamic>(
-      candidates,
-      (body) => _httpClient.postJson('/liquidaciones', body: body),
-    );
-  }
-
-  @override
   Future<void> updateLiquidacion({required UpdateLiquidacionInput input}) async {
     final liquidacionId = input.liquidacionId.trim();
     final tipoSalidaId = input.tipoSalidaId.trim();
@@ -414,6 +400,82 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     }
 
     return candidates;
+  }
+
+  dynamic _normalizeLiquidacionesPayload(dynamic payload) {
+    if (payload is List) {
+      return <String, dynamic>{'items': payload};
+    }
+
+    final root = _asMap(payload);
+    if (root.isEmpty) {
+      return payload;
+    }
+
+    final directItems = _extractLiquidacionesItems(root);
+    if (directItems != null) {
+      return <String, dynamic>{
+        'items': directItems,
+        if (root['meta'] is Map) 'meta': root['meta'],
+        if (root['pagination'] is Map) 'pagination': root['pagination'],
+        if (root['page'] != null) 'page': root['page'],
+        if (root['limit'] != null) 'limit': root['limit'],
+        if (root['pageSize'] != null) 'pageSize': root['pageSize'],
+        if (root['total'] != null) 'total': root['total'],
+        if (root['count'] != null) 'count': root['count'],
+        if (root['totalItems'] != null) 'totalItems': root['totalItems'],
+      };
+    }
+
+    final dataNode = _asMap(root['data']);
+    if (dataNode.isEmpty) {
+      return payload;
+    }
+
+    final dataItems = _extractLiquidacionesItems(dataNode);
+    if (dataItems == null) {
+      return payload;
+    }
+
+    return <String, dynamic>{
+      'items': dataItems,
+      if (dataNode['meta'] is Map) 'meta': dataNode['meta'] else if (root['meta'] is Map) 'meta': root['meta'],
+      if (dataNode['pagination'] is Map)
+        'pagination': dataNode['pagination']
+      else if (root['pagination'] is Map)
+        'pagination': root['pagination'],
+      if (dataNode['page'] != null) 'page': dataNode['page'] else if (root['page'] != null) 'page': root['page'],
+      if (dataNode['limit'] != null) 'limit': dataNode['limit'] else if (root['limit'] != null) 'limit': root['limit'],
+      if (dataNode['pageSize'] != null)
+        'pageSize': dataNode['pageSize']
+      else if (root['pageSize'] != null)
+        'pageSize': root['pageSize'],
+      if (dataNode['total'] != null) 'total': dataNode['total'] else if (root['total'] != null) 'total': root['total'],
+      if (dataNode['count'] != null) 'count': dataNode['count'] else if (root['count'] != null) 'count': root['count'],
+      if (dataNode['totalItems'] != null)
+        'totalItems': dataNode['totalItems']
+      else if (root['totalItems'] != null)
+        'totalItems': root['totalItems'],
+    };
+  }
+
+  List<dynamic>? _extractLiquidacionesItems(Map<String, dynamic> source) {
+    const keys = <String>[
+      'liquidaciones',
+      'items',
+      'results',
+      'rows',
+      'data',
+    ];
+
+    for (final key in keys) {
+      final value = source[key];
+      if (value is List) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   bool _isItemsEndpointUnavailable(AppFailure error) {
