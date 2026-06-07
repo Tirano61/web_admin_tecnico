@@ -8,11 +8,18 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     'LIQUIDACIONES_ENABLE_ITEMS_GET',
     defaultValue: true,
   );
+  static const bool _enableReopenLiquidacion = bool.fromEnvironment(
+    'LIQUIDACIONES_ENABLE_REOPEN',
+    defaultValue: false,
+  );
 
   LiquidacionesRepositoryImpl({AuthenticatedHttpClient? httpClient})
       : _httpClient = httpClient ?? AuthenticatedHttpClient();
 
   final AuthenticatedHttpClient _httpClient;
+
+  @override
+  bool get enableReopenLiquidacion => _enableReopenLiquidacion;
 
   @override
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
@@ -76,6 +83,11 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
           km: _toInt(source['km']) ?? 0,
           precioKmUsdSnapshotLegacy: precioKmSnapshot,
           aprobada: _toBool(source['aprobado'] ?? source['aprobada']),
+          estado: _stringOrNull(
+            source['estado'] ??
+                source['estadoLiquidacion'] ??
+                source['estado_liquidacion'],
+          ),
           fechaAprobacion: _stringOrNull(
             source['fechaAprobacion'] ?? source['fecha_aprobacion'],
           ),
@@ -480,6 +492,36 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   @override
   Future<void> approveLiquidacion(String liquidacionId) async {
     await _httpClient.patchJson('/liquidaciones/${liquidacionId.trim()}/aprobar');
+  }
+
+  @override
+  Future<void> reopenLiquidacion({required ReopenLiquidacionInput input}) async {
+    if (!_enableReopenLiquidacion) {
+      throw const AppFailure(
+        'Reapertura no habilitada en este entorno. Activa LIQUIDACIONES_ENABLE_REOPEN.',
+      );
+    }
+
+    final liquidacionId = input.liquidacionId.trim();
+    final motivo = input.motivo.trim();
+    if (liquidacionId.isEmpty) {
+      throw const AppFailure('Liquidacion invalida para reapertura');
+    }
+    if (motivo.isEmpty) {
+      throw const AppFailure('El motivo de reapertura es obligatorio');
+    }
+
+    final candidates = <Map<String, dynamic>>[
+      <String, dynamic>{'motivo': motivo},
+      <String, dynamic>{'motivoReapertura': motivo},
+      <String, dynamic>{'motivo_reapertura': motivo},
+      <String, dynamic>{'reason': motivo},
+    ];
+
+    await _sendWithFallback<dynamic>(
+      candidates,
+      (body) => _httpClient.patchJson('/liquidaciones/$liquidacionId/reabrir', body: body),
+    );
   }
 
   @override
