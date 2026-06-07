@@ -11,6 +11,8 @@ import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liqui
 enum _LiquidacionesPanelView {
   pendientes,
   creadas,
+  tiposSalida,
+  tiposServicio,
 }
 
 class LiquidacionesPage extends StatelessWidget {
@@ -96,6 +98,15 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
   int? _parsePositiveInt(String raw) {
     final value = int.tryParse(raw.trim());
+    if (value == null || value <= 0) {
+      return null;
+    }
+    return value;
+  }
+
+  double? _parsePositiveDouble(String raw) {
+    final normalized = raw.trim().replaceAll(',', '.');
+    final value = double.tryParse(normalized);
     if (value == null || value <= 0) {
       return null;
     }
@@ -551,6 +562,598 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _openCreateTipoSalidaDialog(LiquidacionesLoaded state) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController();
+    final precioController = TextEditingController();
+    final kmHastaController = TextEditingController();
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Nuevo tipo de salida'),
+          content: SizedBox(
+            width: 520,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Ingresa un nombre';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: kmHastaController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'KM hasta (opcional)',
+                      hintText: 'Vacío = sin tope',
+                    ),
+                    validator: (value) {
+                      final raw = (value ?? '').trim();
+                      if (raw.isEmpty) {
+                        return null;
+                      }
+                      if (_parsePositiveInt(raw) == null) {
+                        return 'Ingresa un entero mayor a 0';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: precioController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Precio USD fijo'),
+                    validator: (value) {
+                      if (_parsePositiveDouble(value ?? '') == null) {
+                        return 'Ingresa un precio mayor a 0';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!(formKey.currentState?.validate() ?? false)) {
+                  return;
+                }
+
+                final precio = _parsePositiveDouble(precioController.text);
+                if (precio == null) {
+                  return;
+                }
+
+                final kmRaw = kmHastaController.text.trim();
+                final kmHasta = kmRaw.isEmpty ? null : _parsePositiveInt(kmRaw);
+
+                liquidacionesBloc.add(
+                  LiquidacionesCreateTipoSalidaRequested(
+                    input: CreateTipoSalidaInput(
+                      nombre: nombreController.text.trim(),
+                      kmHasta: kmHasta,
+                      precioUsd: precio,
+                    ),
+                  ),
+                );
+                Navigator.of(dialogContext).pop();
+                if (mounted) {
+                  setState(() => _activeView = _LiquidacionesPanelView.tiposSalida);
+                }
+              },
+              child: const Text('Crear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nombreController.dispose();
+    precioController.dispose();
+    kmHastaController.dispose();
+  }
+
+  Future<void> _openEditTipoSalidaDialog(
+    LiquidacionesLoaded state,
+    TipoSalidaCatalogoItem item,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController(text: item.nombre);
+    final precioController = TextEditingController(text: item.precioUsd.toStringAsFixed(2));
+    final kmHastaController = TextEditingController(
+      text: item.kmHasta?.toString() ?? '',
+    );
+    var activo = item.activo;
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102845),
+              title: const Text('Editar tipo de salida'),
+              content: SizedBox(
+                width: 520,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: nombreController,
+                        decoration: const InputDecoration(labelText: 'Nombre'),
+                        validator: (value) {
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'Ingresa un nombre';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: kmHastaController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'KM hasta (opcional)',
+                          hintText: 'Vacío = sin tope',
+                        ),
+                        validator: (value) {
+                          final raw = (value ?? '').trim();
+                          if (raw.isEmpty) {
+                            return null;
+                          }
+                          if (_parsePositiveInt(raw) == null) {
+                            return 'Ingresa un entero mayor a 0';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: precioController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Precio USD fijo'),
+                        validator: (value) {
+                          if (_parsePositiveDouble(value ?? '') == null) {
+                            return 'Ingresa un precio mayor a 0';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      SwitchListTile.adaptive(
+                        value: activo,
+                        title: const Text('Activo'),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => activo = value),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (!(formKey.currentState?.validate() ?? false)) {
+                      return;
+                    }
+
+                    final precio = _parsePositiveDouble(precioController.text);
+                    if (precio == null) {
+                      return;
+                    }
+
+                    final kmRaw = kmHastaController.text.trim();
+                    final kmHasta = kmRaw.isEmpty ? null : _parsePositiveInt(kmRaw);
+
+                    liquidacionesBloc.add(
+                      LiquidacionesUpdateTipoSalidaRequested(
+                        input: UpdateTipoSalidaInput(
+                          id: item.id,
+                          nombre: nombreController.text.trim(),
+                          kmHasta: kmHasta,
+                          precioUsd: precio,
+                          activo: activo,
+                        ),
+                      ),
+                    );
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nombreController.dispose();
+    precioController.dispose();
+    kmHastaController.dispose();
+  }
+
+  Future<void> _openCreateTipoServicioDialog(LiquidacionesLoaded state) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController();
+    final precioController = TextEditingController();
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Nuevo tipo de servicio'),
+          content: SizedBox(
+            width: 520,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Ingresa un nombre';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: precioController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Precio USD'),
+                    validator: (value) {
+                      if (_parsePositiveDouble(value ?? '') == null) {
+                        return 'Ingresa un precio mayor a 0';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!(formKey.currentState?.validate() ?? false)) {
+                  return;
+                }
+
+                final precio = _parsePositiveDouble(precioController.text);
+                if (precio == null) {
+                  return;
+                }
+
+                liquidacionesBloc.add(
+                  LiquidacionesCreateTipoServicioRequested(
+                    input: CreateTipoServicioInput(
+                      nombre: nombreController.text.trim(),
+                      precioUsd: precio,
+                    ),
+                  ),
+                );
+                Navigator.of(dialogContext).pop();
+                if (mounted) {
+                  setState(() => _activeView = _LiquidacionesPanelView.tiposServicio);
+                }
+              },
+              child: const Text('Crear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nombreController.dispose();
+    precioController.dispose();
+  }
+
+  Future<void> _openEditTipoServicioDialog(
+    LiquidacionesLoaded state,
+    TipoServicioCatalogoItem item,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nombreController = TextEditingController(text: item.nombre);
+    final precioController = TextEditingController(text: item.precioUsd.toStringAsFixed(2));
+    var activo = item.activo;
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102845),
+              title: const Text('Editar tipo de servicio'),
+              content: SizedBox(
+                width: 520,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: nombreController,
+                        decoration: const InputDecoration(labelText: 'Nombre'),
+                        validator: (value) {
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'Ingresa un nombre';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: precioController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'Precio USD'),
+                        validator: (value) {
+                          if (_parsePositiveDouble(value ?? '') == null) {
+                            return 'Ingresa un precio mayor a 0';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      SwitchListTile.adaptive(
+                        value: activo,
+                        title: const Text('Activo'),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) => setDialogState(() => activo = value),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (!(formKey.currentState?.validate() ?? false)) {
+                      return;
+                    }
+
+                    final precio = _parsePositiveDouble(precioController.text);
+                    if (precio == null) {
+                      return;
+                    }
+
+                    liquidacionesBloc.add(
+                      LiquidacionesUpdateTipoServicioRequested(
+                        input: UpdateTipoServicioInput(
+                          id: item.id,
+                          nombre: nombreController.text.trim(),
+                          precioUsd: precio,
+                          activo: activo,
+                        ),
+                      ),
+                    );
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nombreController.dispose();
+    precioController.dispose();
+  }
+
+  Widget _buildTiposSalidaCatalog(LiquidacionesLoaded state) {
+    if (state.tiposSalida.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0x1F122B4A),
+          border: Border.all(color: const Color(0x334EA6FF)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text('No hay tipos de salida cargados.'),
+      );
+    }
+
+    return Card(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 1200,
+          child: SingleChildScrollView(
+            child: DataTable(
+              columns: const <DataColumn>[
+                DataColumn(label: Text('Nombre')),
+                DataColumn(label: Text('KM hasta')),
+                DataColumn(label: Text('Precio USD fijo')),
+                DataColumn(label: Text('Estado')),
+                DataColumn(label: Text('Acciones')),
+              ],
+              rows: state.tiposSalida
+                  .map(
+                    (item) => DataRow(
+                      cells: <DataCell>[
+                        DataCell(Text(item.nombre)),
+                        DataCell(Text(item.kmHasta?.toString() ?? 'Sin tope')),
+                        DataCell(Text(item.precioUsd.toStringAsFixed(2))),
+                        DataCell(
+                          ModuleStatusChip(
+                            label: item.activo ? 'ACTIVO' : 'INACTIVO',
+                            backgroundColor: item.activo
+                                ? const Color(0x1F0FA960)
+                                : const Color(0x1FF4B942),
+                            foregroundColor: item.activo
+                                ? const Color(0xFF8FF0BC)
+                                : const Color(0xFFFFD98B),
+                          ),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              IconButton(
+                                tooltip: 'Editar tipo salida',
+                                onPressed: () => _openEditTipoSalidaDialog(state, item),
+                                icon: const Icon(Icons.edit_outlined),
+                              ),
+                              IconButton(
+                                tooltip: item.activo ? 'Desactivar' : 'Activar',
+                                onPressed: () {
+                                  context.read<LiquidacionesBloc>().add(
+                                        LiquidacionesUpdateTipoSalidaRequested(
+                                          input: UpdateTipoSalidaInput(
+                                            id: item.id,
+                                            activo: !item.activo,
+                                          ),
+                                        ),
+                                      );
+                                },
+                                icon: Icon(
+                                  item.activo
+                                      ? Icons.toggle_on_outlined
+                                      : Icons.toggle_off_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTiposServicioCatalog(LiquidacionesLoaded state) {
+    if (state.tiposServicio.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0x1F122B4A),
+          border: Border.all(color: const Color(0x334EA6FF)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Text('No hay tipos de servicio cargados.'),
+      );
+    }
+
+    return Card(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 1100,
+          child: SingleChildScrollView(
+            child: DataTable(
+              columns: const <DataColumn>[
+                DataColumn(label: Text('Nombre')),
+                DataColumn(label: Text('Precio USD')),
+                DataColumn(label: Text('Estado')),
+                DataColumn(label: Text('Acciones')),
+              ],
+              rows: state.tiposServicio
+                  .map(
+                    (item) => DataRow(
+                      cells: <DataCell>[
+                        DataCell(Text(item.nombre)),
+                        DataCell(Text(item.precioUsd.toStringAsFixed(2))),
+                        DataCell(
+                          ModuleStatusChip(
+                            label: item.activo ? 'ACTIVO' : 'INACTIVO',
+                            backgroundColor: item.activo
+                                ? const Color(0x1F0FA960)
+                                : const Color(0x1FF4B942),
+                            foregroundColor: item.activo
+                                ? const Color(0xFF8FF0BC)
+                                : const Color(0xFFFFD98B),
+                          ),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              IconButton(
+                                tooltip: 'Editar tipo servicio',
+                                onPressed: () => _openEditTipoServicioDialog(state, item),
+                                icon: const Icon(Icons.edit_outlined),
+                              ),
+                              IconButton(
+                                tooltip: item.activo ? 'Desactivar' : 'Activar',
+                                onPressed: () {
+                                  context.read<LiquidacionesBloc>().add(
+                                        LiquidacionesUpdateTipoServicioRequested(
+                                          input: UpdateTipoServicioInput(
+                                            id: item.id,
+                                            activo: !item.activo,
+                                          ),
+                                        ),
+                                      );
+                                },
+                                icon: Icon(
+                                  item.activo
+                                      ? Icons.toggle_on_outlined
+                                      : Icons.toggle_off_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1279,7 +1882,29 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             setState(() => _activeView = _LiquidacionesPanelView.creadas);
                           },
                         ),
-                        Container(
+                        ChoiceChip(
+                          selected: _activeView == _LiquidacionesPanelView.tiposSalida,
+                          label: const Text('Tipos de salida'),
+                          onSelected: (selected) {
+                            if (!selected) {
+                              return;
+                            }
+                            setState(() => _activeView = _LiquidacionesPanelView.tiposSalida);
+                          },
+                        ),
+                        ChoiceChip(
+                          selected: _activeView == _LiquidacionesPanelView.tiposServicio,
+                          label: const Text('Tipos de servicio'),
+                          onSelected: (selected) {
+                            if (!selected) {
+                              return;
+                            }
+                            setState(() => _activeView = _LiquidacionesPanelView.tiposServicio);
+                          },
+                        ),
+                        if (_activeView == _LiquidacionesPanelView.pendientes ||
+                            _activeView == _LiquidacionesPanelView.creadas)
+                          Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
                             color: const Color(0xFF122B4A),
@@ -1367,12 +1992,28 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                               ),
                             ),
                           ),
+                        if (_activeView == _LiquidacionesPanelView.tiposSalida)
+                          FilledButton.icon(
+                            onPressed: () => _openCreateTipoSalidaDialog(state),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Nuevo tipo salida'),
+                          ),
+                        if (_activeView == _LiquidacionesPanelView.tiposServicio)
+                          FilledButton.icon(
+                            onPressed: () => _openCreateTipoServicioDialog(state),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Nuevo tipo servicio'),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: _activeView == _LiquidacionesPanelView.pendientes
+                    child: _activeView == _LiquidacionesPanelView.tiposSalida
+                        ? _buildTiposSalidaCatalog(state)
+                        : _activeView == _LiquidacionesPanelView.tiposServicio
+                            ? _buildTiposServicioCatalog(state)
+                            : _activeView == _LiquidacionesPanelView.pendientes
                         ? (state.pendientes.isEmpty
                             ? Container(
                                 width: double.infinity,
