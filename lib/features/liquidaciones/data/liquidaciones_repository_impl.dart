@@ -8,18 +8,11 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     'LIQUIDACIONES_ENABLE_ITEMS_GET',
     defaultValue: true,
   );
-  static const bool _enableReopenLiquidacion = bool.fromEnvironment(
-    'LIQUIDACIONES_ENABLE_REOPEN',
-    defaultValue: false,
-  );
 
   LiquidacionesRepositoryImpl({AuthenticatedHttpClient? httpClient})
       : _httpClient = httpClient ?? AuthenticatedHttpClient();
 
   final AuthenticatedHttpClient _httpClient;
-
-  @override
-  bool get enableReopenLiquidacion => _enableReopenLiquidacion;
 
   @override
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
@@ -496,12 +489,6 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
 
   @override
   Future<void> reopenLiquidacion({required ReopenLiquidacionInput input}) async {
-    if (!_enableReopenLiquidacion) {
-      throw const AppFailure(
-        'Reapertura no habilitada en este entorno. Activa LIQUIDACIONES_ENABLE_REOPEN.',
-      );
-    }
-
     final liquidacionId = input.liquidacionId.trim();
     final motivo = input.motivo.trim();
     if (liquidacionId.isEmpty) {
@@ -521,6 +508,40 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     await _sendWithFallback<dynamic>(
       candidates,
       (body) => _httpClient.patchJson('/liquidaciones/$liquidacionId/reabrir', body: body),
+    );
+  }
+
+  @override
+  Future<LiquidacionReaperturasResponse> fetchLiquidacionReaperturas(String liquidacionId) async {
+    final sanitizedId = liquidacionId.trim();
+    if (sanitizedId.isEmpty) {
+      throw const AppFailure('Liquidacion invalida para consultar reaperturas');
+    }
+
+    final payload = await _httpClient.getJson('/liquidaciones/$sanitizedId/reaperturas');
+    final root = _asMap(payload);
+    final dataNode = _asMap(root['data']);
+    final source = dataNode.isEmpty ? root : dataNode;
+    final meta = _asMap(source['meta']);
+
+    final rawItems = source['reaperturas'];
+    final entries = rawItems is List ? rawItems : const <dynamic>[];
+
+    final items = entries.map(_asMap).map((json) {
+      final id = _stringOrNull(json['id']) ?? '-';
+      final motivo = _stringOrNull(json['motivo']) ?? '-';
+      final fecha = _stringOrNull(json['fecha'] ?? json['createdAt'] ?? json['created_at']) ?? '-';
+      return LiquidacionReaperturaItem(
+        id: id,
+        motivo: motivo,
+        fecha: fecha,
+      );
+    }).toList();
+
+    return LiquidacionReaperturasResponse(
+      liquidacionId: _stringOrNull(source['liquidacionId'] ?? source['liquidacion_id']) ?? sanitizedId,
+      reaperturas: items,
+      total: _toInt(meta['total']) ?? items.length,
     );
   }
 
