@@ -465,6 +465,8 @@ Notas:
 | GET | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id` | admin-tecnico |
 | PATCH | `/liquidaciones/:id/aprobar` | admin-tecnico |
+| PATCH | `/liquidaciones/:id/reabrir` | admin-tecnico |
+| GET | `/liquidaciones/:id/reaperturas` | admin-tecnico |
 | POST | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id/items/:itemId/aprobar` | admin-tecnico |
 | DELETE | `/liquidaciones/:id/items/:itemId` | admin-tecnico |
@@ -495,6 +497,30 @@ Tambien soporta camelCase:
 { "tipo_servicio_id": "{{tipoServicioId}}" }
 ```
 
+`PATCH /liquidaciones/:id/reabrir`:
+
+```json
+{ "motivo": "Error humano en la liquidacion aprobada" }
+```
+
+`GET /liquidaciones/:id/reaperturas`:
+
+```json
+{
+  "liquidacionId": "{{liquidacionId}}",
+  "reaperturas": [
+    {
+      "id": "{{reaperturaId}}",
+      "motivo": "Correccion de tipo de salida",
+      "fecha": "2026-06-07T12:30:00.000Z"
+    }
+  ],
+  "meta": {
+    "total": 1
+  }
+}
+```
+
 `GET /liquidaciones` (admin):
 
 ```text
@@ -505,6 +531,7 @@ Notas:
 
 - `tecnicoId` es opcional en query.
 - Cada item del listado incluye `tecnicoId`, `tecnicoNombre` y `tecnicoEmail` para facilitar filtros/seleccion en UI.
+- Priorizar `estado` (`pendiente|aprobada|reabierta`) para reglas de UI; `aprobado` queda por compatibilidad.
 
 `GET /liquidaciones/pendientes` (servicios campo sin liquidacion):
 
@@ -547,6 +574,7 @@ Notas:
 
 - Este endpoint permite obtener `itemId` desde UI para aprobar/eliminar items sin ingreso manual.
 - Si la liquidacion existe pero no tiene items, devuelve `items: []` y `meta.totalItems = 0`.
+- Reglas de edicion por estado: `pendiente` y `reabierta` editables; `aprobada` bloqueada hasta reapertura.
 
 ## Analytics (feedback)
 

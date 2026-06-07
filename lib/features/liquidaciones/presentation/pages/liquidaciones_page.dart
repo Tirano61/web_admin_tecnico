@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_admin_tecnico/core/auth/session_store.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
@@ -7,6 +8,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidacion_pago_calculator.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
+import 'dart:convert';
 
 enum _LiquidacionesPanelView {
   pendientes,
@@ -57,8 +59,56 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   String? _tecnicoFilterId;
   _LiquidacionesPanelView _activeView = _LiquidacionesPanelView.pendientes;
 
-  bool get _enableReopenLiquidacion =>
-      widget.liquidacionesRepository.enableReopenLiquidacion;
+  bool get _canReopenByRole {
+    final token = SessionStore.currentSession?.token;
+    if (token == null || token.trim().isEmpty) {
+      return false;
+    }
+
+    final payload = _tryDecodeJwtPayload(token);
+    if (payload.isEmpty) {
+      return false;
+    }
+
+    final role = (payload['role'] ?? payload['rol'] ?? '').toString().trim().toLowerCase();
+    if (role == 'admin-tecnico' || role == 'admin') {
+      return true;
+    }
+
+    final rolesRaw = payload['roles'];
+    if (rolesRaw is List) {
+      for (final roleItem in rolesRaw) {
+        final normalized = roleItem.toString().trim().toLowerCase();
+        if (normalized == 'admin-tecnico' || normalized == 'admin') {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  Map<String, dynamic> _tryDecodeJwtPayload(String token) {
+    final parts = token.split('.');
+    if (parts.length < 2) {
+      return const <String, dynamic>{};
+    }
+
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final json = jsonDecode(decoded);
+      if (json is Map<String, dynamic>) {
+        return json;
+      }
+      if (json is Map) {
+        return Map<String, dynamic>.from(json);
+      }
+      return const <String, dynamic>{};
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
+  }
 
   void _requestDashboard({
     required int liquidacionesPage,
@@ -414,8 +464,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return;
     }
 
-    if (item.aprobada) {
-      _showMessage('La liquidacion aprobada no permite editar cabecera.');
+    if (!item.isEditable) {
+      _showMessage('La liquidacion en estado aprobada no permite editar cabecera.');
       return;
     }
 
@@ -536,7 +586,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return;
     }
 
-    if (item.aprobada) {
+    if (item.isAprobadaEstado) {
       _showMessage('La liquidacion ya se encuentra aprobada.');
       return;
     }
@@ -569,12 +619,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   }
 
   Future<void> _confirmReopenLiquidacion(LiquidacionItem item) async {
-    if (!_enableReopenLiquidacion) {
-      _showMessage('Reapertura no habilitada en este entorno.');
+    if (!_canReopenByRole) {
+      _showMessage('Solo admin tecnico puede reabrir liquidaciones.');
       return;
     }
 
-    if (!item.aprobada) {
+    if (!item.isAprobadaEstado) {
       _showMessage('Solo se puede reabrir una liquidacion aprobada.');
       return;
     }
@@ -1301,6 +1351,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     var loading = true;
     var actionInProgress = false;
     String? loadError;
+    var reaperturas = const <LiquidacionReaperturaItem>[];
+    var reaperturasTotal = 0;
     var initialLoadTriggered = false;
 
     await showDialog<void>(
@@ -1335,6 +1387,13 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     items: items,
                   );
                 }
+
+                final reaperturasResponse = await widget.liquidacionesRepository
+                    .fetchLiquidacionReaperturas(liquidacion.id);
+                reaperturas = List<LiquidacionReaperturaItem>.from(
+                  reaperturasResponse.reaperturas,
+                );
+                reaperturasTotal = reaperturasResponse.total;
               } catch (error) {
                 remoteMode = false;
                 loadError = _errorMessage(error);
@@ -1415,8 +1474,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> addItem() async {
-              if (liquidacion.aprobada) {
-                _showMessage('La liquidacion aprobada no permite alta de items.');
+              if (!liquidacion.isEditable) {
+                _showMessage('La liquidacion en estado aprobada no permite alta de items.');
                 return;
               }
 
@@ -1468,8 +1527,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> approveItem(LiquidacionItemDetalle item) async {
-              if (liquidacion.aprobada) {
-                _showMessage('La liquidacion aprobada no permite aprobar items.');
+              if (!liquidacion.isEditable) {
+                _showMessage('La liquidacion en estado aprobada no permite aprobar items.');
                 return;
               }
 
@@ -1508,8 +1567,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> deleteItem(LiquidacionItemDetalle item) async {
-              if (liquidacion.aprobada) {
-                _showMessage('La liquidacion aprobada no permite eliminar items.');
+              if (!liquidacion.isEditable) {
+                _showMessage('La liquidacion en estado aprobada no permite eliminar items.');
                 return;
               }
 
@@ -1563,7 +1622,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             final hasCatalog = tiposServicioActivos.isNotEmpty;
-            final addBlocked = liquidacion.aprobada || actionInProgress || items.length >= 6;
+            final addBlocked = !liquidacion.isEditable || actionInProgress || items.length >= 6;
 
             return AlertDialog(
               backgroundColor: const Color(0xFF102845),
@@ -1620,7 +1679,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          if (liquidacion.aprobada)
+                          if (!liquidacion.isEditable)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
@@ -1629,8 +1688,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: const Color(0x660FA960)),
                               ),
-                              child: const Text(
-                                'Liquidacion aprobada: cabecera e items en modo solo lectura.',
+                              child: Text(
+                                'Liquidacion ${liquidacion.estadoNormalizado}: cabecera e items en modo solo lectura.',
                               ),
                             )
                           else
@@ -1704,6 +1763,40 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                               ),
                             ),
                           const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0x1F122B4A),
+                              border: Border.all(color: const Color(0x334EA6FF)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Historial de reaperturas (${reaperturasTotal.toString()})',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 8),
+                                if (reaperturas.isEmpty)
+                                  const Text(
+                                    'No hay reaperturas registradas para esta liquidacion.',
+                                    style: TextStyle(color: Color(0xFF9AB1CC)),
+                                  )
+                                else
+                                  ...reaperturas.take(6).map(
+                                    (entry) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 6),
+                                      child: Text(
+                                        '${_formatDate(entry.fecha)} - ${entry.motivo}',
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           if (loadError != null)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -1776,7 +1869,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   IconButton(
                                                     tooltip: 'Aprobar item',
                                                     onPressed: actionInProgress ||
-                                                            liquidacion.aprobada ||
+                                                          !liquidacion.isEditable ||
                                                             detalle.aprobado ||
                                                             !detalle.isPersisted
                                                         ? null
@@ -1788,7 +1881,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   IconButton(
                                                     tooltip: 'Eliminar item',
                                                     onPressed: actionInProgress ||
-                                                            liquidacion.aprobada ||
+                                                          !liquidacion.isEditable ||
                                                             detalle.aprobado
                                                         ? null
                                                         : () => deleteItem(detalle),
@@ -1875,7 +1968,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 (state.pendientesPage - 1) * pendientesLimit;
 
             final approvedCount =
-                state.liquidaciones.where((item) => item.aprobada).length;
+              state.liquidaciones.where((item) => item.isAprobadaEstado).length;
             final pendingCount = state.liquidaciones.length - approvedCount;
             final pendientesCampoCount =
                 state.pendientes.where((item) => _isCanalCampo(item.servicioCanal)).length;
@@ -2272,10 +2365,10 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   _openEditHeaderDialog(state, item),
                                               onApproveLiquidacion:
                                                   _confirmApproveLiquidacion,
-                                              onReopenLiquidacion:
-                                                _enableReopenLiquidacion
-                                                  ? _confirmReopenLiquidacion
-                                                  : null,
+                                                onReopenLiquidacion:
+                                                  _canReopenByRole
+                                                    ? _confirmReopenLiquidacion
+                                                    : null,
                                               onManageItems: (item) =>
                                                   _openItemsDialog(state, item),
                                             ),
@@ -2372,7 +2465,7 @@ class _LiquidacionesTableSource extends DataTableSource {
     }
 
     final item = items[localIndex];
-    final approved = item.aprobada;
+    final approved = item.isAprobadaEstado;
     final isCanalCampo = _isCanalCampoValue(item.servicioCanal);
     final itemDetalles =
         itemDetallesByLiquidacion[item.id] ?? const <LiquidacionItemDetalle>[];
@@ -2605,7 +2698,7 @@ class _AprobadaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isReabierta = item.isReabierta;
-    final aprobada = item.aprobada;
+    final aprobada = item.isAprobadaEstado;
 
     return ModuleStatusChip(
       label: isReabierta

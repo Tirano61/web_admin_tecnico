@@ -137,7 +137,45 @@ class LiquidacionItem {
   final String? fechaAprobacion;
   final String? createdAt;
 
-  bool get isReabierta => (estado ?? '').trim().toLowerCase() == 'reabierta';
+  String get estadoNormalizado {
+    final normalized = (estado ?? '').trim().toLowerCase();
+    if (normalized == 'pendiente' || normalized == 'aprobada' || normalized == 'reabierta') {
+      return normalized;
+    }
+    return aprobada ? 'aprobada' : 'pendiente';
+  }
+
+  bool get isPendiente => estadoNormalizado == 'pendiente';
+
+  bool get isAprobadaEstado => estadoNormalizado == 'aprobada';
+
+  bool get isReabierta => estadoNormalizado == 'reabierta';
+
+  bool get isEditable => isPendiente || isReabierta;
+}
+
+class LiquidacionReaperturaItem {
+  const LiquidacionReaperturaItem({
+    required this.id,
+    required this.motivo,
+    required this.fecha,
+  });
+
+  final String id;
+  final String motivo;
+  final String fecha;
+}
+
+class LiquidacionReaperturasResponse {
+  const LiquidacionReaperturasResponse({
+    required this.liquidacionId,
+    required this.reaperturas,
+    required this.total,
+  });
+
+  final String liquidacionId;
+  final List<LiquidacionReaperturaItem> reaperturas;
+  final int total;
 }
 
 class LiquidacionPendienteItem {
@@ -319,8 +357,6 @@ class LiquidacionesPendientesQuery {
 }
 
 abstract class LiquidacionesRepository {
-  bool get enableReopenLiquidacion;
-
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({required LiquidacionesQuery query});
 
   Future<PagedResult<LiquidacionPendienteItem>> fetchLiquidacionesPendientes({
@@ -340,6 +376,8 @@ abstract class LiquidacionesRepository {
   Future<void> approveLiquidacion(String liquidacionId);
 
   Future<void> reopenLiquidacion({required ReopenLiquidacionInput input});
+
+  Future<LiquidacionReaperturasResponse> fetchLiquidacionReaperturas(String liquidacionId);
 
   Future<LiquidacionItemDetalle?> addLiquidacionItem({required AddLiquidacionItemInput input});
 
