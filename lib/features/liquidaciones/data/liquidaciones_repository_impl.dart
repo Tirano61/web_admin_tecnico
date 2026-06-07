@@ -74,7 +74,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
           ),
           tipoSalidaPrecioUsd: precioTipoSalida,
           km: _toInt(source['km']) ?? 0,
-          precioKmUsdSnapshot: precioKmSnapshot,
+          precioKmUsdSnapshotLegacy: precioKmSnapshot,
           aprobada: _toBool(source['aprobado'] ?? source['aprobada']),
           fechaAprobacion: _stringOrNull(
             source['fechaAprobacion'] ?? source['fecha_aprobacion'],

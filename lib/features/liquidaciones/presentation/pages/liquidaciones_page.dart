@@ -4,6 +4,7 @@ import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repository_impl.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidacion_pago_calculator.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
 
@@ -288,11 +289,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     }
 
     final formKey = GlobalKey<FormState>();
-    final kmController = TextEditingController(
-      text: (pendiente.kmSugerido != null && pendiente.kmSugerido! > 0)
-          ? pendiente.kmSugerido.toString()
-          : '',
-    );
+    var kmInput = (pendiente.kmSugerido != null && pendiente.kmSugerido! > 0)
+      ? pendiente.kmSugerido.toString()
+      : '';
     final liquidacionesBloc = context.read<LiquidacionesBloc>();
 
     await showDialog<void>(
@@ -334,13 +333,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
-                    controller: kmController,
+                    initialValue: kmInput,
                     keyboardType: TextInputType.number,
                     autofocus: true,
                     style: const TextStyle(color: Color(0xFFEAF3FF)),
                     decoration: const InputDecoration(
                       labelText: 'KM para liquidacion',
                     ),
+                    onChanged: (value) => kmInput = value,
                     validator: (value) {
                       if (_parsePositiveInt(value ?? '') == null) {
                         return 'Ingresa un KM mayor a 0';
@@ -363,7 +363,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   return;
                 }
 
-                final km = _parsePositiveInt(kmController.text);
+                final km = _parsePositiveInt(kmInput);
                 if (km == null) {
                   return;
                 }
@@ -387,8 +387,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
         );
       },
     );
-
-    kmController.dispose();
   }
 
   Future<void> _openEditHeaderDialog(
@@ -1228,7 +1226,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             return ModulePageLayout(
               title: 'Liquidaciones',
               subtitle:
-                  'Flujo admin-tecnico: pendientes de liquidar, liquidaciones creadas e items con reglas de bloqueo.',
+                  'Pago tecnico: salida fija + items de tipo servicio. No incluye viaticos comerciales por KM.',
               trailing: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1522,10 +1520,10 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               DataColumn(label: Text('Canal')),
                                               DataColumn(label: Text('Tecnico')),
                                               DataColumn(label: Text('Tipo salida')),
-                                              DataColumn(label: Text('Tipo salida USD')),
+                                              DataColumn(label: Text('Salida fija USD')),
                                               DataColumn(label: Text('KM')),
-                                              DataColumn(label: Text('KM USD snapshot')),
-                                              DataColumn(label: Text('Subtotal estimado USD')),
+                                              DataColumn(label: Text('KM USD snapshot (legacy)')),
+                                              DataColumn(label: Text('Total tecnico USD')),
                                               DataColumn(label: Text('Estado')),
                                               DataColumn(label: Text('Fecha aprobacion')),
                                               DataColumn(label: Text('Acciones')),
@@ -1538,6 +1536,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               formatDate: _formatDate,
                                               formatTecnicoLabel:
                                                   _formatTecnicoLabel,
+                                                itemDetallesByLiquidacion:
+                                                  state.itemDetallesByLiquidacion,
                                               onEditHeader: (item) =>
                                                   _openEditHeaderDialog(state, item),
                                               onApproveLiquidacion:
@@ -1606,6 +1606,7 @@ class _LiquidacionesTableSource extends DataTableSource {
     required this.limit,
     required this.formatDate,
     required this.formatTecnicoLabel,
+    required this.itemDetallesByLiquidacion,
     required this.onEditHeader,
     required this.onApproveLiquidacion,
     required this.onManageItems,
@@ -1621,6 +1622,7 @@ class _LiquidacionesTableSource extends DataTableSource {
     String? tecnicoNombre,
     String? tecnicoEmail,
   }) formatTecnicoLabel;
+  final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
   final ValueChanged<LiquidacionItem> onEditHeader;
   final ValueChanged<LiquidacionItem> onApproveLiquidacion;
   final ValueChanged<LiquidacionItem> onManageItems;
@@ -1636,6 +1638,12 @@ class _LiquidacionesTableSource extends DataTableSource {
     final item = items[localIndex];
     final approved = item.aprobada;
     final isCanalCampo = _isCanalCampoValue(item.servicioCanal);
+    final itemDetalles =
+        itemDetallesByLiquidacion[item.id] ?? const <LiquidacionItemDetalle>[];
+    final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
+      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
+      items: itemDetalles,
+    );
 
     return DataRow.byIndex(
       index: index,
@@ -1663,10 +1671,10 @@ class _LiquidacionesTableSource extends DataTableSource {
         DataCell(Text(item.tipoSalidaNombre ?? '-')),
         DataCell(Text(item.tipoSalidaPrecioUsd.toStringAsFixed(2))),
         DataCell(Text(item.km.toString())),
-        DataCell(Text(item.precioKmUsdSnapshot.toStringAsFixed(4))),
+        DataCell(Text(item.precioKmUsdSnapshotLegacy.toStringAsFixed(4))),
         DataCell(
           ModuleStatusChip(
-            label: item.subtotalEstimadoUsd.toStringAsFixed(2),
+            label: totalTecnicoUsd.toStringAsFixed(2),
             backgroundColor: const Color(0x1F0FA960),
             foregroundColor: const Color(0xFF8FF0BC),
           ),

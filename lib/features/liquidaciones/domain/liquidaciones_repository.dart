@@ -109,7 +109,7 @@ class LiquidacionItem {
     required this.servicioCanal,
     required this.tipoSalidaPrecioUsd,
     required this.km,
-    required this.precioKmUsdSnapshot,
+    required this.precioKmUsdSnapshotLegacy,
     required this.aprobada,
     this.tecnicoId,
     this.tecnicoNombre,
@@ -130,12 +130,10 @@ class LiquidacionItem {
   final String? tipoSalidaNombre;
   final double tipoSalidaPrecioUsd;
   final int km;
-  final double precioKmUsdSnapshot;
+  final double precioKmUsdSnapshotLegacy;
   final bool aprobada;
   final String? fechaAprobacion;
   final String? createdAt;
-
-  double get subtotalEstimadoUsd => tipoSalidaPrecioUsd + (km * precioKmUsdSnapshot);
 }
 
 class LiquidacionPendienteItem {
