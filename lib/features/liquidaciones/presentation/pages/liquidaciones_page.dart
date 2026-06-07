@@ -57,6 +57,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   String? _tecnicoFilterId;
   _LiquidacionesPanelView _activeView = _LiquidacionesPanelView.pendientes;
 
+  bool get _enableReopenLiquidacion =>
+      widget.liquidacionesRepository.enableReopenLiquidacion;
+
   void _requestDashboard({
     required int liquidacionesPage,
     required int liquidacionesLimit,
@@ -563,6 +566,92 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
         );
       },
     );
+  }
+
+  Future<void> _confirmReopenLiquidacion(LiquidacionItem item) async {
+    if (!_enableReopenLiquidacion) {
+      _showMessage('Reapertura no habilitada en este entorno.');
+      return;
+    }
+
+    if (!item.aprobada) {
+      _showMessage('Solo se puede reabrir una liquidacion aprobada.');
+      return;
+    }
+
+    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+    final formKey = GlobalKey<FormState>();
+    final motivoController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF102845),
+          title: const Text('Reabrir liquidacion'),
+          content: SizedBox(
+            width: 540,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  _LiquidacionInfoLine(label: 'Liquidacion ID', value: item.id),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Esta accion vuelve la liquidacion a edicion y requerira reaprobacion.',
+                    style: TextStyle(color: Color(0xFF9AB1CC)),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: motivoController,
+                    maxLines: 3,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Motivo de reapertura',
+                      hintText: 'Describe el motivo (obligatorio)',
+                    ),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Ingresa un motivo de reapertura';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!(formKey.currentState?.validate() ?? false)) {
+                  return;
+                }
+
+                liquidacionesBloc.add(
+                  LiquidacionesReopenRequested(
+                    input: ReopenLiquidacionInput(
+                      liquidacionId: item.id,
+                      motivo: motivoController.text.trim(),
+                    ),
+                  ),
+                );
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Reabrir'),
+            ),
+          ],
+        );
+      },
+    );
+
+    motivoController.dispose();
   }
 
   Future<void> _openCreateTipoSalidaDialog(LiquidacionesLoaded state) async {
@@ -2177,12 +2266,16 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               formatDate: _formatDate,
                                               formatTecnicoLabel:
                                                   _formatTecnicoLabel,
-                                                itemDetallesByLiquidacion:
+                                              itemDetallesByLiquidacion:
                                                   state.itemDetallesByLiquidacion,
                                               onEditHeader: (item) =>
                                                   _openEditHeaderDialog(state, item),
                                               onApproveLiquidacion:
                                                   _confirmApproveLiquidacion,
+                                              onReopenLiquidacion:
+                                                _enableReopenLiquidacion
+                                                  ? _confirmReopenLiquidacion
+                                                  : null,
                                               onManageItems: (item) =>
                                                   _openItemsDialog(state, item),
                                             ),
@@ -2250,6 +2343,7 @@ class _LiquidacionesTableSource extends DataTableSource {
     required this.itemDetallesByLiquidacion,
     required this.onEditHeader,
     required this.onApproveLiquidacion,
+    this.onReopenLiquidacion,
     required this.onManageItems,
   });
 
@@ -2266,6 +2360,7 @@ class _LiquidacionesTableSource extends DataTableSource {
   final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
   final ValueChanged<LiquidacionItem> onEditHeader;
   final ValueChanged<LiquidacionItem> onApproveLiquidacion;
+  final ValueChanged<LiquidacionItem>? onReopenLiquidacion;
   final ValueChanged<LiquidacionItem> onManageItems;
 
   @override
@@ -2320,7 +2415,7 @@ class _LiquidacionesTableSource extends DataTableSource {
             foregroundColor: const Color(0xFF8FF0BC),
           ),
         ),
-        DataCell(_AprobadaChip(aprobada: approved)),
+        DataCell(_AprobadaChip(item: item)),
         DataCell(Text(formatDate(item.fechaAprobacion))),
         DataCell(
           PopupMenuButton<String>(
@@ -2333,6 +2428,9 @@ class _LiquidacionesTableSource extends DataTableSource {
                   break;
                 case 'aprobar':
                   onApproveLiquidacion(item);
+                  break;
+                case 'reabrir':
+                  onReopenLiquidacion?.call(item);
                   break;
                 case 'items':
                   onManageItems(item);
@@ -2362,6 +2460,16 @@ class _LiquidacionesTableSource extends DataTableSource {
                           : 'Aprobar liquidacion (solo canal campo)'),
                 ),
               ),
+              if (onReopenLiquidacion != null)
+                PopupMenuItem<String>(
+                  value: 'reabrir',
+                  enabled: approved && isCanalCampo,
+                  child: Text(
+                    approved
+                        ? 'Reabrir liquidacion'
+                        : 'Reabrir liquidacion (solo aprobadas)',
+                  ),
+                ),
               const PopupMenuDivider(),
               PopupMenuItem<String>(
                 value: 'items',
@@ -2490,18 +2598,25 @@ bool _isCanalCampoValue(String? canal) {
 }
 
 class _AprobadaChip extends StatelessWidget {
-  const _AprobadaChip({required this.aprobada});
+  const _AprobadaChip({required this.item});
 
-  final bool aprobada;
+  final LiquidacionItem item;
 
   @override
   Widget build(BuildContext context) {
+    final isReabierta = item.isReabierta;
+    final aprobada = item.aprobada;
+
     return ModuleStatusChip(
-      label: aprobada ? 'APROBADA' : 'PENDIENTE',
-      backgroundColor:
-          aprobada ? const Color(0x1F0FA960) : const Color(0x1FF4B942),
-      foregroundColor:
-          aprobada ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B),
+      label: isReabierta
+          ? 'REABIERTA'
+          : (aprobada ? 'APROBADA PAGO' : 'PENDIENTE'),
+      backgroundColor: isReabierta
+          ? const Color(0x1F4EA6FF)
+          : (aprobada ? const Color(0x1F0FA960) : const Color(0x1FF4B942)),
+      foregroundColor: isReabierta
+          ? const Color(0xFF9CCDFF)
+          : (aprobada ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B)),
     );
   }
 }

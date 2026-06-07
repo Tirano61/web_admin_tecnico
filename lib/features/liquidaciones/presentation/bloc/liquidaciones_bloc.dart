@@ -40,6 +40,12 @@ class LiquidacionesApproveRequested extends LiquidacionesEvent {
   final String liquidacionId;
 }
 
+class LiquidacionesReopenRequested extends LiquidacionesEvent {
+  LiquidacionesReopenRequested({required this.input});
+
+  final ReopenLiquidacionInput input;
+}
+
 class LiquidacionesCreateTipoSalidaRequested extends LiquidacionesEvent {
   LiquidacionesCreateTipoSalidaRequested({required this.input});
 
@@ -168,6 +174,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     on<LiquidacionesCreateRequested>(_onCreateRequested);
     on<LiquidacionesUpdateRequested>(_onUpdateRequested);
     on<LiquidacionesApproveRequested>(_onApproveRequested);
+    on<LiquidacionesReopenRequested>(_onReopenRequested);
     on<LiquidacionesCreateTipoSalidaRequested>(_onCreateTipoSalidaRequested);
     on<LiquidacionesUpdateTipoSalidaRequested>(_onUpdateTipoSalidaRequested);
     on<LiquidacionesCreateTipoServicioRequested>(_onCreateTipoServicioRequested);
@@ -239,6 +246,21 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
       await _loadAndEmit(
         emit: emit,
         successMessage: 'Liquidacion aprobada correctamente',
+      );
+    } catch (error) {
+      emit(LiquidacionesFailure(_errorMessage(error)));
+    }
+  }
+
+  Future<void> _onReopenRequested(
+    LiquidacionesReopenRequested event,
+    Emitter<LiquidacionesState> emit,
+  ) async {
+    try {
+      await _repository.reopenLiquidacion(input: event.input);
+      await _loadAndEmit(
+        emit: emit,
+        successMessage: 'Liquidacion reabierta correctamente',
       );
     } catch (error) {
       emit(LiquidacionesFailure(_errorMessage(error)));

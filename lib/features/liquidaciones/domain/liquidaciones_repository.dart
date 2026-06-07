@@ -111,6 +111,7 @@ class LiquidacionItem {
     required this.km,
     required this.precioKmUsdSnapshotLegacy,
     required this.aprobada,
+    this.estado,
     this.tecnicoId,
     this.tecnicoNombre,
     this.tecnicoEmail,
@@ -132,8 +133,11 @@ class LiquidacionItem {
   final int km;
   final double precioKmUsdSnapshotLegacy;
   final bool aprobada;
+  final String? estado;
   final String? fechaAprobacion;
   final String? createdAt;
+
+  bool get isReabierta => (estado ?? '').trim().toLowerCase() == 'reabierta';
 }
 
 class LiquidacionPendienteItem {
@@ -260,6 +264,16 @@ class UpdateTipoServicioInput {
   final bool? activo;
 }
 
+class ReopenLiquidacionInput {
+  const ReopenLiquidacionInput({
+    required this.liquidacionId,
+    required this.motivo,
+  });
+
+  final String liquidacionId;
+  final String motivo;
+}
+
 const Object _aprobadoNoChange = Object();
 
 class LiquidacionesQuery {
@@ -305,6 +319,8 @@ class LiquidacionesPendientesQuery {
 }
 
 abstract class LiquidacionesRepository {
+  bool get enableReopenLiquidacion;
+
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({required LiquidacionesQuery query});
 
   Future<PagedResult<LiquidacionPendienteItem>> fetchLiquidacionesPendientes({
@@ -322,6 +338,8 @@ abstract class LiquidacionesRepository {
   Future<void> updateLiquidacion({required UpdateLiquidacionInput input});
 
   Future<void> approveLiquidacion(String liquidacionId);
+
+  Future<void> reopenLiquidacion({required ReopenLiquidacionInput input});
 
   Future<LiquidacionItemDetalle?> addLiquidacionItem({required AddLiquidacionItemInput input});
 
