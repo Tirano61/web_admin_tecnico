@@ -262,20 +262,17 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     String? tecnicoEmail,
   }) {
     final nombre = (tecnicoNombre ?? '').trim();
-    final email = (tecnicoEmail ?? '').trim();
     final id = (tecnicoId ?? '').trim();
+    final email = (tecnicoEmail ?? '').trim();
 
-    if (nombre.isNotEmpty && email.isNotEmpty) {
-      return '$nombre <$email>';
-    }
     if (nombre.isNotEmpty) {
       return nombre;
     }
-    if (email.isNotEmpty) {
-      return email;
-    }
     if (id.isNotEmpty) {
       return 'ID $id';
+    }
+    if (email.isNotEmpty) {
+      return email;
     }
     return '-';
   }
@@ -1359,13 +1356,16 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     final liquidacionesBloc = context.read<LiquidacionesBloc>();
 
     if (!_isCanalCampo(liquidacion.servicioCanal)) {
-      _showMessage('Solo las liquidaciones de canal campo permiten gestionar items.');
-      return;
+      _showMessage(
+        'Canal no identificado como campo. Se habilita gestion para evitar bloqueo operativo.',
+      );
     }
 
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
+    final tiposServicioDisponibles =
+      tiposServicioActivos.isNotEmpty ? tiposServicioActivos : state.tiposServicio;
 
-    var selectedTipoServicioId = _firstTipoServicioId(tiposServicioActivos);
+    var selectedTipoServicioId = _firstTipoServicioId(tiposServicioDisponibles);
     var items = _cachedItemsForLiquidacion(
       bloc: liquidacionesBloc,
       liquidacionId: liquidacion.id,
@@ -1505,8 +1505,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 return;
               }
 
-              if (tiposServicioActivos.isEmpty) {
-                _showMessage('No hay tipos de servicio activos para agregar.');
+              if (tiposServicioDisponibles.isEmpty) {
+                _showMessage('No hay tipos de servicio disponibles para agregar.');
                 return;
               }
 
@@ -1522,7 +1522,8 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 return;
               }
 
-              final fallbackTipo = tiposServicioActivos.where((item) => item.id == tipoServicioId);
+                final fallbackTipo =
+                  tiposServicioDisponibles.where((item) => item.id == tipoServicioId);
               final fallbackNombre = fallbackTipo.isEmpty ? '-' : fallbackTipo.first.nombre;
               final fallbackPrecio =
                   fallbackTipo.isEmpty ? 0.0 : fallbackTipo.first.precioUsd;
@@ -1753,17 +1754,17 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                           decoration: const InputDecoration(
                                             labelText: 'Tipo servicio',
                                           ),
-                                          items: tiposServicioActivos
+                                          items: tiposServicioDisponibles
                                               .map(
                                                 (tipo) => DropdownMenuItem<String>(
                                                   value: tipo.id,
                                                   child: Text(
-                                                    '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}',
+                                                    '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}${tipo.activo ? '' : ' (inactivo)'}',
                                                   ),
                                                 ),
                                               )
                                               .toList(),
-                                          onChanged: addBlocked || tiposServicioActivos.isEmpty
+                                          onChanged: addBlocked || tiposServicioDisponibles.isEmpty
                                               ? null
                                               : (value) {
                                                   setDialogState(
@@ -1774,7 +1775,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                       ),
                                       const SizedBox(width: 8),
                                       FilledButton.icon(
-                                        onPressed: addBlocked || tiposServicioActivos.isEmpty
+                                        onPressed: addBlocked || tiposServicioDisponibles.isEmpty
                                             ? null
                                             : addItem,
                                         icon: const Icon(Icons.add, size: 18),
@@ -1782,10 +1783,18 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                       ),
                                     ],
                                   ),
-                                  if (tiposServicioActivos.isEmpty) ...<Widget>[
+                                  if (tiposServicioDisponibles.isEmpty) ...<Widget>[
                                     const SizedBox(height: 8),
                                     const Text(
-                                      'No hay tipos de servicio activos. Activa o crea uno para poder agregar items.',
+                                      'No hay tipos de servicio cargados. Crea uno para poder agregar items.',
+                                      style: TextStyle(color: Color(0xFFFFD98B)),
+                                    ),
+                                  ],
+                                  if (tiposServicioActivos.isEmpty &&
+                                      tiposServicioDisponibles.isNotEmpty) ...<Widget>[
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'No hay tipos activos; se muestran inactivos para no bloquear el flujo.',
                                       style: TextStyle(color: Color(0xFFFFD98B)),
                                     ),
                                   ],
@@ -2373,15 +2382,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               const Color(0x1A4EA6FF),
                                             ),
                                             columns: const <DataColumn>[
-                                              DataColumn(label: Text('ID')),
-                                              DataColumn(label: Text('Servicio')),
                                               DataColumn(label: Text('Canal')),
                                               DataColumn(label: Text('Tecnico')),
                                               DataColumn(label: Text('Estado texto')),
                                               DataColumn(label: Text('Tipo salida')),
                                               DataColumn(label: Text('Salida fija USD')),
                                               DataColumn(label: Text('KM')),
-                                              DataColumn(label: Text('KM USD snapshot (legacy)')),
                                               DataColumn(label: Text('Total tecnico USD')),
                                               DataColumn(label: Text('Estado')),
                                               DataColumn(label: Text('Fecha aprobacion')),
@@ -2513,8 +2519,6 @@ class _LiquidacionesTableSource extends DataTableSource {
     return DataRow.byIndex(
       index: index,
       cells: <DataCell>[
-        DataCell(Text(item.id)),
-        DataCell(Text(item.servicioId)),
         DataCell(
           ModuleStatusChip(
             label: item.servicioCanal.toUpperCase(),
@@ -2537,7 +2541,6 @@ class _LiquidacionesTableSource extends DataTableSource {
         DataCell(Text(item.tipoSalidaNombre ?? '-')),
         DataCell(Text(item.tipoSalidaPrecioUsd.toStringAsFixed(2))),
         DataCell(Text(item.km.toString())),
-        DataCell(Text(item.precioKmUsdSnapshotLegacy.toStringAsFixed(4))),
         DataCell(
           ModuleStatusChip(
             label: totalTecnicoUsd.toStringAsFixed(2),
@@ -2548,69 +2551,71 @@ class _LiquidacionesTableSource extends DataTableSource {
         DataCell(_AprobadaChip(item: item)),
         DataCell(Text(formatDate(item.fechaAprobacion))),
         DataCell(
-          PopupMenuButton<String>(
-            tooltip: 'Acciones',
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (value) {
-              switch (value) {
-                case 'editar':
-                  onEditHeader(item);
-                  break;
-                case 'aprobar':
-                  onApproveLiquidacion(item);
-                  break;
-                case 'reabrir':
-                  onReopenLiquidacion?.call(item);
-                  break;
-                case 'items':
-                  onManageItems(item);
-                  break;
-              }
-            },
-            itemBuilder: (context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'editar',
-                enabled: !approved && isCanalCampo,
-                child: Text(
-                  !isCanalCampo
-                      ? 'Editar cabecera (solo canal campo)'
-                      : (item.isEditable
-                          ? 'Editar cabecera'
-                          : 'Editar cabecera (reabrir para editar)'),
+          SizedBox(
+            width: 240,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  onPressed: () => onManageItems(item),
+                  icon: const Icon(Icons.playlist_add_check),
+                  label: const Text('Items'),
                 ),
-              ),
-              PopupMenuItem<String>(
-                value: 'aprobar',
-                enabled: !approved && isCanalCampo,
-                child: Text(
-                  !isCanalCampo
-                      ? 'Aprobar liquidacion (solo canal campo)'
-                      : (approved
-                          ? 'Aprobar liquidacion (ya aprobada)'
-                          : 'Aprobar liquidacion'),
+                PopupMenuButton<String>(
+                  tooltip: 'Mas acciones',
+                  icon: const Icon(Icons.more_horiz),
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'editar':
+                        onEditHeader(item);
+                        break;
+                      case 'aprobar':
+                        onApproveLiquidacion(item);
+                        break;
+                      case 'reabrir':
+                        onReopenLiquidacion?.call(item);
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => <PopupMenuEntry<String>>[
+                    PopupMenuItem<String>(
+                      value: 'editar',
+                      enabled: !approved && isCanalCampo,
+                      child: Text(
+                        !isCanalCampo
+                            ? 'Editar cabecera (solo canal campo)'
+                            : (item.isEditable
+                                ? 'Editar cabecera'
+                                : 'Editar cabecera (reabrir para editar)'),
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'aprobar',
+                      enabled: !approved && isCanalCampo,
+                      child: Text(
+                        !isCanalCampo
+                            ? 'Aprobar liquidacion (solo canal campo)'
+                            : (approved
+                                ? 'Aprobar liquidacion (ya aprobada)'
+                                : 'Aprobar liquidacion'),
+                      ),
+                    ),
+                    if (onReopenLiquidacion != null)
+                      PopupMenuItem<String>(
+                        value: 'reabrir',
+                        enabled: approved && isCanalCampo,
+                        child: Text(
+                          approved
+                              ? 'Reabrir liquidacion'
+                              : 'Reabrir liquidacion (solo aprobadas)',
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-              if (onReopenLiquidacion != null)
-                PopupMenuItem<String>(
-                  value: 'reabrir',
-                  enabled: approved && isCanalCampo,
-                  child: Text(
-                    approved
-                        ? 'Reabrir liquidacion'
-                        : 'Reabrir liquidacion (solo aprobadas)',
-                  ),
-                ),
-              const PopupMenuDivider(),
-              PopupMenuItem<String>(
-                value: 'items',
-                enabled: isCanalCampo,
-                child: Text(
-                  isCanalCampo
-                      ? 'Gestionar items'
-                      : 'Gestionar items (solo canal campo)',
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -2724,7 +2729,12 @@ class _LiquidacionesPendientesTableSource extends DataTableSource {
 
 bool _isCanalCampoValue(String? canal) {
   final normalized = (canal ?? '').trim().toLowerCase();
-  return normalized == 'campo';
+  if (normalized.isEmpty) {
+    return false;
+  }
+  return normalized == 'campo' ||
+      normalized == 'c' ||
+      normalized.contains('campo');
 }
 
 class _AprobadaChip extends StatelessWidget {

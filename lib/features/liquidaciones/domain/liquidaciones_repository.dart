@@ -139,13 +139,22 @@ class LiquidacionItem {
 
   String get estadoNormalizado {
     final normalized = (estado ?? '').trim().toLowerCase();
-    if (normalized == 'pendiente' || normalized == 'aprobada' || normalized == 'reabierta') {
+    if (normalized == 'pendiente' ||
+        normalized == 'aprobada' ||
+        normalized == 'reabierta' ||
+        normalized == 'creada' ||
+        normalized == 'borrador' ||
+        normalized == 'draft') {
       return normalized;
     }
     return aprobada ? 'aprobada' : 'pendiente';
   }
 
-  bool get isPendiente => estadoNormalizado == 'pendiente';
+  bool get isPendiente =>
+      estadoNormalizado == 'pendiente' ||
+      estadoNormalizado == 'creada' ||
+      estadoNormalizado == 'borrador' ||
+      estadoNormalizado == 'draft';
 
   bool get isAprobadaEstado => estadoNormalizado == 'aprobada';
 
