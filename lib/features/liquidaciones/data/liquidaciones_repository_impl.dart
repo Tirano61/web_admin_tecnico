@@ -28,6 +28,14 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         final liquidacionNode = _asMap(root['liquidacion']);
         final source = liquidacionNode.isEmpty ? root : liquidacionNode;
         final servicioNode = _asMap(source['servicio']);
+        final servicioCanal = _stringOrNull(
+          servicioNode['canal'] ??
+              source['canal'] ??
+              source['servicioCanal'] ??
+              source['servicio_canal'] ??
+              source['canalServicio'] ??
+              source['canal_servicio'],
+        );
         final tecnicoNode = _asMap(source['tecnico']);
         final tipoSalidaNode = _asMap(source['tipoSalida'] ?? source['tipo_salida']);
 
@@ -50,7 +58,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
                 source['servicioId'] ?? source['servicio_id'] ?? servicioNode['id'],
               ) ??
               '-',
-          servicioCanal: _stringOrNull(servicioNode['canal'] ?? source['canal']) ?? '-',
+          servicioCanal: servicioCanal ?? 'campo',
           tecnicoId: _stringOrNull(source['tecnicoId'] ?? source['tecnico_id'] ?? tecnicoNode['id']),
           tecnicoNombre: _stringOrNull(
             source['tecnicoNombre'] ??
