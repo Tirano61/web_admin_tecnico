@@ -465,7 +465,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     }
 
     if (!item.isEditable) {
-      _showMessage('La liquidacion en estado aprobada no permite editar cabecera.');
+      _showMessage(
+        'La liquidacion aprobada no permite editar cabecera. Reabrila para continuar.',
+      );
       return;
     }
 
@@ -591,13 +593,36 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return;
     }
 
+    final items = _cachedItemsForLiquidacion(
+      bloc: liquidacionesBloc,
+      liquidacionId: item.id,
+    );
+    final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
+      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
+      items: items,
+    );
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF102845),
           title: const Text('Aprobar liquidacion'),
-          content: Text('Confirma aprobar la liquidacion ${item.id}?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Confirma aprobar la liquidacion ${item.id}?'),
+              const SizedBox(height: 10),
+              Text('Salida fija USD: ${item.tipoSalidaPrecioUsd.toStringAsFixed(2)}'),
+              Text('Items cargados: ${items.length}'),
+              const SizedBox(height: 6),
+              Text(
+                'Total tecnico a confirmar: USD ${totalTecnicoUsd.toStringAsFixed(2)}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
@@ -1338,7 +1363,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return;
     }
 
-    final manualTipoServicioController = TextEditingController();
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
 
     var selectedTipoServicioId = _firstTipoServicioId(tiposServicioActivos);
@@ -1475,7 +1499,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
             Future<void> addItem() async {
               if (!liquidacion.isEditable) {
-                _showMessage('La liquidacion en estado aprobada no permite alta de items.');
+                _showMessage(
+                  'La liquidacion aprobada no permite agregar items. Reabrila para continuar.',
+                );
+                return;
+              }
+
+              if (tiposServicioActivos.isEmpty) {
+                _showMessage('No hay tipos de servicio activos para agregar.');
                 return;
               }
 
@@ -1484,10 +1515,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 return;
               }
 
-              final hasCatalog = tiposServicioActivos.isNotEmpty;
-              final tipoServicioId = hasCatalog
-                  ? (selectedTipoServicioId ?? '').trim()
-                  : manualTipoServicioController.text.trim();
+              final tipoServicioId = (selectedTipoServicioId ?? '').trim();
 
               if (tipoServicioId.isEmpty) {
                 _showMessage('Selecciona un tipo de servicio.');
@@ -1528,7 +1556,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
             Future<void> approveItem(LiquidacionItemDetalle item) async {
               if (!liquidacion.isEditable) {
-                _showMessage('La liquidacion en estado aprobada no permite aprobar items.');
+                _showMessage(
+                  'La liquidacion aprobada no permite aprobar items. Reabrila para continuar.',
+                );
                 return;
               }
 
@@ -1568,7 +1598,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
             Future<void> deleteItem(LiquidacionItemDetalle item) async {
               if (!liquidacion.isEditable) {
-                _showMessage('La liquidacion en estado aprobada no permite eliminar items.');
+                _showMessage(
+                  'La liquidacion aprobada no permite eliminar items. Reabrila para continuar.',
+                );
                 return;
               }
 
@@ -1621,8 +1653,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
               Future<void>.microtask(loadItems);
             }
 
-            final hasCatalog = tiposServicioActivos.isNotEmpty;
             final addBlocked = !liquidacion.isEditable || actionInProgress || items.length >= 6;
+            final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
+              tipoSalidaPrecioUsd: liquidacion.tipoSalidaPrecioUsd,
+              items: items,
+            );
 
             return AlertDialog(
               backgroundColor: const Color(0xFF102845),
@@ -1676,6 +1711,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 label:
                                     'SUBTOTAL USD ${meta.subtotalUsdTotal.toStringAsFixed(2)}',
                               ),
+                              ModuleStatusChip(
+                                label:
+                                    'TOTAL TECNICO USD ${totalTecnicoUsd.toStringAsFixed(2)}',
+                                backgroundColor: const Color(0x1F0FA960),
+                                foregroundColor: const Color(0xFF8FF0BC),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
@@ -1707,51 +1748,47 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                   Row(
                                     children: <Widget>[
                                       Expanded(
-                                        child: hasCatalog
-                                            ? DropdownButtonFormField<String>(
-                                                initialValue: selectedTipoServicioId,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Tipo servicio',
+                                        child: DropdownButtonFormField<String>(
+                                          initialValue: selectedTipoServicioId,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Tipo servicio',
+                                          ),
+                                          items: tiposServicioActivos
+                                              .map(
+                                                (tipo) => DropdownMenuItem<String>(
+                                                  value: tipo.id,
+                                                  child: Text(
+                                                    '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}',
+                                                  ),
                                                 ),
-                                                items: tiposServicioActivos
-                                                    .map(
-                                                      (tipo) =>
-                                                          DropdownMenuItem<String>(
-                                                        value: tipo.id,
-                                                        child: Text(
-                                                          '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}',
-                                                        ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                                onChanged: addBlocked
-                                                    ? null
-                                                    : (value) {
-                                                        setDialogState(
-                                                          () => selectedTipoServicioId = value,
-                                                        );
-                                                      },
                                               )
-                                            : TextFormField(
-                                                controller:
-                                                    manualTipoServicioController,
-                                                style: const TextStyle(
-                                                  color: Color(0xFFEAF3FF),
-                                                ),
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Tipo servicio ID',
-                                                  hintText: 'UUID tipo-servicio',
-                                                ),
-                                              ),
+                                              .toList(),
+                                          onChanged: addBlocked || tiposServicioActivos.isEmpty
+                                              ? null
+                                              : (value) {
+                                                  setDialogState(
+                                                    () => selectedTipoServicioId = value,
+                                                  );
+                                                },
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       FilledButton.icon(
-                                        onPressed: addBlocked ? null : addItem,
+                                        onPressed: addBlocked || tiposServicioActivos.isEmpty
+                                            ? null
+                                            : addItem,
                                         icon: const Icon(Icons.add, size: 18),
                                         label: const Text('Agregar item'),
                                       ),
                                     ],
                                   ),
+                                  if (tiposServicioActivos.isEmpty) ...<Widget>[
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'No hay tipos de servicio activos. Activa o crea uno para poder agregar items.',
+                                      style: TextStyle(color: Color(0xFFFFD98B)),
+                                    ),
+                                  ],
                                   if (items.length >= 6) ...<Widget>[
                                     const SizedBox(height: 8),
                                     const Text(
@@ -1913,8 +1950,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
         );
       },
     );
-
-    manualTipoServicioController.dispose();
   }
 
   @override
@@ -2342,6 +2377,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               DataColumn(label: Text('Servicio')),
                                               DataColumn(label: Text('Canal')),
                                               DataColumn(label: Text('Tecnico')),
+                                              DataColumn(label: Text('Estado texto')),
                                               DataColumn(label: Text('Tipo salida')),
                                               DataColumn(label: Text('Salida fija USD')),
                                               DataColumn(label: Text('KM')),
@@ -2497,6 +2533,7 @@ class _LiquidacionesTableSource extends DataTableSource {
             ),
           ),
         ),
+        DataCell(Text(item.estadoNormalizado.toUpperCase())),
         DataCell(Text(item.tipoSalidaNombre ?? '-')),
         DataCell(Text(item.tipoSalidaPrecioUsd.toStringAsFixed(2))),
         DataCell(Text(item.km.toString())),
@@ -2535,22 +2572,22 @@ class _LiquidacionesTableSource extends DataTableSource {
                 value: 'editar',
                 enabled: !approved && isCanalCampo,
                 child: Text(
-                  approved
-                      ? 'Editar cabecera (bloqueado)'
-                      : (isCanalCampo
+                  !isCanalCampo
+                      ? 'Editar cabecera (solo canal campo)'
+                      : (item.isEditable
                           ? 'Editar cabecera'
-                          : 'Editar cabecera (solo canal campo)'),
+                          : 'Editar cabecera (reabrir para editar)'),
                 ),
               ),
               PopupMenuItem<String>(
                 value: 'aprobar',
                 enabled: !approved && isCanalCampo,
                 child: Text(
-                  approved
-                      ? 'Aprobar liquidacion (ya aprobada)'
-                      : (isCanalCampo
-                          ? 'Aprobar liquidacion'
-                          : 'Aprobar liquidacion (solo canal campo)'),
+                  !isCanalCampo
+                      ? 'Aprobar liquidacion (solo canal campo)'
+                      : (approved
+                          ? 'Aprobar liquidacion (ya aprobada)'
+                          : 'Aprobar liquidacion'),
                 ),
               ),
               if (onReopenLiquidacion != null)
