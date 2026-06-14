@@ -1662,7 +1662,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
             return AlertDialog(
               backgroundColor: const Color(0xFF102845),
-              title: const Text('Items de liquidacion'),
+              title: const Text('Detalle de liquidacion'),
               content: SizedBox(
                 width: 960,
                 child: loading
@@ -1682,6 +1682,35 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                           _LiquidacionInfoLine(
                             label: 'Liquidacion ID',
                             value: liquidacion.id,
+                          ),
+                          const SizedBox(height: 6),
+                          _LiquidacionInfoLine(
+                            label: 'Servicio',
+                            value: liquidacion.servicioId,
+                          ),
+                          const SizedBox(height: 6),
+                          _LiquidacionInfoLine(
+                            label: 'Cliente',
+                            value: (liquidacion.clienteNombre ?? '').trim().isEmpty
+                                ? '-'
+                                : liquidacion.clienteNombre!,
+                          ),
+                          const SizedBox(height: 6),
+                          _LiquidacionInfoLine(
+                            label: 'Tipo salida',
+                            value: (liquidacion.tipoSalidaNombre ?? '').trim().isEmpty
+                                ? '-'
+                                : liquidacion.tipoSalidaNombre!,
+                          ),
+                          const SizedBox(height: 6),
+                          _LiquidacionInfoLine(
+                            label: 'Salida fija USD',
+                            value: liquidacion.tipoSalidaPrecioUsd.toStringAsFixed(2),
+                          ),
+                          const SizedBox(height: 6),
+                          _LiquidacionInfoLine(
+                            label: 'KM',
+                            value: liquidacion.km.toString(),
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -1867,82 +1896,98 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                           else
                             SizedBox(
                               height: 320,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  columns: const <DataColumn>[
-                                    DataColumn(label: Text('Item ID')),
-                                    DataColumn(label: Text('Tipo servicio')),
-                                    DataColumn(label: Text('Precio USD snapshot')),
-                                    DataColumn(label: Text('Estado')),
-                                    DataColumn(label: Text('Aprobacion')),
-                                    DataColumn(label: Text('Creado')),
-                                    DataColumn(label: Text('Acciones')),
-                                  ],
-                                  rows: items
-                                      .map(
-                                        (detalle) => DataRow(
-                                          cells: <DataCell>[
-                                            DataCell(Text(detalle.id)),
-                                            DataCell(Text(detalle.tipoServicioNombre)),
-                                            DataCell(Text(
-                                              detalle.precioUsdSnapshot
-                                                  .toStringAsFixed(2),
-                                            )),
-                                            DataCell(
-                                              ModuleStatusChip(
-                                                label: detalle.aprobado
-                                                    ? 'APROBADO'
-                                                    : 'PENDIENTE',
-                                                backgroundColor: detalle.aprobado
-                                                    ? const Color(0x1F0FA960)
-                                                    : const Color(0x1FF4B942),
-                                                foregroundColor: detalle.aprobado
-                                                    ? const Color(0xFF8FF0BC)
-                                                    : const Color(0xFFFFD98B),
+                              child: ListView.separated(
+                                itemCount: items.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final detalle = items[index];
+                                  final title =
+                                      '${index + 1}. ${detalle.tipoServicioNombre}';
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x1F122B4A),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0x334EA6FF)),
+                                    ),
+                                    child: ExpansionTile(
+                                      tilePadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 2,
+                                      ),
+                                      childrenPadding: const EdgeInsets.fromLTRB(
+                                        12,
+                                        0,
+                                        12,
+                                        12,
+                                      ),
+                                      title: Text(title),
+                                      subtitle: Row(
+                                        children: <Widget>[
+                                          ModuleStatusChip(
+                                            label: detalle.aprobado
+                                                ? 'APROBADO'
+                                                : 'PENDIENTE',
+                                            backgroundColor: detalle.aprobado
+                                                ? const Color(0x1F0FA960)
+                                                : const Color(0x1FF4B942),
+                                            foregroundColor: detalle.aprobado
+                                                ? const Color(0xFF8FF0BC)
+                                                : const Color(0xFFFFD98B),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'USD ${detalle.precioUsdSnapshot.toStringAsFixed(2)}',
+                                          ),
+                                        ],
+                                      ),
+                                      children: <Widget>[
+                                        _LiquidacionInfoLine(
+                                          label: 'Item ID',
+                                          value: detalle.id,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _LiquidacionInfoLine(
+                                          label: 'Aprobacion',
+                                          value: _formatDate(detalle.fechaAprobacion),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _LiquidacionInfoLine(
+                                          label: 'Creado',
+                                          value: _formatDate(detalle.createdAt),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: <Widget>[
+                                            IconButton(
+                                              tooltip: 'Aprobar item',
+                                              onPressed: actionInProgress ||
+                                                      !liquidacion.isEditable ||
+                                                      detalle.aprobado ||
+                                                      !detalle.isPersisted
+                                                  ? null
+                                                  : () => approveItem(detalle),
+                                              icon: const Icon(
+                                                Icons.check_circle_outline,
                                               ),
                                             ),
-                                            DataCell(Text(
-                                              _formatDate(detalle.fechaAprobacion),
-                                            )),
-                                            DataCell(Text(
-                                              _formatDate(detalle.createdAt),
-                                            )),
-                                            DataCell(
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: <Widget>[
-                                                  IconButton(
-                                                    tooltip: 'Aprobar item',
-                                                    onPressed: actionInProgress ||
-                                                          !liquidacion.isEditable ||
-                                                            detalle.aprobado ||
-                                                            !detalle.isPersisted
-                                                        ? null
-                                                        : () => approveItem(detalle),
-                                                    icon: const Icon(
-                                                      Icons.check_circle_outline,
-                                                    ),
-                                                  ),
-                                                  IconButton(
-                                                    tooltip: 'Eliminar item',
-                                                    onPressed: actionInProgress ||
-                                                          !liquidacion.isEditable ||
-                                                            detalle.aprobado
-                                                        ? null
-                                                        : () => deleteItem(detalle),
-                                                    icon: const Icon(
-                                                      Icons.delete_outline,
-                                                    ),
-                                                  ),
-                                                ],
+                                            IconButton(
+                                              tooltip: 'Eliminar item',
+                                              onPressed: actionInProgress ||
+                                                      !liquidacion.isEditable ||
+                                                      detalle.aprobado
+                                                  ? null
+                                                  : () => deleteItem(detalle),
+                                              icon: const Icon(
+                                                Icons.delete_outline,
                                               ),
                                             ),
                                           ],
                                         ),
-                                      )
-                                      .toList(),
-                                ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                         ],
@@ -2382,12 +2427,10 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                               const Color(0x1A4EA6FF),
                                             ),
                                             columns: const <DataColumn>[
+                                              DataColumn(label: Text('Servicio / Cliente')),
                                               DataColumn(label: Text('Canal')),
                                               DataColumn(label: Text('Tecnico')),
                                               DataColumn(label: Text('Estado texto')),
-                                              DataColumn(label: Text('Tipo salida')),
-                                              DataColumn(label: Text('Salida fija USD')),
-                                              DataColumn(label: Text('KM')),
                                               DataColumn(label: Text('Total tecnico USD')),
                                               DataColumn(label: Text('Estado')),
                                               DataColumn(label: Text('Fecha aprobacion')),
@@ -2520,6 +2563,27 @@ class _LiquidacionesTableSource extends DataTableSource {
       index: index,
       cells: <DataCell>[
         DataCell(
+          SizedBox(
+            width: 280,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Servicio ${item.servicioId}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Cliente ${((item.clienteNombre ?? '').trim().isEmpty ? '-' : item.clienteNombre!)}',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xFF9AB1CC), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+        DataCell(
           ModuleStatusChip(
             label: item.servicioCanal.toUpperCase(),
           ),
@@ -2538,9 +2602,6 @@ class _LiquidacionesTableSource extends DataTableSource {
           ),
         ),
         DataCell(Text(item.estadoNormalizado.toUpperCase())),
-        DataCell(Text(item.tipoSalidaNombre ?? '-')),
-        DataCell(Text(item.tipoSalidaPrecioUsd.toStringAsFixed(2))),
-        DataCell(Text(item.km.toString())),
         DataCell(
           ModuleStatusChip(
             label: totalTecnicoUsd.toStringAsFixed(2),
@@ -2561,7 +2622,7 @@ class _LiquidacionesTableSource extends DataTableSource {
                 OutlinedButton.icon(
                   onPressed: () => onManageItems(item),
                   icon: const Icon(Icons.playlist_add_check),
-                  label: const Text('Items'),
+                  label: const Text('Ver detalle'),
                 ),
                 PopupMenuButton<String>(
                   tooltip: 'Mas acciones',
