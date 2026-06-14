@@ -115,6 +115,7 @@ class LiquidacionItem {
     this.tecnicoId,
     this.tecnicoNombre,
     this.tecnicoEmail,
+    this.clienteNombre,
     this.tipoSalidaId,
     this.tipoSalidaNombre,
     this.fechaAprobacion,
@@ -127,6 +128,7 @@ class LiquidacionItem {
   final String? tecnicoId;
   final String? tecnicoNombre;
   final String? tecnicoEmail;
+  final String? clienteNombre;
   final String? tipoSalidaId;
   final String? tipoSalidaNombre;
   final double tipoSalidaPrecioUsd;

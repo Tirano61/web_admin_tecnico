@@ -37,6 +37,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
               source['canal_servicio'],
         );
         final tecnicoNode = _asMap(source['tecnico']);
+        final clienteNode = _asMap(source['cliente'] ?? servicioNode['cliente']);
         final tipoSalidaNode = _asMap(source['tipoSalida'] ?? source['tipo_salida']);
 
         final precioTipoSalida = _toDouble(
@@ -71,6 +72,16 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
             source['tecnicoEmail'] ??
                 source['tecnico_email'] ??
                 tecnicoNode['email'],
+          ),
+          clienteNombre: _stringOrNull(
+            source['clienteNombre'] ??
+                source['cliente_nombre'] ??
+                clienteNode['nombre'] ??
+                clienteNode['fullName'] ??
+                clienteNode['full_name'] ??
+                clienteNode['razonSocial'] ??
+                clienteNode['razon_social'] ??
+                source['cliente'],
           ),
           tipoSalidaId: _stringOrNull(
             source['tipoSalidaId'] ?? source['tipo_salida_id'] ?? tipoSalidaNode['id'],
