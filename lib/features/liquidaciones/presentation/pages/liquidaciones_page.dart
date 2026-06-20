@@ -395,6 +395,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 return;
               }
 
+              if (selectedItems.isEmpty) {
+                _showMessage('Debes asignar al menos 1 item de tipo de servicio antes de aprobar.');
+                return;
+              }
+
               setDialogState(() => submitting = true);
               try {
                 await widget.liquidacionesRepository.createLiquidacion(
@@ -823,69 +828,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     );
 
     manualTipoSalidaController.dispose();
-  }
-
-  Future<void> _confirmApproveLiquidacion(LiquidacionItem item) async {
-    final liquidacionesBloc = context.read<LiquidacionesBloc>();
-
-    if (!_isCanalCampo(item.servicioCanal)) {
-      _showMessage('Solo las liquidaciones de canal campo pueden aprobarse.');
-      return;
-    }
-
-    if (item.isAprobadaEstado) {
-      _showMessage('La liquidacion ya se encuentra aprobada.');
-      return;
-    }
-
-    final items = _cachedItemsForLiquidacion(
-      bloc: liquidacionesBloc,
-      liquidacionId: item.id,
-    );
-    final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
-      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
-      items: items,
-    );
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF102845),
-          title: const Text('Aprobar liquidacion'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Confirma aprobar la liquidacion ${item.id}?'),
-              const SizedBox(height: 10),
-              Text('Salida fija USD: ${item.tipoSalidaPrecioUsd.toStringAsFixed(2)}'),
-              Text('Items cargados: ${items.length}'),
-              const SizedBox(height: 6),
-              Text(
-                'Total tecnico a confirmar: USD ${totalTecnicoUsd.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                liquidacionesBloc.add(
-                  LiquidacionesApproveRequested(item.id),
-                );
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Aprobar'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _confirmReopenLiquidacion(LiquidacionItem item) async {
@@ -2333,14 +2275,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             final selectedAprobado = _aprobadoFilter ?? state.aprobado;
             final approvedFilterValue = selectedAprobado == null
                 ? 'todos'
-                : (selectedAprobado ? 'aprobadas' : 'pendientes');
+              : 'aprobadas';
 
             final hasTecnicoFilter =
                 selectedTecnicoId != null && selectedTecnicoId.isNotEmpty;
             final createdHasFilters = hasTecnicoFilter || selectedAprobado != null;
             final createdEmptyMessage = createdHasFilters
-                ? 'No hay liquidaciones creadas para el filtro seleccionado.'
-                : 'No hay liquidaciones creadas para mostrar.';
+              ? 'No hay liquidaciones aprobadas para el filtro seleccionado.'
+              : 'No hay liquidaciones aprobadas para mostrar.';
             final pendientesEmptyMessage = hasTecnicoFilter
                 ? 'No hay servicios pendientes para el tecnico seleccionado.'
                 : 'No hay servicios pendientes de liquidar.';
@@ -2366,7 +2308,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     foregroundColor: const Color(0xFF8FF0BC),
                   ),
                   ModuleStatusChip(
-                    label: 'PENDIENTES APROBACION $pendingCount',
+                    label: 'REABIERTAS / NO APROBADAS $pendingCount',
                     backgroundColor: const Color(0x1FF4B942),
                     foregroundColor: const Color(0xFFFFD98B),
                   ),
@@ -2393,7 +2335,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                         ),
                         ChoiceChip(
                           selected: _activeView == _LiquidacionesPanelView.creadas,
-                          label: const Text('Liquidaciones creadas'),
+                          label: const Text('Liquidaciones aprobadas'),
                           onSelected: (selected) {
                             if (!selected) {
                               return;
@@ -2502,10 +2444,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                   DropdownMenuItem(
                                     value: 'aprobadas',
                                     child: Text('APROBADAS'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'pendientes',
-                                    child: Text('PENDIENTES'),
                                   ),
                                 ],
                               ),
@@ -2696,8 +2634,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   state.itemDetallesByLiquidacion,
                                               onEditHeader: (item) =>
                                                   _openEditHeaderDialog(state, item),
-                                              onApproveLiquidacion:
-                                                  _confirmApproveLiquidacion,
                                                 onReopenLiquidacion:
                                                   _canReopenByRole
                                                     ? _confirmReopenLiquidacion
@@ -2768,7 +2704,6 @@ class _LiquidacionesTableSource extends DataTableSource {
     required this.formatTecnicoLabel,
     required this.itemDetallesByLiquidacion,
     required this.onEditHeader,
-    required this.onApproveLiquidacion,
     this.onReopenLiquidacion,
     required this.onManageItems,
   });
@@ -2785,7 +2720,6 @@ class _LiquidacionesTableSource extends DataTableSource {
   }) formatTecnicoLabel;
   final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
   final ValueChanged<LiquidacionItem> onEditHeader;
-  final ValueChanged<LiquidacionItem> onApproveLiquidacion;
   final ValueChanged<LiquidacionItem>? onReopenLiquidacion;
   final ValueChanged<LiquidacionItem> onManageItems;
 
@@ -2880,9 +2814,6 @@ class _LiquidacionesTableSource extends DataTableSource {
                       case 'editar':
                         onEditHeader(item);
                         break;
-                      case 'aprobar':
-                        onApproveLiquidacion(item);
-                        break;
                       case 'reabrir':
                         onReopenLiquidacion?.call(item);
                         break;
@@ -2900,25 +2831,14 @@ class _LiquidacionesTableSource extends DataTableSource {
                                 : 'Editar cabecera (reabrir para editar)'),
                       ),
                     ),
-                    PopupMenuItem<String>(
-                      value: 'aprobar',
-                      enabled: !approved && isCanalCampo,
-                      child: Text(
-                        !isCanalCampo
-                            ? 'Aprobar liquidacion (solo canal campo)'
-                            : (approved
-                                ? 'Aprobar liquidacion (ya aprobada)'
-                                : 'Aprobar liquidacion'),
-                      ),
-                    ),
                     if (onReopenLiquidacion != null)
                       PopupMenuItem<String>(
                         value: 'reabrir',
-                        enabled: approved && isCanalCampo,
+                        enabled: isCanalCampo,
                         child: Text(
                           approved
-                              ? 'Reabrir liquidacion'
-                              : 'Reabrir liquidacion (solo aprobadas)',
+                              ? 'Reabrir para editar'
+                              : 'Reabrir para editar (pendiente)',
                         ),
                       ),
                   ],
