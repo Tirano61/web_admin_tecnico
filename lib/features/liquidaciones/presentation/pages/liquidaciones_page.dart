@@ -8,6 +8,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidacion_pago_calculator.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
+import 'package:web_admin_tecnico/features/servicios/presentation/pages/servicio_detalle_page.dart';
 import 'dart:convert';
 
 enum _LiquidacionesPanelView {
@@ -350,101 +351,348 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     }
 
     final formKey = GlobalKey<FormState>();
+    final manualTipoSalidaController = TextEditingController();
     var kmInput = (pendiente.kmSugerido != null && pendiente.kmSugerido! > 0)
-      ? pendiente.kmSugerido.toString()
-      : '';
-    final liquidacionesBloc = context.read<LiquidacionesBloc>();
+        ? pendiente.kmSugerido.toString()
+        : '';
+    final tiposSalidaActivos = state.tiposSalida.where((item) => item.activo).toList();
+    final tiposSalidaDisponibles =
+        tiposSalidaActivos.isNotEmpty ? tiposSalidaActivos : state.tiposSalida;
+    final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
+    final tiposServicioDisponibles =
+        tiposServicioActivos.isNotEmpty ? tiposServicioActivos : state.tiposServicio;
+    String? selectedTipoSalidaId = _firstTipoSalidaId(tiposSalidaDisponibles);
+    String? selectedTipoServicioId = _firstTipoServicioId(tiposServicioDisponibles);
+    var selectedItems = <TipoServicioCatalogoItem>[];
+    var submitting = false;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF102845),
-          title: const Text('Crear liquidacion desde pendiente'),
-          content: SizedBox(
-            width: 520,
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _LiquidacionInfoLine(
-                    label: 'Servicio ID',
-                    value: pendiente.servicioId,
-                  ),
-                  const SizedBox(height: 8),
-                  _LiquidacionInfoLine(
-                    label: 'Canal',
-                    value: pendiente.servicioCanal,
-                  ),
-                  const SizedBox(height: 8),
-                  _LiquidacionInfoLine(
-                    label: 'Tecnico',
-                    value: _formatTecnicoLabel(
-                      tecnicoId: pendiente.tecnicoId,
-                      tecnicoNombre: pendiente.tecnicoNombre,
-                      tecnicoEmail: pendiente.tecnicoEmail,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'El tecnico se hereda automaticamente de la orden de servicio.',
-                    style: TextStyle(color: Color(0xFF9AB1CC)),
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    initialValue: kmInput,
-                    keyboardType: TextInputType.number,
-                    autofocus: true,
-                    style: const TextStyle(color: Color(0xFFEAF3FF)),
-                    decoration: const InputDecoration(
-                      labelText: 'KM para liquidacion',
-                    ),
-                    onChanged: (value) => kmInput = value,
-                    validator: (value) {
-                      if (_parsePositiveInt(value ?? '') == null) {
-                        return 'Ingresa un KM mayor a 0';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!(formKey.currentState?.validate() ?? false)) {
-                  return;
-                }
+        return StatefulBuilder(
+          builder: (dialogBuildContext, setDialogState) {
+            Future<void> submitReviewAndApprove() async {
+              if (submitting) {
+                return;
+              }
+              if (!(formKey.currentState?.validate() ?? false)) {
+                return;
+              }
 
-                final km = _parsePositiveInt(kmInput);
-                if (km == null) {
-                  return;
-                }
+              final km = _parsePositiveInt(kmInput);
+              if (km == null) {
+                _showMessage('Ingresa un KM mayor a 0');
+                return;
+              }
 
-                liquidacionesBloc.add(
-                  LiquidacionesCreateRequested(
-                    input: CreateLiquidacionInput(
-                      servicioId: pendiente.servicioId,
-                      km: km,
-                    ),
+              final hasCatalog = tiposSalidaDisponibles.isNotEmpty;
+              final tipoSalidaId = hasCatalog
+                  ? (selectedTipoSalidaId ?? '').trim()
+                  : manualTipoSalidaController.text.trim();
+
+              if (tipoSalidaId.isEmpty) {
+                _showMessage('Selecciona un tipo de salida');
+                return;
+              }
+
+              setDialogState(() => submitting = true);
+              try {
+                await widget.liquidacionesRepository.createLiquidacion(
+                  input: CreateLiquidacionInput(
+                    servicioId: pendiente.servicioId,
+                    km: km,
                   ),
                 );
-                Navigator.of(dialogContext).pop();
-                if (mounted) {
-                  setState(() => _activeView = _LiquidacionesPanelView.creadas);
+
+                final createdLookup = await widget.liquidacionesRepository.fetchLiquidaciones(
+                  query: const LiquidacionesQuery(
+                    aprobado: false,
+                    page: 1,
+                    limit: 100,
+                  ),
+                );
+                final createdCandidates = createdLookup.items.where(
+                  (candidate) => candidate.servicioId == pendiente.servicioId,
+                );
+                if (createdCandidates.isEmpty) {
+                  throw Exception(
+                    'No se encontro la liquidacion creada para el servicio ${pendiente.servicioId}.',
+                  );
                 }
-              },
-              child: const Text('Crear liquidacion'),
-            ),
-          ],
+                final created = createdCandidates.first;
+
+                await widget.liquidacionesRepository.updateLiquidacion(
+                  input: UpdateLiquidacionInput(
+                    liquidacionId: created.id,
+                    tipoSalidaId: tipoSalidaId,
+                  ),
+                );
+
+                for (final item in selectedItems) {
+                  await widget.liquidacionesRepository.addLiquidacionItem(
+                    input: AddLiquidacionItemInput(
+                      liquidacionId: created.id,
+                      tipoServicioId: item.id,
+                    ),
+                  );
+                }
+
+                await widget.liquidacionesRepository.approveLiquidacion(created.id);
+
+                if (!mounted) {
+                  return;
+                }
+
+                Navigator.of(dialogContext).pop();
+                _showMessage('Liquidacion revisada y aprobada correctamente.');
+                _requestDashboard(
+                  liquidacionesPage: state.liquidacionesPage,
+                  liquidacionesLimit: state.liquidacionesLimit,
+                  pendientesPage: state.pendientesPage,
+                  pendientesLimit: state.pendientesLimit,
+                );
+                setState(() => _activeView = _LiquidacionesPanelView.creadas);
+              } catch (error) {
+                _showMessage(_errorMessage(error));
+              } finally {
+                if (dialogBuildContext.mounted) {
+                  setDialogState(() => submitting = false);
+                }
+              }
+            }
+
+            final subtotalItems = selectedItems.fold<double>(
+              0,
+              (sum, item) => sum + item.precioUsd,
+            );
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF102845),
+              title: const Text('Revisar y aprobar liquidacion'),
+              content: SizedBox(
+                width: 760,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _LiquidacionInfoLine(label: 'Servicio ID', value: pendiente.servicioId),
+                      const SizedBox(height: 8),
+                      _LiquidacionInfoLine(label: 'Canal', value: pendiente.servicioCanal),
+                      const SizedBox(height: 8),
+                      _LiquidacionInfoLine(
+                        label: 'Cliente',
+                        value: (pendiente.clienteNombre ?? '').trim().isEmpty
+                            ? '-'
+                            : pendiente.clienteNombre!,
+                      ),
+                      const SizedBox(height: 8),
+                      _LiquidacionInfoLine(
+                        label: 'Tecnico',
+                        value: _formatTecnicoLabel(
+                          tecnicoId: pendiente.tecnicoId,
+                          tecnicoNombre: pendiente.tecnicoNombre,
+                          tecnicoEmail: pendiente.tecnicoEmail,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _LiquidacionInfoLine(
+                        label: 'Fecha servicio',
+                        value: _formatDate(pendiente.fechaHoraServicio),
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton.tonalIcon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ServicioDetallePage(
+                                servicioId: pendiente.servicioId,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.visibility_outlined),
+                        label: const Text('Ver detalle completo del servicio'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: kmInput,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(color: Color(0xFFEAF3FF)),
+                        decoration: const InputDecoration(labelText: 'KM para liquidacion'),
+                        onChanged: (value) => kmInput = value,
+                        validator: (value) {
+                          if (_parsePositiveInt(value ?? '') == null) {
+                            return 'Ingresa un KM mayor a 0';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      if (tiposSalidaDisponibles.isNotEmpty)
+                        DropdownButtonFormField<String>(
+                          initialValue: selectedTipoSalidaId,
+                          decoration: const InputDecoration(labelText: 'Tipo salida'),
+                          items: tiposSalidaDisponibles
+                              .map(
+                                (tipo) => DropdownMenuItem<String>(
+                                  value: tipo.id,
+                                  child: Text(
+                                    '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}${tipo.activo ? '' : ' (inactivo)'}',
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: submitting
+                              ? null
+                              : (value) {
+                                  setDialogState(() => selectedTipoSalidaId = value);
+                                },
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Selecciona un tipo salida';
+                            }
+                            return null;
+                          },
+                        )
+                      else
+                        TextFormField(
+                          controller: manualTipoSalidaController,
+                          style: const TextStyle(color: Color(0xFFEAF3FF)),
+                          decoration: const InputDecoration(
+                            labelText: 'Tipo salida ID',
+                            hintText: 'UUID tipo-salida',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Ingresa un tipo salida ID';
+                            }
+                            return null;
+                          },
+                        ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: selectedTipoServicioId,
+                              decoration: const InputDecoration(
+                                labelText: 'Agregar item de tipo servicio',
+                              ),
+                              items: tiposServicioDisponibles
+                                  .map(
+                                    (tipo) => DropdownMenuItem<String>(
+                                      value: tipo.id,
+                                      child: Text(
+                                        '${tipo.nombre} - USD ${tipo.precioUsd.toStringAsFixed(2)}${tipo.activo ? '' : ' (inactivo)'}',
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: submitting || tiposServicioDisponibles.isEmpty
+                                  ? null
+                                  : (value) {
+                                      setDialogState(() => selectedTipoServicioId = value);
+                                    },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: submitting || tiposServicioDisponibles.isEmpty
+                                ? null
+                                : () {
+                                    final selectedId = (selectedTipoServicioId ?? '').trim();
+                                    if (selectedId.isEmpty) {
+                                      return;
+                                    }
+                                    final match = tiposServicioDisponibles.where(
+                                      (tipo) => tipo.id == selectedId,
+                                    );
+                                    if (match.isEmpty) {
+                                      return;
+                                    }
+                                    if (selectedItems.length >= 6) {
+                                      _showMessage('Se permite un maximo de 6 items por liquidacion.');
+                                      return;
+                                    }
+                                    setDialogState(() {
+                                      selectedItems = <TipoServicioCatalogoItem>[
+                                        ...selectedItems,
+                                        match.first,
+                                      ];
+                                    });
+                                  },
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Agregar'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1F122B4A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0x334EA6FF)),
+                        ),
+                        child: selectedItems.isEmpty
+                            ? const Text('Sin items asignados.')
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  ...selectedItems.asMap().entries.map(
+                                    (entry) {
+                                      final index = entry.key;
+                                      final item = entry.value;
+                                      return ListTile(
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        title: Text(item.nombre),
+                                        subtitle: Text(
+                                          'USD ${item.precioUsd.toStringAsFixed(2)}',
+                                        ),
+                                        trailing: IconButton(
+                                          onPressed: submitting
+                                              ? null
+                                              : () {
+                                                  setDialogState(() {
+                                                    selectedItems = <TipoServicioCatalogoItem>[
+                                                      ...selectedItems
+                                                    ]..removeAt(index);
+                                                  });
+                                                },
+                                          icon: const Icon(Icons.delete_outline),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const Divider(height: 12),
+                                  Text(
+                                    'Subtotal items USD ${subtotalItems.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton.icon(
+                  onPressed: submitting ? null : submitReviewAndApprove,
+                  icon: const Icon(Icons.verified_outlined, size: 18),
+                  label: Text(submitting ? 'Aprobando...' : 'Aprobar liquidacion'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -2766,11 +3014,11 @@ class _LiquidacionesPendientesTableSource extends DataTableSource {
             onPressed: (!isCanalCampo || alreadyLiquidated)
                 ? null
                 : () => onCreateLiquidacion(item),
-            icon: const Icon(Icons.add_circle_outline, size: 18),
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
             label: Text(
               alreadyLiquidated
                   ? 'Ya liquidada'
-                  : (isCanalCampo ? 'Crear' : 'No aplica'),
+                  : (isCanalCampo ? 'Revisar' : 'No aplica'),
             ),
           ),
         ),
