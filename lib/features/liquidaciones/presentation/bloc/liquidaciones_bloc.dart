@@ -8,6 +8,7 @@ class LiquidacionesRequested extends LiquidacionesEvent {
   LiquidacionesRequested({
     this.tecnicoId,
     this.aprobado,
+    this.estado,
     this.liquidacionesPage = 1,
     this.liquidacionesLimit = 20,
     this.pendientesPage = 1,
@@ -16,6 +17,7 @@ class LiquidacionesRequested extends LiquidacionesEvent {
 
   final String? tecnicoId;
   final bool? aprobado;
+  final String? estado;
   final int liquidacionesPage;
   final int liquidacionesLimit;
   final int pendientesPage;
@@ -196,6 +198,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     _lastLiquidacionesQuery = LiquidacionesQuery(
       tecnicoId: event.tecnicoId,
       aprobado: event.aprobado,
+      estado: event.estado,
       page: event.liquidacionesPage,
       limit: event.liquidacionesLimit,
     );

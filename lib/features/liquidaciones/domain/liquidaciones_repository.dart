@@ -329,18 +329,21 @@ class LiquidacionesQuery {
   const LiquidacionesQuery({
     this.tecnicoId,
     this.aprobado,
+    this.estado,
     this.page = 1,
     this.limit = 20,
   });
 
   final String? tecnicoId;
   final bool? aprobado;
+  final String? estado;
   final int page;
   final int limit;
 
   LiquidacionesQuery copyWith({
     String? tecnicoId,
     Object? aprobado = _aprobadoNoChange,
+    String? estado,
     int? page,
     int? limit,
   }) {
@@ -349,6 +352,7 @@ class LiquidacionesQuery {
       aprobado: identical(aprobado, _aprobadoNoChange)
           ? this.aprobado
           : aprobado as bool?,
+      estado: estado ?? this.estado,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
