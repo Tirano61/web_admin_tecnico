@@ -8,7 +8,7 @@ Las liquidaciones se apruebasn en un solo paso se le agregan los items y se apru
 
 ## Para hacer
 
-- Falta hacer la parate de reabrir para editar la liquidacion
+- Falta hacer la parte de reabrir para editar la liquidacion
 
 - Debemos hacer un resumen de la liquidacion entre fechas para tener el total a pagar ese mes, las fechas debe elegirlas el administrador. En este punto cuando se crea la liquidacion se toma el precio del dolar para tener el snapshot del total en dolares y en  pesos y eso es lo que se le va a pagar.
 

@@ -74,6 +74,16 @@ Authorization: Bearer <token>
   },
   "facturacionItems": [
     {
+      "tipoItem": "mano_obra",
+      "referenciaId": null,
+      "descripcion": "Servicio tecnico",
+      "cantidad": 1,
+      "precioUnitarioUsd": 80,
+      "precioUnitarioArs": 89640,
+      "subtotalUsd": 80,
+      "subtotalArs": 89640
+    },
+    {
       "tipoItem": "viatico",
       "referenciaId": null,
       "descripcion": "Viatico por km",
@@ -161,6 +171,16 @@ Authorization: Bearer <token>
   },
   "facturacionItems": [
     {
+      "tipoItem": "mano_obra",
+      "referenciaId": null,
+      "descripcion": "Servicio tecnico",
+      "cantidad": 1,
+      "precioUnitarioUsd": 80,
+      "precioUnitarioArs": 89640,
+      "subtotalUsd": 80,
+      "subtotalArs": 89640
+    },
+    {
       "tipoItem": "viatico",
       "referenciaId": null,
       "descripcion": "Viatico por km",
@@ -196,6 +216,9 @@ Notas:
 - La app puede generar el PDF inmediatamente con esta respuesta, sin una segunda llamada.
 - `facturacion.cotizacionDolarSnapshot` se define en backend con la ultima cotizacion disponible (no es necesario enviarla en el request).
 - `facturacion.valorKmUsdSnapshot` se define en backend con la ultima tarifa de km activa (no es necesario enviarla en el request).
+- `facturacionItems` debe incluir al menos un item con `tipoItem = mano_obra` para representar el cobro del servicio al cliente.
+- `facturacion.subtotalGeneralUsd/Ars` deben coincidir con la suma de subtotales de `facturacionItems`.
+- `facturacion.totalConIvaArs` y `facturacion.totalFinalArs` deben ser consistentes con IVA y descuento.
 - `servicio.cliente` incluye los datos completos del cliente para generar PDF sin llamadas extra.
 - `servicio.lugarProvinciaNombre` incluye el nombre de la zona/provincia para mostrar en PDF.
 - `idempotencyKey` viaja en el body de `POST /servicios`.
@@ -465,8 +488,6 @@ Notas:
 | GET | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id` | admin-tecnico |
 | PATCH | `/liquidaciones/:id/aprobar` | admin-tecnico |
-| PATCH | `/liquidaciones/:id/reabrir` | admin-tecnico |
-| GET | `/liquidaciones/:id/reaperturas` | admin-tecnico |
 | POST | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id/items/:itemId/aprobar` | admin-tecnico |
 | DELETE | `/liquidaciones/:id/items/:itemId` | admin-tecnico |
@@ -497,41 +518,24 @@ Tambien soporta camelCase:
 { "tipo_servicio_id": "{{tipoServicioId}}" }
 ```
 
-`PATCH /liquidaciones/:id/reabrir`:
-
-```json
-{ "motivo": "Error humano en la liquidacion aprobada" }
-```
-
-`GET /liquidaciones/:id/reaperturas`:
-
-```json
-{
-  "liquidacionId": "{{liquidacionId}}",
-  "reaperturas": [
-    {
-      "id": "{{reaperturaId}}",
-      "motivo": "Correccion de tipo de salida",
-      "fecha": "2026-06-07T12:30:00.000Z"
-    }
-  ],
-  "meta": {
-    "total": 1
-  }
-}
-```
-
 `GET /liquidaciones` (admin):
 
 ```text
 /liquidaciones?aprobado=false&page=1&limit=20
 ```
 
+Tambien soporta filtro por estado:
+
+```text
+/liquidaciones?estado=aprobada&page=1&limit=20
+```
+
 Notas:
 
 - `tecnicoId` es opcional en query.
+- `estado` es opcional: `pendiente | aprobada | reabierta | todas`.
 - Cada item del listado incluye `tecnicoId`, `tecnicoNombre` y `tecnicoEmail` para facilitar filtros/seleccion en UI.
-- Priorizar `estado` (`pendiente|aprobada|reabierta`) para reglas de UI; `aprobado` queda por compatibilidad.
+- Cuando `admin-tecnico` edita una liquidacion (`PATCH /liquidaciones/:id`, `POST /liquidaciones/:id/items`, `DELETE /liquidaciones/:id/items/:itemId`), queda aprobada automaticamente al finalizar la operacion.
 
 `GET /liquidaciones/pendientes` (servicios campo sin liquidacion):
 
@@ -574,7 +578,6 @@ Notas:
 
 - Este endpoint permite obtener `itemId` desde UI para aprobar/eliminar items sin ingreso manual.
 - Si la liquidacion existe pero no tiene items, devuelve `items: []` y `meta.totalItems = 0`.
-- Reglas de edicion por estado: `pendiente` y `reabierta` editables; `aprobada` bloqueada hasta reapertura.
 
 ## Analytics (feedback)
 

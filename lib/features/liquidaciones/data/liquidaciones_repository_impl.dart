@@ -27,17 +27,33 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         final root = _asMap(json);
         final liquidacionNode = _asMap(root['liquidacion']);
         final source = liquidacionNode.isEmpty ? root : liquidacionNode;
+        final rootServicioNode = _asMap(root['servicio']);
         final servicioNode = _asMap(source['servicio']);
+        final resolvedServicioNode =
+            servicioNode.isNotEmpty ? servicioNode : rootServicioNode;
         final servicioCanal = _stringOrNull(
-          servicioNode['canal'] ??
+          resolvedServicioNode['canal'] ??
               source['canal'] ??
               source['servicioCanal'] ??
               source['servicio_canal'] ??
               source['canalServicio'] ??
               source['canal_servicio'],
         );
+        final rootTecnicoNode = _asMap(root['tecnico']);
         final tecnicoNode = _asMap(source['tecnico']);
-        final clienteNode = _asMap(source['cliente'] ?? servicioNode['cliente']);
+        final resolvedTecnicoNode =
+            tecnicoNode.isNotEmpty ? tecnicoNode : rootTecnicoNode;
+        final rootClienteNode = _asMap(root['cliente']);
+        final sourceClienteNode = _asMap(source['cliente']);
+        final servicioClienteNode = _asMap(resolvedServicioNode['cliente']);
+        final clienteNode = sourceClienteNode.isNotEmpty
+            ? sourceClienteNode
+            : (servicioClienteNode.isNotEmpty ? servicioClienteNode : rootClienteNode);
+        final clienteRaw =
+          source['cliente'] ?? resolvedServicioNode['cliente'] ?? root['cliente'];
+        final clienteTextoPlano = clienteRaw is String && !_looksLikeUuid(clienteRaw)
+          ? clienteRaw
+          : null;
         final tipoSalidaNode = _asMap(source['tipoSalida'] ?? source['tipo_salida']);
 
         final precioTipoSalida = _toDouble(
@@ -56,33 +72,56 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         return LiquidacionItem(
           id: _stringOrNull(source['id'] ?? source['liquidacionId'] ?? source['liquidacion_id']) ?? '-',
           servicioId: _stringOrNull(
-                source['servicioId'] ?? source['servicio_id'] ?? servicioNode['id'],
+                source['servicioId'] ??
+                source['servicio_id'] ??
+                resolvedServicioNode['id'] ??
+                root['servicioId'] ??
+                root['servicio_id'],
               ) ??
               '-',
           servicioCanal: servicioCanal ?? 'campo',
-          tecnicoId: _stringOrNull(source['tecnicoId'] ?? source['tecnico_id'] ?? tecnicoNode['id']),
+              tecnicoId: _stringOrNull(
+            source['tecnicoId'] ??
+                source['tecnico_id'] ??
+                resolvedTecnicoNode['id'] ??
+                root['tecnicoId'] ??
+                root['tecnico_id'],
+              ),
           tecnicoNombre: _stringOrNull(
             source['tecnicoNombre'] ??
                 source['tecnico_nombre'] ??
-                tecnicoNode['fullName'] ??
-                tecnicoNode['full_name'] ??
-                tecnicoNode['nombre'],
+                resolvedTecnicoNode['fullName'] ??
+                resolvedTecnicoNode['full_name'] ??
+                resolvedTecnicoNode['nombre'] ??
+                root['tecnicoNombre'] ??
+                root['tecnico_nombre'],
           ),
           tecnicoEmail: _stringOrNull(
             source['tecnicoEmail'] ??
                 source['tecnico_email'] ??
-                tecnicoNode['email'],
+                resolvedTecnicoNode['email'] ??
+                root['tecnicoEmail'] ??
+                root['tecnico_email'],
           ),
           clienteNombre: _stringOrNull(
             source['clienteNombre'] ??
                 source['cliente_nombre'] ??
+                resolvedServicioNode['clienteNombre'] ??
+                resolvedServicioNode['cliente_nombre'] ??
+                root['clienteNombre'] ??
+                root['cliente_nombre'] ??
                 clienteNode['nombre'] ??
                 clienteNode['fullName'] ??
                 clienteNode['full_name'] ??
                 clienteNode['razonSocial'] ??
                 clienteNode['razon_social'] ??
-                source['cliente'],
-          ),
+                clienteTextoPlano,
+          ) ??
+              _searchClienteNombre(
+                root,
+                clienteContext: false,
+                depth: 0,
+              ),
           tipoSalidaId: _stringOrNull(
             source['tipoSalidaId'] ?? source['tipo_salida_id'] ?? tipoSalidaNode['id'],
           ),
@@ -110,15 +149,24 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       fallbackLimit: query.limit,
     );
 
-    if (result.items.length <= query.limit) {
-      return result;
+    final hydratedItems = await _hydrateLiquidacionesFromServiciosIfNeeded(
+      result.items,
+    );
+
+    if (hydratedItems.length <= query.limit) {
+      return PagedResult<LiquidacionItem>(
+        items: hydratedItems,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      );
     }
 
     final start = (query.page - 1) * query.limit;
     final end = start + query.limit;
-    final pagedItems = start >= result.items.length
+    final pagedItems = start >= hydratedItems.length
         ? <LiquidacionItem>[]
-        : result.items.sublist(start, end > result.items.length ? result.items.length : end);
+        : hydratedItems.sublist(start, end > hydratedItems.length ? hydratedItems.length : end);
 
     return PagedResult<LiquidacionItem>(
       items: pagedItems,
@@ -280,6 +328,88 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     );
 
     return hydrated;
+  }
+
+  Future<List<LiquidacionItem>> _hydrateLiquidacionesFromServiciosIfNeeded(
+    List<LiquidacionItem> items,
+  ) async {
+    final indexesToHydrate = <int>[];
+    for (var index = 0; index < items.length; index++) {
+      if (_requiresLiquidacionServicioHydration(items[index])) {
+        indexesToHydrate.add(index);
+      }
+    }
+
+    if (indexesToHydrate.isEmpty) {
+      return items;
+    }
+
+    final hydrated = List<LiquidacionItem>.from(items);
+    await Future.wait(
+      indexesToHydrate.map((index) async {
+        hydrated[index] = await _hydrateLiquidacionFromServicio(hydrated[index]);
+      }),
+    );
+
+    return hydrated;
+  }
+
+  bool _requiresLiquidacionServicioHydration(LiquidacionItem item) {
+    final missingCliente = (item.clienteNombre ?? '').trim().isEmpty;
+    return missingCliente;
+  }
+
+  Future<LiquidacionItem> _hydrateLiquidacionFromServicio(
+    LiquidacionItem item,
+  ) async {
+    final servicioId = item.servicioId.trim();
+    if (servicioId.isEmpty || servicioId == '-') {
+      return item;
+    }
+
+    try {
+      final payload = await _httpClient.getJson('/servicios/$servicioId');
+      final root = _asMap(payload);
+      final servicioNode = _asMap(root['servicio']);
+      final source = servicioNode.isEmpty ? root : servicioNode;
+      final clienteNode = _asMap(source['cliente'] ?? root['cliente']);
+      final clienteRaw = source['cliente'] ?? root['cliente'];
+      final clienteTextoPlano = clienteRaw is String && !_looksLikeUuid(clienteRaw)
+          ? clienteRaw
+          : null;
+
+      final clienteNombre = _resolveClienteNombrePendiente(
+        root: root,
+        source: source,
+        clienteNode: clienteNode,
+        clienteTextoPlano: clienteTextoPlano,
+      );
+
+      if ((clienteNombre ?? '').trim().isEmpty) {
+        return item;
+      }
+
+      return LiquidacionItem(
+        id: item.id,
+        servicioId: item.servicioId,
+        servicioCanal: item.servicioCanal,
+        tecnicoId: item.tecnicoId,
+        tecnicoNombre: item.tecnicoNombre,
+        tecnicoEmail: item.tecnicoEmail,
+        clienteNombre: clienteNombre,
+        tipoSalidaId: item.tipoSalidaId,
+        tipoSalidaNombre: item.tipoSalidaNombre,
+        tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
+        km: item.km,
+        precioKmUsdSnapshotLegacy: item.precioKmUsdSnapshotLegacy,
+        aprobada: item.aprobada,
+        estado: item.estado,
+        fechaAprobacion: item.fechaAprobacion,
+        createdAt: item.createdAt,
+      );
+    } catch (_) {
+      return item;
+    }
   }
 
   bool _requiresServicioHydration(LiquidacionPendienteItem item) {
@@ -704,12 +834,16 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     final tecnicoId = _stringOrNull(query.tecnicoId);
     final aprobado = query.aprobado;
     final aprobadoValue = aprobado == null ? null : (aprobado ? 'true' : 'false');
+    final estado = _stringOrNull(query.estado);
     final tecnicoKeys = tecnicoId == null
         ? const <String?>[null]
         : const <String?>['tecnicoId', 'tecnico_id'];
     final aprobadoKeys = aprobadoValue == null
         ? const <String?>[null]
         : const <String?>['aprobado'];
+    final estadoKeys = estado == null
+        ? const <String?>[null]
+        : const <String?>['estado'];
 
     final signatures = <String>{};
     final candidates = <Map<String, String>>[];
@@ -718,10 +852,12 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       required bool includePagination,
       required String? tecnicoKey,
       required String? aprobadoKey,
+      required String? estadoKey,
     }) {
       final params = <String, String>{
         if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
         if (aprobadoKey != null && aprobadoValue != null) aprobadoKey: aprobadoValue,
+        if (estadoKey != null && estado != null) estadoKey: estado,
         if (includePagination) 'page': query.page.toString(),
         if (includePagination) 'limit': query.limit.toString(),
       };
@@ -734,16 +870,20 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
 
     for (final tecnicoKey in tecnicoKeys) {
       for (final aprobadoKey in aprobadoKeys) {
-        addCandidate(
-          includePagination: true,
-          tecnicoKey: tecnicoKey,
-          aprobadoKey: aprobadoKey,
-        );
-        addCandidate(
-          includePagination: false,
-          tecnicoKey: tecnicoKey,
-          aprobadoKey: aprobadoKey,
-        );
+        for (final estadoKey in estadoKeys) {
+          addCandidate(
+            includePagination: true,
+            tecnicoKey: tecnicoKey,
+            aprobadoKey: aprobadoKey,
+            estadoKey: estadoKey,
+          );
+          addCandidate(
+            includePagination: false,
+            tecnicoKey: tecnicoKey,
+            aprobadoKey: aprobadoKey,
+            estadoKey: estadoKey,
+          );
+        }
       }
     }
 
