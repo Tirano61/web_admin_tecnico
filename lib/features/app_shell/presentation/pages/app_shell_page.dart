@@ -8,6 +8,7 @@ import 'package:web_admin_tecnico/features/app_shell/presentation/bloc/app_shell
 import 'package:web_admin_tecnico/features/catalogos/presentation/pages/catalogos_page.dart';
 import 'package:web_admin_tecnico/features/clientes/presentation/pages/clientes_page.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_page.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_pagos_page.dart';
 import 'package:web_admin_tecnico/features/precios/presentation/pages/precios_page.dart';
 import 'package:web_admin_tecnico/features/repuestos/presentation/pages/repuestos_page.dart';
 import 'package:web_admin_tecnico/features/servicios/presentation/pages/servicios_page.dart';
@@ -85,6 +86,8 @@ class _AppShellView extends StatelessWidget {
         return const PreciosPage();
       case AppModule.liquidaciones:
         return const LiquidacionesPage();
+      case AppModule.liquidacionesPagos:
+        return const LiquidacionesPagosPage();
     }
   }
 }

@@ -46,6 +46,7 @@ void main() {
         km: 999,
         precioKmUsdSnapshotLegacy: 999,
         aprobada: false,
+        liquidadaPago: false,
       );
 
       final total = calculateLiquidacionTotalTecnicoUsd(

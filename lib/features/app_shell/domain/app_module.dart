@@ -8,6 +8,7 @@ enum AppModule {
   repuestos,
   precios,
   liquidaciones,
+  liquidacionesPagos,
 }
 
 extension AppModuleX on AppModule {
@@ -25,6 +26,8 @@ extension AppModuleX on AppModule {
         return 'Precios';
       case AppModule.liquidaciones:
         return 'Liquidaciones';
+      case AppModule.liquidacionesPagos:
+        return 'Pagos';
     }
   }
 
@@ -42,6 +45,8 @@ extension AppModuleX on AppModule {
         return AppRoutes.precios;
       case AppModule.liquidaciones:
         return AppRoutes.liquidaciones;
+      case AppModule.liquidacionesPagos:
+        return AppRoutes.liquidacionesPagos;
     }
   }
 
@@ -59,6 +64,8 @@ extension AppModuleX on AppModule {
         return Icons.attach_money_outlined;
       case AppModule.liquidaciones:
         return Icons.receipt_long_outlined;
+      case AppModule.liquidacionesPagos:
+        return Icons.payments_outlined;
     }
   }
 
@@ -76,6 +83,8 @@ extension AppModuleX on AppModule {
         return 'Valores vigentes de cotizacion y tarifa km.';
       case AppModule.liquidaciones:
         return 'Gestion de liquidaciones tecnicas e items.';
+      case AppModule.liquidacionesPagos:
+        return 'Resumenes de pago, confirmacion e historial.';
     }
   }
 }

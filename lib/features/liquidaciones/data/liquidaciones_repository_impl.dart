@@ -134,10 +134,23 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
           km: _toInt(source['km']) ?? 0,
           precioKmUsdSnapshotLegacy: precioKmSnapshot,
           aprobada: _toBool(source['aprobado'] ?? source['aprobada']),
+          liquidadaPago: _toBool(
+            source['liquidadaPago'] ??
+                source['liquidada_pago'] ??
+                source['pagada'] ??
+                source['pasadaPago'] ??
+                source['pasada_pago'],
+          ),
           estado: _stringOrNull(
             source['estado'] ??
                 source['estadoLiquidacion'] ??
                 source['estado_liquidacion'],
+          ),
+          fechaLiquidadaPago: _stringOrNull(
+            source['fechaLiquidadaPago'] ??
+                source['fecha_liquidada_pago'] ??
+                source['fechaPago'] ??
+                source['fecha_pago'],
           ),
           fechaAprobacion: _stringOrNull(
             source['fechaAprobacion'] ?? source['fecha_aprobacion'],
@@ -403,7 +416,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         km: item.km,
         precioKmUsdSnapshotLegacy: item.precioKmUsdSnapshotLegacy,
         aprobada: item.aprobada,
+        liquidadaPago: item.liquidadaPago,
         estado: item.estado,
+        fechaLiquidadaPago: item.fechaLiquidadaPago,
         fechaAprobacion: item.fechaAprobacion,
         createdAt: item.createdAt,
       );
@@ -790,6 +805,198 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       if (input.activo != null) 'activo': input.activo,
     };
     await _httpClient.patchJson('/tipos-servicio/${input.id.trim()}', body: body);
+  }
+
+  @override
+  Future<ResumenPagoPreviewResponse> fetchResumenPagoPreview({
+    required ResumenPagoPreviewQuery query,
+  }) async {
+    final payload = await _httpClient.getJson(
+      '/liquidaciones/resumen-pago/preview',
+      queryParameters: <String, String>{
+        'tecnicoId': query.tecnicoId.trim(),
+        'desde': query.desde.trim(),
+        'hasta': query.hasta.trim(),
+      },
+    );
+
+    return _mapResumenPagoPreviewResponse(payload);
+  }
+
+  @override
+  Future<ResumenPagoPreviewResponse> confirmarResumenPago({
+    required ConfirmarResumenPagoInput input,
+  }) async {
+    final payload = await _httpClient.patchJson(
+      '/liquidaciones/resumen-pago/confirmar',
+      body: <String, dynamic>{
+        'tecnicoId': input.tecnicoId.trim(),
+        'desde': input.desde.trim(),
+        'hasta': input.hasta.trim(),
+        'liquidacionIds': input.liquidacionIds,
+      },
+    );
+
+    return _mapResumenPagoPreviewResponse(payload);
+  }
+
+  @override
+  Future<PagedResult<ResumenPagoHistorialItem>> fetchResumenesPago({
+    required ResumenesPagoQuery query,
+  }) async {
+    final payload = await _httpClient.getJson(
+      '/liquidaciones/resumenes-pago',
+      queryParameters: <String, String>{
+        if ((query.tecnicoId ?? '').trim().isNotEmpty)
+          'tecnicoId': query.tecnicoId!.trim(),
+        if ((query.desde ?? '').trim().isNotEmpty) 'desde': query.desde!.trim(),
+        if ((query.hasta ?? '').trim().isNotEmpty) 'hasta': query.hasta!.trim(),
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+      },
+    );
+
+    return PagedResult<ResumenPagoHistorialItem>.fromDynamic(
+      payload,
+      (json) {
+        final root = _asMap(json);
+        return ResumenPagoHistorialItem(
+          id: _stringOrNull(root['id']) ?? '-',
+          tecnicoId: _stringOrNull(root['tecnicoId'] ?? root['tecnico_id']) ?? '-',
+          tecnicoNombre:
+              _stringOrNull(root['tecnicoNombre'] ?? root['tecnico_nombre']) ?? '-',
+          desde: _stringOrNull(root['desde']) ?? '-',
+          hasta: _stringOrNull(root['hasta']) ?? '-',
+          totalLiquidaciones:
+              _toInt(root['totalLiquidaciones'] ?? root['total_liquidaciones']) ?? 0,
+          totalUsdSnapshot:
+              _toDouble(root['totalUsdSnapshot'] ?? root['total_usd_snapshot']),
+          createdAt: _stringOrNull(root['createdAt'] ?? root['created_at']) ?? '-',
+        );
+      },
+      fallbackPage: query.page,
+      fallbackLimit: query.limit,
+    );
+  }
+
+  @override
+  Future<UltimoResumenPagoItem?> fetchUltimoResumenPago(String tecnicoId) async {
+    final payload = await _httpClient.getJson(
+      '/liquidaciones/resumenes-pago/ultimo',
+      queryParameters: <String, String>{
+        'tecnicoId': tecnicoId.trim(),
+      },
+    );
+
+    final root = _asMap(payload);
+    final ultimo = _asMap(root['ultimoResumen']);
+    if (ultimo.isEmpty) {
+      return null;
+    }
+
+    return UltimoResumenPagoItem(
+      id: _stringOrNull(ultimo['id']) ?? '-',
+      desde: _stringOrNull(ultimo['desde']) ?? '-',
+      hasta: _stringOrNull(ultimo['hasta']) ?? '-',
+      totalLiquidaciones: _toInt(ultimo['totalLiquidaciones']) ?? 0,
+      totalUsdSnapshot: _toDouble(ultimo['totalUsdSnapshot']),
+      createdAt: _stringOrNull(ultimo['createdAt']) ?? '-',
+    );
+  }
+
+  @override
+  Future<ResumenPagoDetalleResponse> fetchResumenPagoDetalle(String resumenId) async {
+    final payload = await _httpClient.getJson(
+      '/liquidaciones/resumenes-pago/${resumenId.trim()}',
+    );
+
+    final root = _asMap(payload);
+    final tecnico = _asMap(root['tecnico']);
+    final periodo = _asMap(root['periodo']);
+    final resumen = _asMap(root['resumen']);
+    final createdBy = _asMap(root['createdBy']);
+    final detallesRaw = root['detalles'];
+    final detallesList = detallesRaw is List ? detallesRaw : const <dynamic>[];
+
+    final detalles = detallesList.map(_asMap).map((detail) {
+      return ResumenPagoDetalleItem(
+        id: _stringOrNull(detail['id']) ?? '-',
+        liquidacionId:
+            _stringOrNull(detail['liquidacionId'] ?? detail['liquidacion_id']) ?? '-',
+        servicioId:
+            _stringOrNull(detail['servicioId'] ?? detail['servicio_id']) ?? '-',
+        fechaAprobacionSnapshot: _stringOrNull(
+          detail['fechaAprobacionSnapshot'] ?? detail['fecha_aprobacion_snapshot'],
+        ),
+        subtotalSalidaUsdSnapshot: _toDouble(
+          detail['subtotalSalidaUsdSnapshot'] ?? detail['subtotal_salida_usd_snapshot'],
+        ),
+        subtotalItemsUsdSnapshot: _toDouble(
+          detail['subtotalItemsUsdSnapshot'] ?? detail['subtotal_items_usd_snapshot'],
+        ),
+        totalLiquidacionUsdSnapshot: _toDouble(
+          detail['totalLiquidacionUsdSnapshot'] ??
+              detail['total_liquidacion_usd_snapshot'],
+        ),
+      );
+    }).toList();
+
+    return ResumenPagoDetalleResponse(
+      id: _stringOrNull(root['id']) ?? '-',
+      tecnicoId: _stringOrNull(tecnico['id']) ?? '-',
+      tecnicoNombre: _stringOrNull(tecnico['nombre']) ?? '-',
+      tecnicoEmail: _stringOrNull(tecnico['email']) ?? '-',
+      desde: _stringOrNull(periodo['desde']) ?? '-',
+      hasta: _stringOrNull(periodo['hasta']) ?? '-',
+      totalLiquidaciones: _toInt(resumen['totalLiquidaciones']) ?? 0,
+      totalUsdSnapshot: _toDouble(resumen['totalUsdSnapshot']),
+      createdByNombre: _stringOrNull(createdBy['nombre']) ?? '-',
+      createdAt: _stringOrNull(root['createdAt']) ?? '-',
+      detalles: detalles,
+    );
+  }
+
+  ResumenPagoPreviewResponse _mapResumenPagoPreviewResponse(dynamic payload) {
+    final root = _asMap(payload);
+    final rowsRaw = root['data'];
+    final rows = rowsRaw is List ? rowsRaw : const <dynamic>[];
+    final meta = _asMap(root['meta']);
+    final confirmacion = _asMap(root['confirmacion']);
+
+    return ResumenPagoPreviewResponse(
+      items: rows.map(_asMap).map((row) {
+        return ResumenPagoPreviewItem(
+          id: _stringOrNull(row['id']) ?? '-',
+          servicioId: _stringOrNull(row['servicioId'] ?? row['servicio_id']) ?? '-',
+          fechaAprobacion:
+              _stringOrNull(row['fechaAprobacion'] ?? row['fecha_aprobacion']),
+          subtotalSalidaUsd:
+              _toDouble(row['subtotalSalidaUsd'] ?? row['subtotal_salida_usd']),
+          subtotalItemsUsd:
+              _toDouble(row['subtotalItemsUsd'] ?? row['subtotal_items_usd']),
+          totalLiquidacionUsd:
+              _toDouble(row['totalLiquidacionUsd'] ?? row['total_liquidacion_usd']),
+        );
+      }).toList(),
+      meta: ResumenPagoPreviewMeta(
+        totalLiquidaciones:
+            _toInt(meta['totalLiquidaciones'] ?? meta['total_liquidaciones']) ?? 0,
+        totalResumenUsd:
+            _toDouble(meta['totalResumenUsd'] ?? meta['total_resumen_usd']),
+      ),
+      confirmacion: confirmacion.isEmpty
+          ? null
+          : ResumenPagoConfirmacion(
+              updated: _toInt(confirmacion['updated']) ?? 0,
+              resumenPagoId: _stringOrNull(
+                confirmacion['resumenPagoId'] ??
+                    confirmacion['resumen_pago_id'] ??
+                    root['resumenPagoId'] ??
+                    root['resumen_pago_id'],
+              ),
+              fechaLiquidadaPago: _stringOrNull(confirmacion['fechaLiquidadaPago']),
+            ),
+    );
   }
 
   Future<dynamic> _fetchLiquidacionesPayload({required LiquidacionesQuery query}) async {

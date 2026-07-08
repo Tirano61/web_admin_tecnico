@@ -30,6 +30,8 @@ class AppRouter {
         return _shellRoute(AppModule.precios);
       case AppRoutes.liquidaciones:
         return _shellRoute(AppModule.liquidaciones);
+      case AppRoutes.liquidacionesPagos:
+        return _shellRoute(AppModule.liquidacionesPagos);
       default:
         return MaterialPageRoute<void>(builder: (_) => const LoginPage());
     }

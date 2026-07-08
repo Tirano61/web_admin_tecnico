@@ -6,4 +6,5 @@ class AppRoutes {
   static const String repuestos = '/repuestos';
   static const String precios = '/precios';
   static const String liquidaciones = '/liquidaciones';
+  static const String liquidacionesPagos = '/liquidaciones-pagos';
 }
