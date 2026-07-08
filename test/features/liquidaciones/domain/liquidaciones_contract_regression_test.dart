@@ -12,6 +12,7 @@ void main() {
         km: 15,
         precioKmUsdSnapshotLegacy: 0,
         aprobada: true,
+        liquidadaPago: false,
         estado: 'aprobada',
       );
 
@@ -29,6 +30,7 @@ void main() {
         km: 0,
         precioKmUsdSnapshotLegacy: 0,
         aprobada: true,
+        liquidadaPago: false,
         estado: 'aprobada',
       );
 
@@ -40,6 +42,7 @@ void main() {
         km: original.km,
         precioKmUsdSnapshotLegacy: original.precioKmUsdSnapshotLegacy,
         aprobada: true,
+        liquidadaPago: false,
         estado: 'aprobada',
       );
 
@@ -56,6 +59,7 @@ void main() {
         km: 3,
         precioKmUsdSnapshotLegacy: 0,
         aprobada: true,
+        liquidadaPago: false,
         estado: 'aprobada',
       );
 
@@ -67,6 +71,7 @@ void main() {
         km: 3,
         precioKmUsdSnapshotLegacy: 0,
         aprobada: true,
+        liquidadaPago: false,
         estado: 'aprobada',
       );
 

@@ -111,7 +111,9 @@ class LiquidacionItem {
     required this.km,
     required this.precioKmUsdSnapshotLegacy,
     required this.aprobada,
+    required this.liquidadaPago,
     this.estado,
+    this.fechaLiquidadaPago,
     this.tecnicoId,
     this.tecnicoNombre,
     this.tecnicoEmail,
@@ -135,7 +137,9 @@ class LiquidacionItem {
   final int km;
   final double precioKmUsdSnapshotLegacy;
   final bool aprobada;
+  final bool liquidadaPago;
   final String? estado;
+  final String? fechaLiquidadaPago;
   final String? fechaAprobacion;
   final String? createdAt;
 
@@ -162,7 +166,191 @@ class LiquidacionItem {
 
   bool get isReabierta => estadoNormalizado == 'reabierta';
 
-  bool get isEditable => isPendiente || isReabierta;
+  bool get isEditable => !liquidadaPago && (isPendiente || isReabierta);
+
+  bool get isPassedToPayment => liquidadaPago;
+}
+
+class ResumenPagoPreviewQuery {
+  const ResumenPagoPreviewQuery({
+    required this.tecnicoId,
+    required this.desde,
+    required this.hasta,
+  });
+
+  final String tecnicoId;
+  final String desde;
+  final String hasta;
+}
+
+class ConfirmarResumenPagoInput {
+  const ConfirmarResumenPagoInput({
+    required this.tecnicoId,
+    required this.desde,
+    required this.hasta,
+    required this.liquidacionIds,
+  });
+
+  final String tecnicoId;
+  final String desde;
+  final String hasta;
+  final List<String> liquidacionIds;
+}
+
+class ResumenPagoPreviewItem {
+  const ResumenPagoPreviewItem({
+    required this.id,
+    required this.servicioId,
+    this.fechaAprobacion,
+    this.subtotalSalidaUsd,
+    this.subtotalItemsUsd,
+    required this.totalLiquidacionUsd,
+  });
+
+  final String id;
+  final String servicioId;
+  final String? fechaAprobacion;
+  final double? subtotalSalidaUsd;
+  final double? subtotalItemsUsd;
+  final double totalLiquidacionUsd;
+}
+
+class ResumenPagoPreviewMeta {
+  const ResumenPagoPreviewMeta({
+    required this.totalLiquidaciones,
+    required this.totalResumenUsd,
+  });
+
+  final int totalLiquidaciones;
+  final double totalResumenUsd;
+}
+
+class ResumenPagoConfirmacion {
+  const ResumenPagoConfirmacion({
+    required this.updated,
+    this.resumenPagoId,
+    this.fechaLiquidadaPago,
+  });
+
+  final int updated;
+  final String? resumenPagoId;
+  final String? fechaLiquidadaPago;
+}
+
+class ResumenPagoPreviewResponse {
+  const ResumenPagoPreviewResponse({
+    required this.items,
+    required this.meta,
+    this.confirmacion,
+  });
+
+  final List<ResumenPagoPreviewItem> items;
+  final ResumenPagoPreviewMeta meta;
+  final ResumenPagoConfirmacion? confirmacion;
+}
+
+class ResumenesPagoQuery {
+  const ResumenesPagoQuery({
+    this.tecnicoId,
+    this.desde,
+    this.hasta,
+    this.page = 1,
+    this.limit = 20,
+  });
+
+  final String? tecnicoId;
+  final String? desde;
+  final String? hasta;
+  final int page;
+  final int limit;
+}
+
+class ResumenPagoHistorialItem {
+  const ResumenPagoHistorialItem({
+    required this.id,
+    required this.tecnicoId,
+    required this.tecnicoNombre,
+    required this.desde,
+    required this.hasta,
+    required this.totalLiquidaciones,
+    required this.totalUsdSnapshot,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String tecnicoId;
+  final String tecnicoNombre;
+  final String desde;
+  final String hasta;
+  final int totalLiquidaciones;
+  final double totalUsdSnapshot;
+  final String createdAt;
+}
+
+class UltimoResumenPagoItem {
+  const UltimoResumenPagoItem({
+    required this.id,
+    required this.desde,
+    required this.hasta,
+    required this.totalLiquidaciones,
+    required this.totalUsdSnapshot,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String desde;
+  final String hasta;
+  final int totalLiquidaciones;
+  final double totalUsdSnapshot;
+  final String createdAt;
+}
+
+class ResumenPagoDetalleItem {
+  const ResumenPagoDetalleItem({
+    required this.id,
+    required this.liquidacionId,
+    required this.servicioId,
+    this.fechaAprobacionSnapshot,
+    this.subtotalSalidaUsdSnapshot,
+    this.subtotalItemsUsdSnapshot,
+    required this.totalLiquidacionUsdSnapshot,
+  });
+
+  final String id;
+  final String liquidacionId;
+  final String servicioId;
+  final String? fechaAprobacionSnapshot;
+  final double? subtotalSalidaUsdSnapshot;
+  final double? subtotalItemsUsdSnapshot;
+  final double totalLiquidacionUsdSnapshot;
+}
+
+class ResumenPagoDetalleResponse {
+  const ResumenPagoDetalleResponse({
+    required this.id,
+    required this.tecnicoId,
+    required this.tecnicoNombre,
+    required this.tecnicoEmail,
+    required this.desde,
+    required this.hasta,
+    required this.totalLiquidaciones,
+    required this.totalUsdSnapshot,
+    required this.createdByNombre,
+    required this.createdAt,
+    required this.detalles,
+  });
+
+  final String id;
+  final String tecnicoId;
+  final String tecnicoNombre;
+  final String tecnicoEmail;
+  final String desde;
+  final String hasta;
+  final int totalLiquidaciones;
+  final double totalUsdSnapshot;
+  final String createdByNombre;
+  final String createdAt;
+  final List<ResumenPagoDetalleItem> detalles;
 }
 
 class LiquidacionReaperturaItem {
@@ -407,4 +595,20 @@ abstract class LiquidacionesRepository {
   Future<void> createTipoServicio({required CreateTipoServicioInput input});
 
   Future<void> updateTipoServicio({required UpdateTipoServicioInput input});
+
+  Future<ResumenPagoPreviewResponse> fetchResumenPagoPreview({
+    required ResumenPagoPreviewQuery query,
+  });
+
+  Future<ResumenPagoPreviewResponse> confirmarResumenPago({
+    required ConfirmarResumenPagoInput input,
+  });
+
+  Future<PagedResult<ResumenPagoHistorialItem>> fetchResumenesPago({
+    required ResumenesPagoQuery query,
+  });
+
+  Future<UltimoResumenPagoItem?> fetchUltimoResumenPago(String tecnicoId);
+
+  Future<ResumenPagoDetalleResponse> fetchResumenPagoDetalle(String resumenId);
 }

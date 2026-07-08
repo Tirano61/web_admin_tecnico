@@ -1,0 +1,2139 @@
+{
+	"info": {
+		"_postman_id": "4ed0994a-f902-4b63-b915-31e4e5a93858",
+		"name": "backend_feedback API",
+		"description": "Coleccion actualizada de endpoints para backend_feedback (NestJS) con prefijo /api/v1.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "POST Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"tecnico@empresa.com\",\n  \"password\": \"Abc123\",\n  \"fullName\": \"Tecnico Uno\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200/201', function () {",
+									"  pm.expect([200, 201]).to.include(pm.response.code);",
+									"});",
+									"const data = pm.response.json();",
+									"if (data && data.token) {",
+									"  pm.collectionVariables.set('token', data.token);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"tecnico@empresa.com\",\n  \"password\": \"Abc123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Catalogos",
+			"item": [
+				{
+					"name": "GET Diagnosticos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/cat/diagnosticos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"cat",
+								"diagnosticos"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Resoluciones",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/cat/resoluciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"cat",
+								"resoluciones"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Zonas",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/zonas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"zonas"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Productos",
+			"item": [
+				{
+					"name": "GET Categorias",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/categorias-producto",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categorias-producto"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Productos por Categoria",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/productos?categoriaId={{categoriaId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"productos"
+							],
+							"query": [
+								{
+									"key": "categoriaId",
+									"value": "{{categoriaId}}"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Clientes",
+			"item": [
+				{
+					"name": "GET Clientes (Paginado)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/clientes?page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"clientes"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Buscar",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/clientes/buscar?q=agro",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"clientes",
+								"buscar"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "agro"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Cliente por ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/clientes/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"clientes",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{clienteId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Cliente",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"cuit\": \"20304050607\",\n  \"nombre\": \"Agro SRL\",\n  \"contacto\": \"Juan Perez\",\n  \"telefono\": \"+54 9 11 5555-5555\",\n  \"localidad\": \"Pergamino\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/clientes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"clientes"
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Cliente",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Agro SRL Actualizado\",\n  \"activo\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/clientes/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"clientes",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{clienteId}}"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Servicios",
+			"item": [
+				{
+					"name": "POST Servicio Campo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200/201', function () {",
+									"  pm.expect([200, 201]).to.include(pm.response.code);",
+									"});",
+									"const data = pm.response.json();",
+									"pm.test('Incluye replayed booleano', function () {",
+									"  pm.expect(data).to.have.property('replayed');",
+									"  pm.expect(data.replayed).to.be.a('boolean');",
+									"});",
+									"if (data && data.servicioId) {",
+									"  pm.collectionVariables.set('servicioId', data.servicioId);",
+									"}",
+									"if (data && data.idempotencyKey) {",
+									"  pm.collectionVariables.set('idempotencyKey', data.idempotencyKey);",
+									"}",
+									"if (data && typeof data.replayed === 'boolean') {",
+									"  pm.collectionVariables.set('replayed', String(data.replayed));",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idempotencyKey\": \"2f7b4d37-2f7f-4b0f-b2f0-1f9d9d1a7a1f\",\n  \"fechaHoraServicio\": \"2026-03-26T14:22:10-03:00\",\n  \"timezoneIana\": \"America/Argentina/Buenos_Aires\",\n  \"utcOffsetMinutos\": -180,\n  \"canal\": \"campo\",\n  \"clienteId\": \"{{clienteId}}\",\n  \"lugarProvinciaId\": \"{{zonaId}}\",\n  \"lugarDetalle\": \"Cestari 14\",\n  \"equipoNroSerie\": \"SN-001\",\n  \"equipoModelo\": \"ST455\",\n  \"equipoUbicacion\": \"Tolva principal\",\n  \"equipoAnio\": 2021,\n  \"partesFallaron\": [\n    \"celda\",\n    \"app_movil\"\n  ],\n  \"km\": 120,\n  \"sintoma\": \"No inicia\",\n  \"diagnosticoDetalle\": \"Fuente sin salida\",\n  \"diagnosticoCatId\": [\n    \"{{diagnosticoId}}\"\n  ],\n  \"resolucionId\": [\n    \"{{resolucionId}}\"\n  ],\n  \"productosFalla\": [\n    {\n      \"parteFallo\": \"celda\",\n      \"productoFallaId\": \"{{productoId}}\"\n    },\n    {\n      \"parteFallo\": \"app_movil\",\n      \"productoFallaId\": \"{{productoId}}\"\n    }\n  ],\n  \"facturacion\": {\n    \"kmCantidad\": 120,\n    \"subtotalKmUsd\": 90,\n    \"subtotalKmArs\": 100845,\n    \"subtotalGeneralUsd\": 411.5,\n    \"subtotalGeneralArs\": 461197.75,\n    \"ivaPorcentaje\": 21,\n    \"totalConIvaArs\": 558049.28,\n    \"descuentoPorcentaje\": 10,\n    \"totalFinalArs\": 502244.35,\n    \"version\": 1\n  },\n  \"facturacionItems\": [\n    {\n      \"tipoItem\": \"mano_obra\",\n      \"referenciaId\": null,\n      \"descripcion\": \"Servicio tecnico\",\n      \"cantidad\": 1,\n      \"precioUnitarioUsd\": 80,\n      \"precioUnitarioArs\": 89640,\n      \"subtotalUsd\": 80,\n      \"subtotalArs\": 89640\n    },\n    {\n      \"tipoItem\": \"viatico\",\n      \"referenciaId\": null,\n      \"descripcion\": \"Viatico por km\",\n      \"cantidad\": 120,\n      \"precioUnitarioUsd\": 0.75,\n      \"precioUnitarioArs\": 840.375,\n      \"subtotalUsd\": 90,\n      \"subtotalArs\": 100845\n    },\n    {\n      \"tipoItem\": \"repuesto\",\n      \"referenciaId\": \"{{repuestoId}}\",\n      \"descripcion\": \"Celda CZAP 20000\",\n      \"cantidad\": 2,\n      \"precioUnitarioUsd\": 120.75,\n      \"precioUnitarioArs\": 135356.375,\n      \"subtotalUsd\": 241.5,\n      \"subtotalArs\": 270712.75\n    }\n  ],\n  \"documento\": {\n    \"pdfHashSha256\": null,\n    \"pdfUrl\": null,\n    \"firmaClienteNombre\": null,\n    \"firmaClienteDocumento\": null,\n    \"firmaFechaHora\": null\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/servicios",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Mis Servicios",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/servicios/mios?page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios",
+								"mios"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Servicios (Admin)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/servicios?canal=campo&lugarProvinciaId={{zonaId}}&resuelto=false&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios"
+							],
+							"query": [
+								{
+									"key": "canal",
+									"value": "campo"
+								},
+								{
+									"key": "lugarProvinciaId",
+									"value": "{{zonaId}}"
+								},
+								{
+									"key": "resuelto",
+									"value": "false"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Servicio por ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/servicios/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{servicioId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Servicio Documento",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pdfHashSha256\": \"f4f4b4f8518fcb9d06b6a88c0ec5f23f1f9d1a7a1f9f7b4d372f7f4b0fb2f0a1\",\n  \"pdfUrl\": \"https://storage.example.com/ordenes/{{servicioId}}.pdf\",\n  \"firmaClienteNombre\": \"Juan Perez\",\n  \"firmaClienteDocumento\": \"30111222\",\n  \"firmaFechaHora\": \"2026-03-26T16:10:00-03:00\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/servicios/:id/documento",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios",
+								":id",
+								"documento"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{servicioId}}"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Repuestos",
+			"item": [
+				{
+					"name": "GET Repuestos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/repuestos?q=celda",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"repuestos"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "celda"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Repuestos (Listado Admin)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/repuestos/listado?page=1&limit=20&q=celda&activo=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"repuestos",
+								"listado"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "q",
+									"value": "celda"
+								},
+								{
+									"key": "activo",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Repuesto",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"codigo\": \"05-01-CZAP-20000\",\n  \"nombre\": \"Celda CZAP 20000\",\n  \"precioUsd\": 120.75\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/repuestos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"repuestos"
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Repuesto",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"precioUsd\": 125.00,\n  \"activo\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/repuestos/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"repuestos",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{repuestoId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Servicio Repuesto",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"repuesto_id\": \"{{repuestoId}}\",\n  \"cantidad\": 2\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/servicios/:id/repuestos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios",
+								":id",
+								"repuestos"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{servicioId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Servicio Repuestos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/servicios/:id/repuestos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"servicios",
+								":id",
+								"repuestos"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{servicioId}}"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Cotizacion",
+			"item": [
+				{
+					"name": "GET Cotizacion Activa",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/cotizacion",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"cotizacion"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Cotizacion Historial",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/cotizacion/historial",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"cotizacion",
+								"historial"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Cotizacion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"valor\": 1120.5,\n  \"fecha\": \"2026-03-24\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/cotizacion",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"cotizacion"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Tarifa Km",
+			"item": [
+				{
+					"name": "GET Tarifa Km Activa",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/tarifa-km",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tarifa-km"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Tarifa Km Historial",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/tarifa-km/historial",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tarifa-km",
+								"historial"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Tarifa Km",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"valorKmUsd\": 0.75,\n  \"fecha\": \"2026-03-28\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tarifa-km",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tarifa-km"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Liquidacion",
+			"item": [
+				{
+					"name": "GET Tipos Salida",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/tipos-salida",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tipos-salida"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Tipo Salida",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Media distancia\",\n  \"kmHasta\": 250,\n  \"precioUsd\": 85\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tipos-salida",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tipos-salida"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Tipos Servicio",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/tipos-servicio",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tipos-servicio"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Tipo Servicio",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Calibracion\",\n  \"precioUsd\": 40\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/tipos-servicio",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"tipos-servicio"
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Liquidacion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"servicio_id\": \"{{servicioId}}\",\n  \"km\": 140\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Liquidaciones Mias",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/mias?estado=todas&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"mias"
+							],
+							"query": [
+								{
+									"key": "estado",
+									"value": "todas"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "estado",
+									"value": "aprobada",
+									"disabled": true
+								},
+								{
+									"key": "estado",
+									"value": "pendiente",
+									"disabled": true
+								},
+								{
+									"key": "estado",
+									"value": "reabierta",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Liquidaciones (Admin)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones?aprobado=false&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}",
+									"disabled": true
+								},
+								{
+									"key": "estado",
+									"value": "aprobada",
+									"disabled": true
+								},
+								{
+									"key": "aprobado",
+									"value": "false"
+								},
+								{
+									"key": "liquidadaPago",
+									"value": "false",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Liquidaciones Para Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/para-pago?page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"para-pago"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Marcar Liquidaciones Pagadas",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"liquidacionIds\": [\n    \"{{liquidacionId}}\"\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/marcar-pagadas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"marcar-pagadas"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Preview Resumen Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/resumen-pago/preview?tecnicoId={{tecnicoId}}&desde=2026-07-01&hasta=2026-07-31",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"resumen-pago",
+								"preview"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}"
+								},
+								{
+									"key": "desde",
+									"value": "2026-07-01"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-07-31"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 OK",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n  \"filtro\": {\n    \"tecnicoId\": \"{{tecnicoId}}\",\n    \"desde\": \"2026-07-01T00:00:00.000Z\",\n    \"hasta\": \"2026-07-31T23:59:59.999Z\"\n  },\n  \"data\": [\n    {\n      \"id\": \"{{liquidacionId}}\",\n      \"fechaAprobacion\": \"2026-07-10T14:20:00.000Z\",\n      \"servicioId\": \"{{servicioId}}\",\n      \"subtotalSalidaUsd\": 80,\n      \"subtotalItemsUsd\": 120.5,\n      \"totalLiquidacionUsd\": 200.5\n    }\n  ],\n  \"meta\": {\n    \"totalLiquidaciones\": 1,\n    \"totalResumenUsd\": 200.5\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "PATCH Confirmar Resumen Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tecnicoId\": \"{{tecnicoId}}\",\n  \"desde\": \"2026-07-01\",\n  \"hasta\": \"2026-07-31\",\n  \"liquidacionIds\": [\n    \"{{liquidacionId}}\"\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/resumen-pago/confirmar",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"resumen-pago",
+								"confirmar"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 OK",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n  \"filtro\": {\n    \"tecnicoId\": \"{{tecnicoId}}\",\n    \"desde\": \"2026-07-01T00:00:00.000Z\",\n    \"hasta\": \"2026-07-31T23:59:59.999Z\"\n  },\n  \"data\": [\n    {\n      \"id\": \"{{liquidacionId}}\",\n      \"fechaAprobacion\": \"2026-07-10T14:20:00.000Z\",\n      \"servicioId\": \"{{servicioId}}\",\n      \"subtotalSalidaUsd\": 80,\n      \"subtotalItemsUsd\": 120.5,\n      \"totalLiquidacionUsd\": 200.5\n    }\n  ],\n  \"meta\": {\n    \"totalLiquidaciones\": 1,\n    \"totalResumenUsd\": 200.5\n  },\n  \"confirmacion\": {\n    \"updated\": 1,\n    \"fechaLiquidadaPago\": \"2026-07-31T18:45:00.000Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "GET Resumenes Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/resumenes-pago?tecnicoId={{tecnicoId}}&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"resumenes-pago"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}",
+									"disabled": true
+								},
+								{
+									"key": "desde",
+									"value": "2026-07-01",
+									"disabled": true
+								},
+								{
+									"key": "hasta",
+									"value": "2026-07-31",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 OK",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n  \"data\": [\n    {\n      \"id\": \"{{resumenPagoId}}\",\n      \"tecnicoId\": \"{{tecnicoId}}\",\n      \"tecnicoNombre\": \"Juan Perez\",\n      \"desde\": \"2026-07-01T00:00:00.000Z\",\n      \"hasta\": \"2026-07-31T23:59:59.999Z\",\n      \"totalLiquidaciones\": 2,\n      \"totalUsdSnapshot\": 401,\n      \"liquidacionIds\": [\"{{liquidacionId}}\"],\n      \"createdById\": \"{{adminId}}\",\n      \"createdByNombre\": \"Admin Tecnico\",\n      \"createdAt\": \"2026-07-31T18:45:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 1,\n    \"totalPages\": 1\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "GET Ultimo Resumen Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/resumenes-pago/ultimo?tecnicoId={{tecnicoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"resumenes-pago",
+								"ultimo"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 OK",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n  \"ultimoResumen\": {\n    \"id\": \"{{resumenPagoId}}\",\n    \"desde\": \"2026-07-01T00:00:00.000Z\",\n    \"hasta\": \"2026-07-31T23:59:59.999Z\",\n    \"totalLiquidaciones\": 2,\n    \"totalUsdSnapshot\": 401,\n    \"createdAt\": \"2026-07-31T18:45:00.000Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "GET Detalle Resumen Pago",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/resumenes-pago/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"resumenes-pago",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{resumenPagoId}}"
+								}
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "200 OK",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n  \"id\": \"{{resumenPagoId}}\",\n  \"tecnico\": {\n    \"id\": \"{{tecnicoId}}\",\n    \"nombre\": \"Juan Perez\",\n    \"email\": \"juan@example.com\"\n  },\n  \"periodo\": {\n    \"desde\": \"2026-07-01T00:00:00.000Z\",\n    \"hasta\": \"2026-07-31T23:59:59.999Z\"\n  },\n  \"resumen\": {\n    \"totalLiquidaciones\": 2,\n    \"totalUsdSnapshot\": 401\n  },\n  \"createdBy\": {\n    \"id\": \"{{adminId}}\",\n    \"nombre\": \"Admin Tecnico\",\n    \"email\": \"admin@example.com\"\n  },\n  \"createdAt\": \"2026-07-31T18:45:00.000Z\",\n  \"detalles\": [\n    {\n      \"id\": \"{{resumenDetalleId1}}\",\n      \"liquidacionId\": \"{{liquidacionId}}\",\n      \"servicioId\": \"{{servicioId}}\",\n      \"fechaAprobacionSnapshot\": \"2026-07-10T14:20:00.000Z\",\n      \"subtotalSalidaUsdSnapshot\": 80,\n      \"subtotalItemsUsdSnapshot\": 120.5,\n      \"totalLiquidacionUsdSnapshot\": 200.5\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "GET Liquidaciones Pendientes",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/pendientes?page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"pendientes"
+							],
+							"query": [
+								{
+									"key": "tecnicoId",
+									"value": "{{tecnicoId}}",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Liquidacion Items",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"items"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Liquidacion Tipo Salida",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo_salida_id\": \"{{tipoSalidaId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Aprobar Liquidacion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/aprobar",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"aprobar"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Reabrir Liquidacion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"motivo\": \"Se omitio un tipo de servicio en la carga inicial\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/reabrir",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"reabrir"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Reaperturas Liquidacion",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/reaperturas",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"reaperturas"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Liquidacion Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tipo_servicio_id\": \"{{tipoServicioId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/items",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"items"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Aprobar Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/items/:itemId/aprobar",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"items",
+								":itemId",
+								"aprobar"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								},
+								{
+									"key": "itemId",
+									"value": "{{liquidacionItemId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "DELETE Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/:id/items/:itemId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								":id",
+								"items",
+								":itemId"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{liquidacionId}}"
+								},
+								{
+									"key": "itemId",
+									"value": "{{liquidacionItemId}}"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Analytics",
+			"item": [
+				{
+					"name": "GET Stats por Canal",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/stats/por-canal?desde=2026-01-01T00:00:00.000Z&hasta=2026-12-31T23:59:59.999Z",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"stats",
+								"por-canal"
+							],
+							"query": [
+								{
+									"key": "desde",
+									"value": "2026-01-01T00:00:00.000Z"
+								},
+								{
+									"key": "hasta",
+									"value": "2026-12-31T23:59:59.999Z"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Export JSON",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/export?format=json&resuelto=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"export"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "json"
+								},
+								{
+									"key": "resuelto",
+									"value": "true"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api/v1"
+		},
+		{
+			"key": "token",
+			"value": ""
+		},
+		{
+			"key": "diagnosticoId",
+			"value": ""
+		},
+		{
+			"key": "resolucionId",
+			"value": ""
+		},
+		{
+			"key": "zonaId",
+			"value": ""
+		},
+		{
+			"key": "categoriaId",
+			"value": ""
+		},
+		{
+			"key": "productoId",
+			"value": ""
+		},
+		{
+			"key": "clienteId",
+			"value": ""
+		},
+		{
+			"key": "servicioId",
+			"value": ""
+		},
+		{
+			"key": "repuestoId",
+			"value": ""
+		},
+		{
+			"key": "tipoSalidaId",
+			"value": ""
+		},
+		{
+			"key": "tipoServicioId",
+			"value": ""
+		},
+		{
+			"key": "tecnicoId",
+			"value": ""
+		},
+		{
+			"key": "liquidacionId",
+			"value": ""
+		},
+		{
+			"key": "liquidacionItemId",
+			"value": ""
+		},
+		{
+			"key": "resumenPagoId",
+			"value": ""
+		},
+		{
+			"key": "adminId",
+			"value": ""
+		},
+		{
+			"key": "resumenDetalleId1",
+			"value": ""
+		}
+	]
+}

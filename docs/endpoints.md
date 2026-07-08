@@ -484,6 +484,13 @@ Notas:
 | POST | `/liquidaciones` | admin-tecnico |
 | GET | `/liquidaciones/mias` | tecnico |
 | GET | `/liquidaciones` | admin-tecnico |
+| GET | `/liquidaciones/para-pago` | admin-tecnico |
+| GET | `/liquidaciones/resumen-pago/preview` | admin-tecnico |
+| PATCH | `/liquidaciones/resumen-pago/confirmar` | admin-tecnico |
+| GET | `/liquidaciones/resumenes-pago` | admin-tecnico |
+| GET | `/liquidaciones/resumenes-pago/ultimo` | admin-tecnico |
+| GET | `/liquidaciones/resumenes-pago/:id` | admin-tecnico |
+| PATCH | `/liquidaciones/marcar-pagadas` | admin-tecnico |
 | GET | `/liquidaciones/pendientes` | admin-tecnico |
 | GET | `/liquidaciones/:id/items` | admin-tecnico |
 | PATCH | `/liquidaciones/:id` | admin-tecnico |
@@ -530,12 +537,243 @@ Tambien soporta filtro por estado:
 /liquidaciones?estado=aprobada&page=1&limit=20
 ```
 
+Tambien soporta filtro por estado de pago:
+
+```text
+/liquidaciones?liquidadaPago=false&page=1&limit=20
+```
+
 Notas:
 
 - `tecnicoId` es opcional en query.
 - `estado` es opcional: `pendiente | aprobada | reabierta | todas`.
+- `liquidadaPago` es opcional: `true | false`.
 - Cada item del listado incluye `tecnicoId`, `tecnicoNombre` y `tecnicoEmail` para facilitar filtros/seleccion en UI.
 - Cuando `admin-tecnico` edita una liquidacion (`PATCH /liquidaciones/:id`, `POST /liquidaciones/:id/items`, `DELETE /liquidaciones/:id/items/:itemId`), queda aprobada automaticamente al finalizar la operacion.
+- `PATCH /liquidaciones/:id/reabrir` registra motivo/historial de reapertura para auditoria, pero no cambia el estado de aprobacion.
+- Si `liquidadaPago = true`, la liquidacion ya fue pasada para pago y no se puede editar.
+
+`GET /liquidaciones/para-pago` (admin):
+
+```text
+/liquidaciones/para-pago?page=1&limit=20
+```
+
+Notas:
+
+- Devuelve solo liquidaciones aprobadas (`aprobado=true`) y no liquidadas para pago (`liquidadaPago=false`).
+- Sirve como fuente para armar el lote de pago desde la web admin.
+
+`PATCH /liquidaciones/marcar-pagadas`:
+
+```json
+{
+  "liquidacionIds": [
+    "{{liquidacionId1}}",
+    "{{liquidacionId2}}"
+  ]
+}
+```
+
+Notas:
+
+- Marca en lote las liquidaciones seleccionadas como `liquidadaPago=true`.
+- Solo permite liquidaciones aprobadas, no liquidadas previamente y con al menos un item (`tipo_servicio`) asignado.
+- Una vez marcadas, ya no se pueden volver a editar ni volver a seleccionar para otro lote de pago.
+
+`GET /liquidaciones/resumen-pago/preview`:
+
+```text
+/liquidaciones/resumen-pago/preview?tecnicoId={{tecnicoId}}&desde=2026-07-01&hasta=2026-07-31
+```
+
+Notas:
+
+- Genera el resumen por tecnico y rango de fechas.
+- La elegibilidad exige: aprobada, no liquidada para pago, fechaAprobacion dentro del rango y con items de servicio.
+
+Respuesta ejemplo:
+
+```json
+{
+  "filtro": {
+    "tecnicoId": "{{tecnicoId}}",
+    "desde": "2026-07-01T00:00:00.000Z",
+    "hasta": "2026-07-31T23:59:59.999Z"
+  },
+  "data": [
+    {
+      "id": "{{liquidacionId1}}",
+      "fechaAprobacion": "2026-07-10T14:20:00.000Z",
+      "servicioId": "{{servicioId1}}",
+      "subtotalSalidaUsd": 80,
+      "subtotalItemsUsd": 120.5,
+      "totalLiquidacionUsd": 200.5
+    }
+  ],
+  "meta": {
+    "totalLiquidaciones": 1,
+    "totalResumenUsd": 200.5
+  }
+}
+```
+
+`PATCH /liquidaciones/resumen-pago/confirmar`:
+
+```json
+{
+  "tecnicoId": "{{tecnicoId}}",
+  "desde": "2026-07-01",
+  "hasta": "2026-07-31",
+  "liquidacionIds": [
+    "{{liquidacionId1}}",
+    "{{liquidacionId2}}"
+  ]
+}
+```
+
+Notas:
+
+- Revalida elegibilidad con tecnico + rango + estado antes de confirmar.
+- Marca las seleccionadas como pasadas a pago (`liquidadaPago=true`) y devuelve resumen + confirmacion.
+- Persiste cabecera y detalle del resumen para historial/auditoria.
+
+Respuesta ejemplo:
+
+```json
+{
+  "filtro": {
+    "tecnicoId": "{{tecnicoId}}",
+    "desde": "2026-07-01T00:00:00.000Z",
+    "hasta": "2026-07-31T23:59:59.999Z"
+  },
+  "data": [
+    {
+      "id": "{{liquidacionId1}}",
+      "fechaAprobacion": "2026-07-10T14:20:00.000Z",
+      "servicioId": "{{servicioId1}}",
+      "subtotalSalidaUsd": 80,
+      "subtotalItemsUsd": 120.5,
+      "totalLiquidacionUsd": 200.5
+    }
+  ],
+  "meta": {
+    "totalLiquidaciones": 1,
+    "totalResumenUsd": 200.5
+  },
+  "confirmacion": {
+    "updated": 1,
+    "fechaLiquidadaPago": "2026-07-31T18:45:00.000Z"
+  }
+}
+```
+
+`GET /liquidaciones/resumenes-pago`:
+
+```text
+/liquidaciones/resumenes-pago?tecnicoId={{tecnicoId}}&page=1&limit=20
+```
+
+Notas:
+
+- Lista el historial de resumenes confirmados.
+- Soporta filtros opcionales por `tecnicoId`, `desde`, `hasta` (fecha de creacion del resumen).
+
+Respuesta ejemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "{{resumenPagoId}}",
+      "tecnicoId": "{{tecnicoId}}",
+      "tecnicoNombre": "Juan Perez",
+      "desde": "2026-07-01T00:00:00.000Z",
+      "hasta": "2026-07-31T23:59:59.999Z",
+      "totalLiquidaciones": 2,
+      "totalUsdSnapshot": 401,
+      "liquidacionIds": ["{{liquidacionId1}}", "{{liquidacionId2}}"],
+      "createdById": "{{adminId}}",
+      "createdByNombre": "Admin Tecnico",
+      "createdAt": "2026-07-31T18:45:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+`GET /liquidaciones/resumenes-pago/ultimo`:
+
+```text
+/liquidaciones/resumenes-pago/ultimo?tecnicoId={{tecnicoId}}
+```
+
+Notas:
+
+- Devuelve el ultimo resumen confirmado para el tecnico.
+- Si no hay historial, responde `ultimoResumen: null`.
+
+Respuesta ejemplo:
+
+```json
+{
+  "ultimoResumen": {
+    "id": "{{resumenPagoId}}",
+    "desde": "2026-07-01T00:00:00.000Z",
+    "hasta": "2026-07-31T23:59:59.999Z",
+    "totalLiquidaciones": 2,
+    "totalUsdSnapshot": 401,
+    "createdAt": "2026-07-31T18:45:00.000Z"
+  }
+}
+```
+
+`GET /liquidaciones/resumenes-pago/:id`:
+
+- Devuelve cabecera + detalle completo del resumen (liquidaciones incluidas y snapshots de montos).
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "{{resumenPagoId}}",
+  "tecnico": {
+    "id": "{{tecnicoId}}",
+    "nombre": "Juan Perez",
+    "email": "juan@example.com"
+  },
+  "periodo": {
+    "desde": "2026-07-01T00:00:00.000Z",
+    "hasta": "2026-07-31T23:59:59.999Z"
+  },
+  "resumen": {
+    "totalLiquidaciones": 2,
+    "totalUsdSnapshot": 401
+  },
+  "createdBy": {
+    "id": "{{adminId}}",
+    "nombre": "Admin Tecnico",
+    "email": "admin@example.com"
+  },
+  "createdAt": "2026-07-31T18:45:00.000Z",
+  "detalles": [
+    {
+      "id": "{{resumenDetalleId1}}",
+      "liquidacionId": "{{liquidacionId1}}",
+      "servicioId": "{{servicioId1}}",
+      "fechaAprobacionSnapshot": "2026-07-10T14:20:00.000Z",
+      "subtotalSalidaUsdSnapshot": 80,
+      "subtotalItemsUsdSnapshot": 120.5,
+      "totalLiquidacionUsdSnapshot": 200.5
+    }
+  ]
+}
+```
 
 `GET /liquidaciones/pendientes` (servicios campo sin liquidacion):
 
