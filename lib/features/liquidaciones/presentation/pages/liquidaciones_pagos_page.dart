@@ -31,6 +31,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
   final TextEditingController _tecnicoController = TextEditingController();
   final TextEditingController _desdeController = TextEditingController();
   final TextEditingController _hastaController = TextEditingController();
+  String? _selectedTecnicoId;
 
   @override
   void initState() {
@@ -49,8 +50,9 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
 
   void _syncFiltersToState(BuildContext context) {
     final cubit = context.read<LiquidacionesPagosCubit>();
+    final tecnicoId = (_selectedTecnicoId ?? _tecnicoController.text).trim();
     cubit.updateFilters(
-      tecnicoId: _tecnicoController.text,
+      tecnicoId: tecnicoId,
       desde: _desdeController.text,
       hasta: _hastaController.text,
     );
@@ -59,7 +61,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
   Future<void> _onPreview(BuildContext context) async {
     _syncFiltersToState(context);
     final cubit = context.read<LiquidacionesPagosCubit>();
-    await cubit.loadUltimoResumen(_tecnicoController.text);
+    await cubit.loadUltimoResumen((_selectedTecnicoId ?? _tecnicoController.text).trim());
     await cubit.previewResumen();
   }
 
@@ -86,6 +88,57 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
   Future<void> _onHistorySearch(BuildContext context) async {
     _syncFiltersToState(context);
     await context.read<LiquidacionesPagosCubit>().loadHistory(page: 1, limit: 20);
+  }
+
+  Widget _buildTecnicoField(
+    BuildContext context,
+    LiquidacionesPagosState state,
+  ) {
+    final options = state.tecnicoOptions;
+    if (options.isEmpty) {
+      return SizedBox(
+        width: 220,
+        child: TextField(
+          controller: _tecnicoController,
+          decoration: const InputDecoration(
+            labelText: 'Tecnico ID (obligatorio)',
+          ),
+        ),
+      );
+    }
+
+    final selectedStillValid = options.any((option) => option.id == _selectedTecnicoId);
+    if (!selectedStillValid) {
+      _selectedTecnicoId = null;
+    }
+
+    return SizedBox(
+      width: 320,
+      child: DropdownButtonFormField<String>(
+        initialValue: _selectedTecnicoId,
+        decoration: const InputDecoration(
+          labelText: 'Tecnico',
+          hintText: 'Seleccionar tecnico',
+        ),
+        items: options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option.id,
+                child: Text(option.label),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          setState(() {
+            _selectedTecnicoId = value;
+            if ((value ?? '').trim().isNotEmpty) {
+              _tecnicoController.text = value!.trim();
+            }
+          });
+          _syncFiltersToState(context);
+        },
+      ),
+    );
   }
 
   void _openDetailDialog(BuildContext context) {
@@ -185,6 +238,13 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
       builder: (context, state) {
         final selectedCount = state.selectedLiquidacionIds.length;
         final previewItems = state.preview?.items ?? const <ResumenPagoPreviewItem>[];
+        final history = state.history;
+        final historyTotal = history?.total ?? 0;
+        final historyPage = history?.page ?? state.historyPage;
+        final historyLimit = history?.limit ?? state.historyLimit;
+        final historyFirstRow = (historyPage - 1) * historyLimit;
+        final historyHasPrevious = historyPage > 1;
+        final historyHasNext = historyFirstRow + (history?.items.length ?? 0) < historyTotal;
 
         return ModulePageLayout(
           title: 'Liquidaciones para pago',
@@ -211,15 +271,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                 runSpacing: 10,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
-                  SizedBox(
-                    width: 220,
-                    child: TextField(
-                      controller: _tecnicoController,
-                      decoration: const InputDecoration(
-                        labelText: 'Tecnico ID (obligatorio)',
-                      ),
-                    ),
-                  ),
+                  _buildTecnicoField(context, state),
                   SizedBox(
                     width: 170,
                     child: TextField(
@@ -331,6 +383,36 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                   : () => _onHistorySearch(context),
                               icon: const Icon(Icons.search, size: 18),
                               label: const Text('Buscar historial'),
+                            ),
+                            FilledButton.tonalIcon(
+                              onPressed: state.loadingHistory || !historyHasPrevious
+                                  ? null
+                                  : () {
+                                      context.read<LiquidacionesPagosCubit>().loadHistory(
+                                            page: historyPage - 1,
+                                            limit: historyLimit,
+                                          );
+                                    },
+                              icon: const Icon(Icons.chevron_left, size: 18),
+                              label: const Text('Anterior'),
+                            ),
+                            FilledButton.tonalIcon(
+                              onPressed: state.loadingHistory || !historyHasNext
+                                  ? null
+                                  : () {
+                                      context.read<LiquidacionesPagosCubit>().loadHistory(
+                                            page: historyPage + 1,
+                                            limit: historyLimit,
+                                          );
+                                    },
+                              icon: const Icon(Icons.chevron_right, size: 18),
+                              label: const Text('Siguiente'),
+                            ),
+                            ModuleStatusChip(
+                              label: 'Pagina $historyPage',
+                            ),
+                            ModuleStatusChip(
+                              label: 'Total resumenes $historyTotal',
                             ),
                           ],
                         ),

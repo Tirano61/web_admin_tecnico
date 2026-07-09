@@ -47,6 +47,26 @@ class LiquidacionesPagosState {
         .fold<double>(0, (sum, row) => sum + row.totalLiquidacionUsd);
   }
 
+  List<TecnicoPagoOption> get tecnicoOptions {
+    final items = history?.items ?? const <ResumenPagoHistorialItem>[];
+    final byId = <String, TecnicoPagoOption>{};
+
+    for (final item in items) {
+      final id = item.tecnicoId.trim();
+      if (id.isEmpty) {
+        continue;
+      }
+      byId[id] = TecnicoPagoOption(
+        id: id,
+        nombre: item.tecnicoNombre.trim().isEmpty ? null : item.tecnicoNombre,
+      );
+    }
+
+    final output = byId.values.toList();
+    output.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    return output;
+  }
+
   LiquidacionesPagosState copyWith({
     bool? loadingPreview,
     bool? loadingHistory,
@@ -92,6 +112,24 @@ class LiquidacionesPagosState {
       message: identical(message, _noChange) ? this.message : message as String?,
       error: identical(error, _noChange) ? this.error : error as String?,
     );
+  }
+}
+
+class TecnicoPagoOption {
+  const TecnicoPagoOption({
+    required this.id,
+    this.nombre,
+  });
+
+  final String id;
+  final String? nombre;
+
+  String get label {
+    final cleanName = (nombre ?? '').trim();
+    if (cleanName.isEmpty) {
+      return 'ID $id';
+    }
+    return '$cleanName <$id>';
   }
 }
 
