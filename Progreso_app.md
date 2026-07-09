@@ -1,18 +1,32 @@
+## Progreso
 
+- Liquidaciones operativas: alta/edicion/aprobacion/items y reapertura con motivo.
+- Se implemento bloqueo funcional para liquidaciones pasadas a pago (`liquidadaPago=true`):
+	- no se pueden editar/aprobar/reabrir/gestionar items.
+	- se muestra badge `PASADA A PAGO` en grilla.
+- Se implemento nueva pantalla independiente de pagos y resumenes:
+	- ruta/modulo: `/liquidaciones-pagos`.
+	- preview por tecnico + periodo (`GET /liquidaciones/resumen-pago/preview`).
+	- confirmacion de resumen (`PATCH /liquidaciones/resumen-pago/confirmar`).
+	- historial paginado (`GET /liquidaciones/resumenes-pago`).
+	- ultimo resumen por tecnico (`GET /liquidaciones/resumenes-pago/ultimo`) como sugerencia visual.
+	- detalle de resumen (`GET /liquidaciones/resumenes-pago/:id`) en modal.
+- UX adicional aplicada en pagos:
+	- no permite confirmar sin seleccion.
+	- muestra contador de seleccionadas y total USD seleccionado.
+	- si hay conflicto de elegibilidad, refresca preview y muestra mensaje de sincronizacion.
+	- selector asistido de tecnico (cuando hay historial) con fallback a ingreso manual por ID.
+	- historial con navegacion de pagina `Anterior/Siguiente` y chips de contexto (pagina/total).
 
-## Progreso 
+## Estado actual
 
-- Las liquidaciones se apruebasn en un solo paso se le agregan los items y se aprueba directamente, tambien se ven los detalles del servicio para la decicion de asignacion de los items.
+- `flutter analyze` sin errores de compilacion nuevos.
+- Quedan solo 4 `info` preexistentes por utilidades web (`dart:html`) fuera del alcance de este flujo.
 
-- Falta hacer la parte de reabrir para editar la liquidacion
+## Pendiente recomendado
 
-- Las liquidaciones deben tener otro dato asociado que es el que debe decir si ya se pasaron para pagarlas o todavia no se pasaron para pago, las que ya se pasaron para pago ya no se pueden editar.
-
-## Para hacer
-
-
-
-- Debemos hacer un resumen de la liquidacion entre fechas para tener el total a pagar ese mes, las fechas debe elegirlas el administrador. En este punto cuando se crea la liquidacion se toma el precio del dolar para tener el snapshot del total en dolares y en  pesos y eso es lo que se le va a pagar.
-
-
-- En una pantalla debe haber un listado de resumenes presentados con las fechas comprendidas desde y hasta con los puntos, numero de liqwuidaciones total liquidado.
+1. Agregar test widget del flujo de pagos:
+	 - confirmar deshabilitado sin seleccion.
+	 - confirmacion exitosa limpia seleccion y refresca preview.
+	 - error de elegibilidad muestra mensaje y refresca lista.
+2. Mejorar selector de tecnico con fuente dedicada (endpoint/listado de tecnicos) para no depender del historial cargado.
