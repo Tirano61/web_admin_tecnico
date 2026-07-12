@@ -19,6 +19,141 @@ Authorization: Bearer <token>
 | POST | `/auth/register` |
 | POST | `/auth/login` |
 
+## Auth privado
+
+| Metodo | Endpoint | Rol |
+|---|---|---|
+| GET | `/auth/tecnicos?page=&limit=&q=&activos=` | admin-tecnico, admin |
+| POST | `/auth/tecnicos` | admin-tecnico, admin |
+| GET | `/auth/tecnicos/:id` | admin-tecnico, admin |
+| PATCH | `/auth/tecnicos/:id` | admin-tecnico, admin |
+| PATCH | `/auth/tecnicos/:id/estado` | admin-tecnico, admin |
+
+### GET /auth/tecnicos (selector de técnicos)
+
+Query params:
+
+- `page` (opcional, default `1`)
+- `limit` (opcional, default `20`, max `100`)
+- `q` (opcional, busca por `fullName` o `email`)
+- `activos` (opcional, default `true`; enviar `false` para incluir inactivos)
+
+Ejemplo:
+
+`GET /auth/tecnicos?page=1&limit=20&q=juan&activos=true`
+
+Respuesta ejemplo:
+
+```json
+{
+  "data": [
+    {
+      "id": "{{tecnicoId}}",
+      "fullName": "Juan Perez",
+      "email": "juan@example.com",
+      "isActive": true
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### POST /auth/tecnicos
+
+Payload:
+
+```json
+{
+  "email": "tecnico.nuevo@example.com",
+  "password": "ClaveSegura123!",
+  "fullName": "Tecnico Nuevo",
+  "isActive": true
+}
+```
+
+Notas:
+
+- Crea un usuario con rol `tecnico`.
+- `isActive` es opcional (default `true`).
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "{{tecnicoId}}",
+  "fullName": "Tecnico Nuevo",
+  "email": "tecnico.nuevo@example.com",
+  "isActive": true,
+  "roles": ["tecnico"]
+}
+```
+
+### GET /auth/tecnicos/:id
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "{{tecnicoId}}",
+  "fullName": "Juan Perez",
+  "email": "juan@example.com",
+  "isActive": true,
+  "roles": ["tecnico"],
+  "created_at": "2026-07-11T10:00:00.000Z",
+  "updated_at": "2026-07-11T10:00:00.000Z"
+}
+```
+
+### PATCH /auth/tecnicos/:id
+
+Payload (al menos un campo):
+
+```json
+{
+  "fullName": "Juan Perez Actualizado",
+  "email": "juan.perez@example.com"
+}
+```
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "{{tecnicoId}}",
+  "fullName": "Juan Perez Actualizado",
+  "email": "juan.perez@example.com",
+  "isActive": true,
+  "roles": ["tecnico"]
+}
+```
+
+### PATCH /auth/tecnicos/:id/estado
+
+Payload:
+
+```json
+{
+  "isActive": false
+}
+```
+
+Respuesta ejemplo:
+
+```json
+{
+  "id": "{{tecnicoId}}",
+  "fullName": "Juan Perez",
+  "email": "juan@example.com",
+  "isActive": false,
+  "roles": ["tecnico"]
+}
+```
+
 ## Servicios
 
 | Metodo | Endpoint | Rol |

@@ -23,10 +23,12 @@
 - `flutter analyze` sin errores de compilacion nuevos.
 - Quedan solo 4 `info` preexistentes por utilidades web (`dart:html`) fuera del alcance de este flujo.
 
-## Pendiente recomendado
-
 1. Agregar test widget del flujo de pagos:
 	 - confirmar deshabilitado sin seleccion.
 	 - confirmacion exitosa limpia seleccion y refresca preview.
 	 - error de elegibilidad muestra mensaje y refresca lista.
 2. Mejorar selector de tecnico con fuente dedicada (endpoint/listado de tecnicos) para no depender del historial cargado.
+
+## Pendiente recomendado
+
+- Agregar selector de fecha para generar los resumenes.

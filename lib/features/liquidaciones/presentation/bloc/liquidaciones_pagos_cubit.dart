@@ -5,6 +5,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_re
 
 class LiquidacionesPagosState {
   const LiquidacionesPagosState({
+    this.loadingTecnicos = false,
     this.loadingPreview = false,
     this.loadingHistory = false,
     this.loadingDetail = false,
@@ -12,6 +13,7 @@ class LiquidacionesPagosState {
     this.tecnicoId,
     this.desde,
     this.hasta,
+    this.tecnicos,
     this.preview,
     this.selectedLiquidacionIds = const <String>{},
     this.history,
@@ -24,12 +26,14 @@ class LiquidacionesPagosState {
   });
 
   final bool loadingPreview;
+  final bool loadingTecnicos;
   final bool loadingHistory;
   final bool loadingDetail;
   final bool confirming;
   final String? tecnicoId;
   final String? desde;
   final String? hasta;
+  final PagedResult<TecnicoListadoItem>? tecnicos;
   final ResumenPagoPreviewResponse? preview;
   final Set<String> selectedLiquidacionIds;
   final PagedResult<ResumenPagoHistorialItem>? history;
@@ -48,6 +52,21 @@ class LiquidacionesPagosState {
   }
 
   List<TecnicoPagoOption> get tecnicoOptions {
+    final catalog = tecnicos?.items ?? const <TecnicoListadoItem>[];
+    if (catalog.isNotEmpty) {
+      final output = catalog
+          .map(
+            (item) => TecnicoPagoOption(
+              id: item.id,
+              nombre: item.fullName,
+              email: item.email,
+            ),
+          )
+          .toList();
+      output.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+      return output;
+    }
+
     final items = history?.items ?? const <ResumenPagoHistorialItem>[];
     final byId = <String, TecnicoPagoOption>{};
 
@@ -68,6 +87,7 @@ class LiquidacionesPagosState {
   }
 
   LiquidacionesPagosState copyWith({
+    bool? loadingTecnicos,
     bool? loadingPreview,
     bool? loadingHistory,
     bool? loadingDetail,
@@ -75,6 +95,7 @@ class LiquidacionesPagosState {
     String? tecnicoId,
     String? desde,
     String? hasta,
+    Object? tecnicos = _noChange,
     Object? preview = _noChange,
     Set<String>? selectedLiquidacionIds,
     Object? history = _noChange,
@@ -87,12 +108,16 @@ class LiquidacionesPagosState {
   }) {
     return LiquidacionesPagosState(
       loadingPreview: loadingPreview ?? this.loadingPreview,
+      loadingTecnicos: loadingTecnicos ?? this.loadingTecnicos,
       loadingHistory: loadingHistory ?? this.loadingHistory,
       loadingDetail: loadingDetail ?? this.loadingDetail,
       confirming: confirming ?? this.confirming,
       tecnicoId: tecnicoId ?? this.tecnicoId,
       desde: desde ?? this.desde,
       hasta: hasta ?? this.hasta,
+        tecnicos: identical(tecnicos, _noChange)
+          ? this.tecnicos
+          : tecnicos as PagedResult<TecnicoListadoItem>?,
       preview: identical(preview, _noChange)
           ? this.preview
           : preview as ResumenPagoPreviewResponse?,
@@ -119,17 +144,23 @@ class TecnicoPagoOption {
   const TecnicoPagoOption({
     required this.id,
     this.nombre,
+    this.email,
   });
 
   final String id;
   final String? nombre;
+  final String? email;
 
   String get label {
     final cleanName = (nombre ?? '').trim();
+    final cleanEmail = (email ?? '').trim();
     if (cleanName.isEmpty) {
+      if (cleanEmail.isNotEmpty) {
+        return cleanEmail;
+      }
       return 'ID $id';
     }
-    return '$cleanName <$id>';
+    return cleanName;
   }
 }
 
@@ -155,6 +186,33 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
         error: null,
       ),
     );
+  }
+
+  Future<void> loadTecnicos({
+    int page = 1,
+    int limit = 100,
+    String? q,
+  }) async {
+    emit(state.copyWith(loadingTecnicos: true));
+
+    try {
+      final data = await _repository.fetchTecnicosListado(
+        query: TecnicosListadoQuery(
+          page: page,
+          limit: limit,
+          q: q,
+          activos: true,
+        ),
+      );
+      emit(
+        state.copyWith(
+          loadingTecnicos: false,
+          tecnicos: data,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(loadingTecnicos: false));
+    }
   }
 
   Future<void> loadUltimoResumen(String tecnicoId) async {

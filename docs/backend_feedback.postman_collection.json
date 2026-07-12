@@ -77,6 +77,189 @@
 							]
 						}
 					}
+				},
+				{
+					"name": "GET Tecnicos",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/auth/tecnicos?page=1&limit=20&q=&activos=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"tecnicos"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								},
+								{
+									"key": "q",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "activos",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "POST Crear Tecnico",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"tecnico.nuevo@example.com\",\n  \"password\": \"ClaveSegura123!\",\n  \"fullName\": \"Tecnico Nuevo\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/tecnicos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"tecnicos"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Tecnico por ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/auth/tecnicos/{{tecnicoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"tecnicos",
+								"{{tecnicoId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Editar Tecnico",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fullName\": \"Juan Perez Actualizado\",\n  \"email\": \"juan.perez@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/tecnicos/{{tecnicoId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"tecnicos",
+								"{{tecnicoId}}"
+							]
+						}
+					}
+				},
+				{
+					"name": "PATCH Estado Tecnico",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isActive\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/tecnicos/{{tecnicoId}}/estado",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"tecnicos",
+								"{{tecnicoId}}",
+								"estado"
+							]
+						}
+					}
 				}
 			]
 		},

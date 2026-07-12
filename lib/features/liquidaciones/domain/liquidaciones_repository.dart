@@ -305,6 +305,34 @@ class UltimoResumenPagoItem {
   final String createdAt;
 }
 
+class TecnicoListadoItem {
+  const TecnicoListadoItem({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.isActive,
+  });
+
+  final String id;
+  final String fullName;
+  final String email;
+  final bool isActive;
+}
+
+class TecnicosListadoQuery {
+  const TecnicosListadoQuery({
+    this.page = 1,
+    this.limit = 20,
+    this.q,
+    this.activos = true,
+  });
+
+  final int page;
+  final int limit;
+  final String? q;
+  final bool activos;
+}
+
 class ResumenPagoDetalleItem {
   const ResumenPagoDetalleItem({
     required this.id,
@@ -606,6 +634,10 @@ abstract class LiquidacionesRepository {
 
   Future<PagedResult<ResumenPagoHistorialItem>> fetchResumenesPago({
     required ResumenesPagoQuery query,
+  });
+
+  Future<PagedResult<TecnicoListadoItem>> fetchTecnicosListado({
+    required TecnicosListadoQuery query,
   });
 
   Future<UltimoResumenPagoItem?> fetchUltimoResumenPago(String tecnicoId);
