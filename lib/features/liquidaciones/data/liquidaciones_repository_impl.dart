@@ -880,6 +880,36 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }
 
   @override
+  Future<PagedResult<TecnicoListadoItem>> fetchTecnicosListado({
+    required TecnicosListadoQuery query,
+  }) async {
+    final payload = await _httpClient.getJson(
+      '/auth/tecnicos',
+      queryParameters: <String, String>{
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+        'activos': query.activos ? 'true' : 'false',
+        if ((query.q ?? '').trim().isNotEmpty) 'q': query.q!.trim(),
+      },
+    );
+
+    return PagedResult<TecnicoListadoItem>.fromDynamic(
+      payload,
+      (json) {
+        final root = _asMap(json);
+        return TecnicoListadoItem(
+          id: _stringOrNull(root['id']) ?? '-',
+          fullName: _stringOrNull(root['fullName'] ?? root['full_name']) ?? '-',
+          email: _stringOrNull(root['email']) ?? '-',
+          isActive: _toBool(root['isActive'] ?? root['is_active'] ?? true),
+        );
+      },
+      fallbackPage: query.page,
+      fallbackLimit: query.limit,
+    );
+  }
+
+  @override
   Future<UltimoResumenPagoItem?> fetchUltimoResumenPago(String tecnicoId) async {
     final payload = await _httpClient.getJson(
       '/liquidaciones/resumenes-pago/ultimo',

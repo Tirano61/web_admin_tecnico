@@ -6,13 +6,20 @@ import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_re
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_pagos_cubit.dart';
 
 class LiquidacionesPagosPage extends StatelessWidget {
-  const LiquidacionesPagosPage({super.key});
+  const LiquidacionesPagosPage({
+    super.key,
+    this.repository,
+  });
+
+  final LiquidacionesRepository? repository;
 
   @override
   Widget build(BuildContext context) {
-    final repository = LiquidacionesRepositoryImpl();
+    final resolvedRepository = repository ?? LiquidacionesRepositoryImpl();
     return BlocProvider<LiquidacionesPagosCubit>(
-      create: (_) => LiquidacionesPagosCubit(repository)..loadHistory(),
+      create: (_) => LiquidacionesPagosCubit(resolvedRepository)
+        ..loadTecnicos()
+        ..loadHistory(),
       child: const _LiquidacionesPagosView(),
     );
   }
@@ -272,6 +279,13 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: <Widget>[
                   _buildTecnicoField(context, state),
+                  FilledButton.tonalIcon(
+                    onPressed: state.loadingTecnicos
+                        ? null
+                        : () => context.read<LiquidacionesPagosCubit>().loadTecnicos(),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Recargar tecnicos'),
+                  ),
                   SizedBox(
                     width: 170,
                     child: TextField(
@@ -332,12 +346,12 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                     child: DataTable(
                                       columns: const <DataColumn>[
                                         DataColumn(label: Text('Sel')),
-                                        DataColumn(label: Text('Liquidacion')),
-                                        DataColumn(label: Text('Servicio')),
-                                        DataColumn(label: Text('Fecha aprobacion')),
-                                        DataColumn(label: Text('Subtotal salida USD')),
-                                        DataColumn(label: Text('Subtotal items USD')),
-                                        DataColumn(label: Text('Total USD')),
+                                        DataColumn(label: Text('Liq')),
+                                        DataColumn(label: Text('Srv')),
+                                        DataColumn(label: Text('Fec')),
+                                        DataColumn(label: Text('Sal')),
+                                        DataColumn(label: Text('Ite')),
+                                        DataColumn(label: Text('Tot')),
                                       ],
                                       rows: previewItems
                                           .map(
@@ -433,9 +447,9 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                             columns: const <DataColumn>[
                                               DataColumn(label: Text('Tecnico')),
                                               DataColumn(label: Text('Periodo')),
-                                              DataColumn(label: Text('Total liquidaciones')),
+                                              DataColumn(label: Text('Tot. liq.')),
                                               DataColumn(label: Text('Total USD')),
-                                              DataColumn(label: Text('Fecha creacion')),
+                                              DataColumn(label: Text('F. creacion')),
                                               DataColumn(label: Text('Accion')),
                                             ],
                                             rows: (state.history?.items ?? const <ResumenPagoHistorialItem>[])
