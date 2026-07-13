@@ -65,6 +65,66 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
     );
   }
 
+  DateTime? _parseIsoDate(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(value);
+  }
+
+  String _formatIsoDate(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<void> _pickDate({
+    required TextEditingController controller,
+  }) async {
+    final now = DateTime.now();
+    final initial = _parseIsoDate(controller.text) ?? now;
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: 'Seleccionar fecha',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
+    );
+
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    controller.text = _formatIsoDate(selected);
+    _syncFiltersToState(context);
+  }
+
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required String label,
+  }) {
+    return SizedBox(
+      width: 190,
+      child: TextField(
+        controller: controller,
+        readOnly: true,
+        decoration: InputDecoration(
+          labelText: label,
+          suffixIcon: IconButton(
+            tooltip: 'Seleccionar fecha',
+            onPressed: () => _pickDate(controller: controller),
+            icon: const Icon(Icons.calendar_today_outlined, size: 18),
+          ),
+        ),
+        onTap: () => _pickDate(controller: controller),
+      ),
+    );
+  }
+
   Future<void> _onPreview(BuildContext context) async {
     _syncFiltersToState(context);
     final cubit = context.read<LiquidacionesPagosCubit>();
@@ -286,23 +346,13 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                     icon: const Icon(Icons.refresh, size: 18),
                     label: const Text('Recargar tecnicos'),
                   ),
-                  SizedBox(
-                    width: 170,
-                    child: TextField(
-                      controller: _desdeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Desde (YYYY-MM-DD)',
-                      ),
-                    ),
+                  _buildDateField(
+                    controller: _desdeController,
+                    label: 'Desde',
                   ),
-                  SizedBox(
-                    width: 170,
-                    child: TextField(
-                      controller: _hastaController,
-                      decoration: const InputDecoration(
-                        labelText: 'Hasta (YYYY-MM-DD)',
-                      ),
-                    ),
+                  _buildDateField(
+                    controller: _hastaController,
+                    label: 'Hasta',
                   ),
                   FilledButton.icon(
                     onPressed: state.loadingPreview ? null : () => _onPreview(context),

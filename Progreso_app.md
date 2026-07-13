@@ -29,6 +29,10 @@
 	 - error de elegibilidad muestra mensaje y refresca lista.
 2. Mejorar selector de tecnico con fuente dedicada (endpoint/listado de tecnicos) para no depender del historial cargado.
 
+- Agregar selector de fecha para generar los resumenes.
+
 ## Pendiente recomendado
 
-- Agregar selector de fecha para generar los resumenes.
+- No etsa andando bien la busqueda de resumenes por que hay liquidaciones que no las esta trayendo.
+  
+- Detalles del resumen al generarlo por que no se sabe que contiene, y eso no se puede aprobar si no se ben los detalles.
