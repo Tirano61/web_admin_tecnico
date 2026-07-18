@@ -1952,6 +1952,404 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     );
   }
 
+  Widget _buildCreatedLiquidacionesResponsive({
+    required LiquidacionesLoaded state,
+    required int liquidacionesLimit,
+    required List<int> liquidacionesRowsPerPageOptions,
+    required int pendientesLimit,
+  }) {
+    return Card(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const desktopMinWidth = 1200.0;
+          final availableWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : desktopMinWidth;
+          final compact = availableWidth < 900;
+          final tiny = availableWidth < 640;
+          final contentPadding = tiny ? 10.0 : (compact ? 12.0 : 14.0);
+          final verticalGap = tiny ? 3.0 : 4.0;
+
+          final hasPrevious = state.liquidacionesPage > 1;
+          final firstIndex = (state.liquidacionesPage - 1) * liquidacionesLimit;
+          final hasNext = firstIndex + state.liquidaciones.length < state.liquidacionesTotal;
+
+          return Padding(
+            padding: EdgeInsets.all(contentPadding),
+            child: Column(
+              children: <Widget>[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    ModuleStatusChip(label: 'Pagina ${state.liquidacionesPage}'),
+                    ModuleStatusChip(label: 'Total ${state.liquidacionesTotal}'),
+                    FilledButton.tonalIcon(
+                      onPressed: hasPrevious
+                          ? () {
+                              _requestDashboard(
+                                liquidacionesPage: state.liquidacionesPage - 1,
+                                liquidacionesLimit: liquidacionesLimit,
+                                pendientesPage: state.pendientesPage,
+                                pendientesLimit: pendientesLimit,
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_left, size: 18),
+                      label: const Text('Anterior'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: hasNext
+                          ? () {
+                              _requestDashboard(
+                                liquidacionesPage: state.liquidacionesPage + 1,
+                                liquidacionesLimit: liquidacionesLimit,
+                                pendientesPage: state.pendientesPage,
+                                pendientesLimit: pendientesLimit,
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_right, size: 18),
+                      label: const Text('Siguiente'),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF122B4A),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0x334EA6FF)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: liquidacionesLimit,
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            _requestDashboard(
+                              liquidacionesPage: 1,
+                              liquidacionesLimit: value,
+                              pendientesPage: state.pendientesPage,
+                              pendientesLimit: pendientesLimit,
+                            );
+                          },
+                          items: liquidacionesRowsPerPageOptions
+                              .map(
+                                (value) => DropdownMenuItem<int>(
+                                  value: value,
+                                  child: Text('$value / pagina'),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 8 : 10),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: state.liquidaciones.length,
+                    separatorBuilder: (_, _) => SizedBox(height: compact ? 6 : 8),
+                    itemBuilder: (context, index) {
+                      final item = state.liquidaciones[index];
+                      final approved = item.isAprobadaEstado;
+                      final paid = item.liquidadaPago;
+                      final isCanalCampo = _isCanalCampo(item.servicioCanal);
+                      final itemDetalles = state.itemDetallesByLiquidacion[item.id] ??
+                          const <LiquidacionItemDetalle>[];
+                      final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
+                        tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
+                        items: itemDetalles,
+                      );
+
+                      return Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(contentPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: <Widget>[
+                                  ModuleStatusChip(label: 'ID ${item.id}'),
+                                  ModuleStatusChip(label: item.servicioCanal.toUpperCase()),
+                                  _AprobadaChip(item: item),
+                                ],
+                              ),
+                              SizedBox(height: compact ? 6 : 8),
+                              _LiquidacionInfoLine(
+                                label: 'Servicio',
+                                value: item.servicioId,
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Tecnico',
+                                value: _formatTecnicoLabel(
+                                  tecnicoId: item.tecnicoId,
+                                  tecnicoNombre: item.tecnicoNombre,
+                                  tecnicoEmail: item.tecnicoEmail,
+                                ),
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Tipo salida',
+                                value: item.tipoSalidaNombre ?? '-',
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Salida USD',
+                                value: item.tipoSalidaPrecioUsd.toStringAsFixed(2),
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Total tecnico USD',
+                                value: totalTecnicoUsd.toStringAsFixed(2),
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Fecha aprobacion',
+                                value: _formatDate(item.fechaAprobacion),
+                                compact: compact,
+                              ),
+                              SizedBox(height: compact ? 8 : 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: <Widget>[
+                                  FilledButton.tonal(
+                                    onPressed: !approved && !paid && isCanalCampo
+                                        ? () => _openEditHeaderDialog(state, item)
+                                        : null,
+                                    child: const Text('Editar'),
+                                  ),
+                                  FilledButton.tonal(
+                                    onPressed: !approved && !paid && isCanalCampo
+                                        ? () => _confirmApproveLiquidacion(item)
+                                        : null,
+                                    child: const Text('Aprobar'),
+                                  ),
+                                  if (_canReopenByRole)
+                                    FilledButton.tonal(
+                                      onPressed: approved && !paid && isCanalCampo
+                                          ? () => _confirmReopenLiquidacion(item)
+                                          : null,
+                                      child: const Text('Reabrir'),
+                                    ),
+                                  FilledButton.tonal(
+                                    onPressed: isCanalCampo && !paid
+                                        ? () => _openItemsDialog(state, item)
+                                        : null,
+                                    child: const Text('Items'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPendientesLiquidacionesResponsive({
+    required LiquidacionesLoaded state,
+    required int liquidacionesLimit,
+    required int pendientesLimit,
+    required List<int> pendientesRowsPerPageOptions,
+  }) {
+    return Card(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const desktopMinWidth = 1200.0;
+          final availableWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : desktopMinWidth;
+          final compact = availableWidth < 900;
+          final tiny = availableWidth < 640;
+          final contentPadding = tiny ? 10.0 : (compact ? 12.0 : 14.0);
+          final verticalGap = tiny ? 3.0 : 4.0;
+
+          final hasPrevious = state.pendientesPage > 1;
+          final firstIndex = (state.pendientesPage - 1) * pendientesLimit;
+          final hasNext = firstIndex + state.pendientes.length < state.pendientesTotal;
+          final createdServicioIds =
+              state.liquidaciones.map((item) => item.servicioId).toSet();
+
+          return Padding(
+            padding: EdgeInsets.all(contentPadding),
+            child: Column(
+              children: <Widget>[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    ModuleStatusChip(label: 'Pagina ${state.pendientesPage}'),
+                    ModuleStatusChip(label: 'Total ${state.pendientesTotal}'),
+                    FilledButton.tonalIcon(
+                      onPressed: hasPrevious
+                          ? () {
+                              _requestDashboard(
+                                liquidacionesPage: state.liquidacionesPage,
+                                liquidacionesLimit: liquidacionesLimit,
+                                pendientesPage: state.pendientesPage - 1,
+                                pendientesLimit: pendientesLimit,
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_left, size: 18),
+                      label: const Text('Anterior'),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: hasNext
+                          ? () {
+                              _requestDashboard(
+                                liquidacionesPage: state.liquidacionesPage,
+                                liquidacionesLimit: liquidacionesLimit,
+                                pendientesPage: state.pendientesPage + 1,
+                                pendientesLimit: pendientesLimit,
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.chevron_right, size: 18),
+                      label: const Text('Siguiente'),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF122B4A),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0x334EA6FF)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: pendientesLimit,
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            _requestDashboard(
+                              liquidacionesPage: state.liquidacionesPage,
+                              liquidacionesLimit: liquidacionesLimit,
+                              pendientesPage: 1,
+                              pendientesLimit: value,
+                            );
+                          },
+                          items: pendientesRowsPerPageOptions
+                              .map(
+                                (value) => DropdownMenuItem<int>(
+                                  value: value,
+                                  child: Text('$value / pagina'),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 8 : 10),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: state.pendientes.length,
+                    separatorBuilder: (_, _) => SizedBox(height: compact ? 6 : 8),
+                    itemBuilder: (context, index) {
+                      final item = state.pendientes[index];
+                      final isCanalCampo = _isCanalCampo(item.servicioCanal);
+                      final alreadyLiquidated = createdServicioIds.contains(item.servicioId);
+
+                      return Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(contentPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: <Widget>[
+                                  ModuleStatusChip(label: 'Servicio ${item.servicioId}'),
+                                  ModuleStatusChip(
+                                    label: item.servicioCanal.toUpperCase(),
+                                    backgroundColor: isCanalCampo
+                                        ? const Color(0x1F0FA960)
+                                        : const Color(0x1FF4B942),
+                                    foregroundColor: isCanalCampo
+                                        ? const Color(0xFF8FF0BC)
+                                        : const Color(0xFFFFD98B),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: compact ? 6 : 8),
+                              _LiquidacionInfoLine(
+                                label: 'Tecnico',
+                                value: _formatTecnicoLabel(
+                                  tecnicoId: item.tecnicoId,
+                                  tecnicoNombre: item.tecnicoNombre,
+                                  tecnicoEmail: item.tecnicoEmail,
+                                ),
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Cliente',
+                                value: item.clienteNombre ?? '-',
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'KM sugerido',
+                                value: item.kmSugerido?.toString() ?? '-',
+                                compact: compact,
+                              ),
+                              SizedBox(height: verticalGap),
+                              _LiquidacionInfoLine(
+                                label: 'Fecha servicio',
+                                value: _formatDate(item.fechaHoraServicio),
+                                compact: compact,
+                              ),
+                              SizedBox(height: compact ? 8 : 10),
+                              FilledButton.tonalIcon(
+                                onPressed: (!isCanalCampo || alreadyLiquidated)
+                                    ? null
+                                    : () => _openCreateLiquidacionDialog(state, item),
+                                icon: const Icon(Icons.add_circle_outline, size: 18),
+                                label: Text(
+                                  alreadyLiquidated
+                                      ? 'Ya liquidada'
+                                      : (isCanalCampo ? 'Crear liquidacion' : 'No aplica'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<LiquidacionesBloc, LiquidacionesState>(
@@ -1988,9 +2386,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
               liquidacionesLimit,
               defaults: const <int>[20, 40, 60],
             );
-            final liquidacionesFirstRowIndex =
-                (state.liquidacionesPage - 1) * liquidacionesLimit;
-
             final pendientesLimit = normalizeRowsPerPage(
               state.pendientesLimit > 0 ? state.pendientesLimit : 20,
               defaults: const <int>[20, 40, 60],
@@ -1999,8 +2394,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
               pendientesLimit,
               defaults: const <int>[20, 40, 60],
             );
-            final pendientesFirstRowIndex =
-                (state.pendientesPage - 1) * pendientesLimit;
 
             final approvedCount =
               state.liquidaciones.where((item) => item.isAprobadaEstado).length;
@@ -2242,97 +2635,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 ),
                                 child: Text(pendientesEmptyMessage),
                               )
-                            : Card(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    const minTableWidth = 1500.0;
-                                    final availableWidth = constraints.maxWidth.isFinite
-                                        ? constraints.maxWidth
-                                        : minTableWidth;
-                                    final tableWidth = availableWidth < minTableWidth
-                                        ? minTableWidth
-                                        : availableWidth;
-
-                                    return SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: SizedBox(
-                                        width: tableWidth,
-                                        child: SingleChildScrollView(
-                                          child: PaginatedDataTable(
-                                            key: ValueKey<String>(
-                                              'pendientes_${state.pendientesPage}_${state.pendientesLimit}_${state.pendientesTotal}_${selectedTecnicoId ?? ''}',
-                                            ),
-                                            initialFirstRowIndex:
-                                                pendientesFirstRowIndex < 0
-                                                    ? 0
-                                                    : pendientesFirstRowIndex,
-                                            headingRowColor: WidgetStateProperty.all(
-                                              const Color(0x1A4EA6FF),
-                                            ),
-                                            columns: const <DataColumn>[
-                                              DataColumn(label: Text('Servicio ID')),
-                                              DataColumn(label: Text('Canal')),
-                                              DataColumn(label: Text('Tecnico')),
-                                              DataColumn(label: Text('Cliente')),
-                                              DataColumn(label: Text('KM sugerido')),
-                                              DataColumn(label: Text('Fecha servicio')),
-                                              DataColumn(label: Text('Acciones')),
-                                            ],
-                                            source: _LiquidacionesPendientesTableSource(
-                                              items: state.pendientes,
-                                              total: state.pendientesTotal,
-                                              page: state.pendientesPage,
-                                              limit: pendientesLimit,
-                                              formatDate: _formatDate,
-                                              formatTecnicoLabel: _formatTecnicoLabel,
-                                              createdServicioIds: state.liquidaciones
-                                                  .map((item) => item.servicioId)
-                                                  .toSet(),
-                                              onCreateLiquidacion: (item) =>
-                                                  _openCreateLiquidacionDialog(
-                                                state,
-                                                item,
-                                              ),
-                                            ),
-                                            rowsPerPage: pendientesLimit,
-                                            availableRowsPerPage:
-                                                pendientesRowsPerPageOptions,
-                                            showEmptyRows: false,
-                                            onRowsPerPageChanged: (value) {
-                                              if (value == null) {
-                                                return;
-                                              }
-                                              _requestDashboard(
-                                                liquidacionesPage:
-                                                    state.liquidacionesPage,
-                                                liquidacionesLimit:
-                                                    liquidacionesLimit,
-                                                pendientesPage: 1,
-                                                pendientesLimit: value,
-                                              );
-                                            },
-                                            onPageChanged: (firstRowIndex) {
-                                              final nextPage =
-                                                  (firstRowIndex ~/ pendientesLimit) +
-                                                      1;
-                                              if (nextPage != state.pendientesPage) {
-                                                _requestDashboard(
-                                                  liquidacionesPage:
-                                                      state.liquidacionesPage,
-                                                  liquidacionesLimit:
-                                                      liquidacionesLimit,
-                                                  pendientesPage: nextPage,
-                                                  pendientesLimit: pendientesLimit,
-                                                );
-                                              }
-                                            },
-                                            showFirstLastButtons: true,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                            : _buildPendientesLiquidacionesResponsive(
+                                state: state,
+                                liquidacionesLimit: liquidacionesLimit,
+                                pendientesLimit: pendientesLimit,
+                                pendientesRowsPerPageOptions:
+                                    pendientesRowsPerPageOptions,
                               ))
                         : (state.liquidaciones.isEmpty
                             ? Container(
@@ -2345,108 +2653,12 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 ),
                                 child: Text(createdEmptyMessage),
                               )
-                            : Card(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    const minTableWidth = 1750.0;
-                                    final availableWidth = constraints.maxWidth.isFinite
-                                        ? constraints.maxWidth
-                                        : minTableWidth;
-                                    final tableWidth = availableWidth < minTableWidth
-                                        ? minTableWidth
-                                        : availableWidth;
-
-                                    return SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: SizedBox(
-                                        width: tableWidth,
-                                        child: SingleChildScrollView(
-                                          child: PaginatedDataTable(
-                                            key: ValueKey<String>(
-                                              'liquidaciones_${state.liquidacionesPage}_${state.liquidacionesLimit}_${state.liquidacionesTotal}_${selectedTecnicoId ?? ''}_${selectedAprobado?.toString() ?? 'all'}',
-                                            ),
-                                            initialFirstRowIndex:
-                                                liquidacionesFirstRowIndex < 0
-                                                    ? 0
-                                                    : liquidacionesFirstRowIndex,
-                                            headingRowColor: WidgetStateProperty.all(
-                                              const Color(0x1A4EA6FF),
-                                            ),
-                                            columns: const <DataColumn>[
-                                              DataColumn(label: Text('ID')),
-                                              DataColumn(label: Text('Servicio')),
-                                              DataColumn(label: Text('Canal')),
-                                              DataColumn(label: Text('Tecnico')),
-                                              DataColumn(label: Text('Estado texto')),
-                                              DataColumn(label: Text('Tipo salida')),
-                                              DataColumn(label: Text('Salida fija USD')),
-                                              DataColumn(label: Text('KM')),
-                                              DataColumn(label: Text('KM USD snapshot (legacy)')),
-                                              DataColumn(label: Text('Total tecnico USD')),
-                                              DataColumn(label: Text('Estado')),
-                                              DataColumn(label: Text('Fecha aprobacion')),
-                                              DataColumn(label: Text('Acciones')),
-                                            ],
-                                            source: _LiquidacionesTableSource(
-                                              items: state.liquidaciones,
-                                              total: state.liquidacionesTotal,
-                                              page: state.liquidacionesPage,
-                                              limit: liquidacionesLimit,
-                                              formatDate: _formatDate,
-                                              formatTecnicoLabel:
-                                                  _formatTecnicoLabel,
-                                              itemDetallesByLiquidacion:
-                                                  state.itemDetallesByLiquidacion,
-                                              onEditHeader: (item) =>
-                                                  _openEditHeaderDialog(state, item),
-                                              onApproveLiquidacion:
-                                                  _confirmApproveLiquidacion,
-                                                onReopenLiquidacion:
-                                                  _canReopenByRole
-                                                    ? _confirmReopenLiquidacion
-                                                    : null,
-                                              onManageItems: (item) =>
-                                                  _openItemsDialog(state, item),
-                                            ),
-                                            rowsPerPage: liquidacionesLimit,
-                                            availableRowsPerPage:
-                                                liquidacionesRowsPerPageOptions,
-                                            showEmptyRows: false,
-                                            onRowsPerPageChanged: (value) {
-                                              if (value == null) {
-                                                return;
-                                              }
-                                              _requestDashboard(
-                                                liquidacionesPage: 1,
-                                                liquidacionesLimit: value,
-                                                pendientesPage: state.pendientesPage,
-                                                pendientesLimit: pendientesLimit,
-                                              );
-                                            },
-                                            onPageChanged: (firstRowIndex) {
-                                              final nextPage =
-                                                  (firstRowIndex ~/ liquidacionesLimit) +
-                                                      1;
-                                              if (nextPage !=
-                                                  state.liquidacionesPage) {
-                                                _requestDashboard(
-                                                  liquidacionesPage: nextPage,
-                                                  liquidacionesLimit:
-                                                      liquidacionesLimit,
-                                                  pendientesPage:
-                                                      state.pendientesPage,
-                                                  pendientesLimit:
-                                                      pendientesLimit,
-                                                );
-                                              }
-                                            },
-                                            showFirstLastButtons: true,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                            : _buildCreatedLiquidacionesResponsive(
+                                state: state,
+                                liquidacionesLimit: liquidacionesLimit,
+                                liquidacionesRowsPerPageOptions:
+                                    liquidacionesRowsPerPageOptions,
+                                pendientesLimit: pendientesLimit,
                               )),
                   ),
                 ],
@@ -2459,274 +2671,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       ),
     );
   }
-}
-
-class _LiquidacionesTableSource extends DataTableSource {
-  _LiquidacionesTableSource({
-    required this.items,
-    required this.total,
-    required this.page,
-    required this.limit,
-    required this.formatDate,
-    required this.formatTecnicoLabel,
-    required this.itemDetallesByLiquidacion,
-    required this.onEditHeader,
-    required this.onApproveLiquidacion,
-    this.onReopenLiquidacion,
-    required this.onManageItems,
-  });
-
-  final List<LiquidacionItem> items;
-  final int total;
-  final int page;
-  final int limit;
-  final String Function(String? raw) formatDate;
-  final String Function({
-    String? tecnicoId,
-    String? tecnicoNombre,
-    String? tecnicoEmail,
-  }) formatTecnicoLabel;
-  final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
-  final ValueChanged<LiquidacionItem> onEditHeader;
-  final ValueChanged<LiquidacionItem> onApproveLiquidacion;
-  final ValueChanged<LiquidacionItem>? onReopenLiquidacion;
-  final ValueChanged<LiquidacionItem> onManageItems;
-
-  @override
-  DataRow? getRow(int index) {
-    final start = (page - 1) * limit;
-    final localIndex = index - start;
-    if (localIndex < 0 || localIndex >= items.length) {
-      return null;
-    }
-
-    final item = items[localIndex];
-    final approved = item.isAprobadaEstado;
-    final paid = item.liquidadaPago;
-    final isCanalCampo = _isCanalCampoValue(item.servicioCanal);
-    final itemDetalles =
-        itemDetallesByLiquidacion[item.id] ?? const <LiquidacionItemDetalle>[];
-    final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
-      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
-      items: itemDetalles,
-    );
-
-    return DataRow.byIndex(
-      index: index,
-      cells: <DataCell>[
-        DataCell(Text(item.id)),
-        DataCell(Text(item.servicioId)),
-        DataCell(
-          ModuleStatusChip(
-            label: item.servicioCanal.toUpperCase(),
-          ),
-        ),
-        DataCell(
-          SizedBox(
-            width: 240,
-            child: Text(
-              formatTecnicoLabel(
-                tecnicoId: item.tecnicoId,
-                tecnicoNombre: item.tecnicoNombre,
-                tecnicoEmail: item.tecnicoEmail,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        DataCell(Text(item.estadoNormalizado.toUpperCase())),
-        DataCell(Text(item.tipoSalidaNombre ?? '-')),
-        DataCell(Text(item.tipoSalidaPrecioUsd.toStringAsFixed(2))),
-        DataCell(Text(item.km.toString())),
-        DataCell(Text(item.precioKmUsdSnapshotLegacy.toStringAsFixed(4))),
-        DataCell(
-          ModuleStatusChip(
-            label: totalTecnicoUsd.toStringAsFixed(2),
-            backgroundColor: const Color(0x1F0FA960),
-            foregroundColor: const Color(0xFF8FF0BC),
-          ),
-        ),
-        DataCell(_AprobadaChip(item: item)),
-        DataCell(Text(formatDate(item.fechaAprobacion))),
-        DataCell(
-          PopupMenuButton<String>(
-            tooltip: 'Acciones',
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (value) {
-              switch (value) {
-                case 'editar':
-                  onEditHeader(item);
-                  break;
-                case 'aprobar':
-                  onApproveLiquidacion(item);
-                  break;
-                case 'reabrir':
-                  onReopenLiquidacion?.call(item);
-                  break;
-                case 'items':
-                  onManageItems(item);
-                  break;
-              }
-            },
-            itemBuilder: (context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'editar',
-                enabled: !approved && !paid && isCanalCampo,
-                child: Text(
-                  !isCanalCampo
-                      ? 'Editar cabecera (solo canal campo)'
-                      : (paid
-                          ? 'Editar cabecera (pasada a pago)'
-                      : (item.isEditable
-                          ? 'Editar cabecera'
-                          : 'Editar cabecera (reabrir para editar)')),
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'aprobar',
-                enabled: !approved && !paid && isCanalCampo,
-                child: Text(
-                  !isCanalCampo
-                      ? 'Aprobar liquidacion (solo canal campo)'
-                      : (paid
-                          ? 'Aprobar liquidacion (pasada a pago)'
-                      : (approved
-                          ? 'Aprobar liquidacion (ya aprobada)'
-                          : 'Aprobar liquidacion')),
-                ),
-              ),
-              if (onReopenLiquidacion != null)
-                PopupMenuItem<String>(
-                  value: 'reabrir',
-                  enabled: approved && !paid && isCanalCampo,
-                  child: Text(
-                    paid
-                        ? 'Reabrir liquidacion (pasada a pago)'
-                        : (approved
-                        ? 'Reabrir liquidacion'
-                        : 'Reabrir liquidacion (solo aprobadas)'),
-                  ),
-                ),
-              const PopupMenuDivider(),
-              PopupMenuItem<String>(
-                value: 'items',
-                enabled: isCanalCampo && !paid,
-                child: Text(
-                  isCanalCampo
-                      ? (paid ? 'Gestionar items (pasada a pago)' : 'Gestionar items')
-                      : 'Gestionar items (solo canal campo)',
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get rowCount => total;
-
-  @override
-  int get selectedRowCount => 0;
-}
-
-class _LiquidacionesPendientesTableSource extends DataTableSource {
-  _LiquidacionesPendientesTableSource({
-    required this.items,
-    required this.total,
-    required this.page,
-    required this.limit,
-    required this.formatDate,
-    required this.formatTecnicoLabel,
-    required this.createdServicioIds,
-    required this.onCreateLiquidacion,
-  });
-
-  final List<LiquidacionPendienteItem> items;
-  final int total;
-  final int page;
-  final int limit;
-  final String Function(String? raw) formatDate;
-  final String Function({
-    String? tecnicoId,
-    String? tecnicoNombre,
-    String? tecnicoEmail,
-  }) formatTecnicoLabel;
-  final Set<String> createdServicioIds;
-  final ValueChanged<LiquidacionPendienteItem> onCreateLiquidacion;
-
-  @override
-  DataRow? getRow(int index) {
-    final start = (page - 1) * limit;
-    final localIndex = index - start;
-    if (localIndex < 0 || localIndex >= items.length) {
-      return null;
-    }
-
-    final item = items[localIndex];
-    final isCanalCampo = _isCanalCampoValue(item.servicioCanal);
-    final alreadyLiquidated = createdServicioIds.contains(item.servicioId);
-
-    return DataRow.byIndex(
-      index: index,
-      cells: <DataCell>[
-        DataCell(Text(item.servicioId)),
-        DataCell(
-          ModuleStatusChip(
-            label: item.servicioCanal.toUpperCase(),
-            backgroundColor: isCanalCampo
-                ? const Color(0x1F0FA960)
-                : const Color(0x1FF4B942),
-            foregroundColor: isCanalCampo
-                ? const Color(0xFF8FF0BC)
-                : const Color(0xFFFFD98B),
-          ),
-        ),
-        DataCell(
-          SizedBox(
-            width: 260,
-            child: Text(
-              formatTecnicoLabel(
-                tecnicoId: item.tecnicoId,
-                tecnicoNombre: item.tecnicoNombre,
-                tecnicoEmail: item.tecnicoEmail,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        DataCell(Text(item.clienteNombre ?? '-')),
-        DataCell(Text(item.kmSugerido?.toString() ?? '-')),
-        DataCell(Text(formatDate(item.fechaHoraServicio))),
-        DataCell(
-          FilledButton.tonalIcon(
-            onPressed: (!isCanalCampo || alreadyLiquidated)
-                ? null
-                : () => onCreateLiquidacion(item),
-            icon: const Icon(Icons.add_circle_outline, size: 18),
-            label: Text(
-              alreadyLiquidated
-                  ? 'Ya liquidada'
-                  : (isCanalCampo ? 'Crear' : 'No aplica'),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  bool get isRowCountApproximate => false;
-
-  @override
-  int get rowCount => total;
-
-  @override
-  int get selectedRowCount => 0;
 }
 
 bool _isCanalCampoValue(String? canal) {
@@ -2809,10 +2753,12 @@ class _LiquidacionInfoLine extends StatelessWidget {
   const _LiquidacionInfoLine({
     required this.label,
     required this.value,
+    this.compact = false,
   });
 
   final String label;
   final String value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2820,7 +2766,10 @@ class _LiquidacionInfoLine extends StatelessWidget {
       children: <Widget>[
         Text(
           '$label: ',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          style: (compact
+                  ? Theme.of(context).textTheme.labelSmall
+                  : Theme.of(context).textTheme.bodySmall)
+              ?.copyWith(
                 color: const Color(0xFF9AB1CC),
                 fontWeight: FontWeight.w600,
               ),
@@ -2828,7 +2777,10 @@ class _LiquidacionInfoLine extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: (compact
+                    ? Theme.of(context).textTheme.bodySmall
+                    : Theme.of(context).textTheme.bodyMedium)
+                ?.copyWith(
                   color: const Color(0xFFEAF3FF),
                 ),
             overflow: TextOverflow.ellipsis,
