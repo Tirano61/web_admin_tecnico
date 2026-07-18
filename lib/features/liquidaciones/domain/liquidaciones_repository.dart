@@ -94,12 +94,16 @@ class LiquidacionItemsResponse {
     required this.items,
     required this.meta,
     required this.remoteEnabled,
+    this.tipoSalidaId,
+    this.tipoSalidaNombre,
   });
 
   final String liquidacionId;
   final List<LiquidacionItemDetalle> items;
   final LiquidacionItemsMeta meta;
   final bool remoteEnabled;
+  final String? tipoSalidaId;
+  final String? tipoSalidaNombre;
 }
 
 class LiquidacionItem {

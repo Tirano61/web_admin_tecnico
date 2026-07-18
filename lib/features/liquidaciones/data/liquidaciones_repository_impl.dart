@@ -514,6 +514,27 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
 
     final liquidacionIdResponse =
         _stringOrNull(source['liquidacionId'] ?? source['liquidacion_id']) ?? liquidacionId;
+    final liquidacionNode = _asMap(source['liquidacion']);
+    final tipoSalidaNode = _asMap(
+      source['tipoSalida'] ??
+          source['tipo_salida'] ??
+          liquidacionNode['tipoSalida'] ??
+          liquidacionNode['tipo_salida'],
+    );
+    final tipoSalidaId = _stringOrNull(
+      source['tipoSalidaId'] ??
+          source['tipo_salida_id'] ??
+          liquidacionNode['tipoSalidaId'] ??
+          liquidacionNode['tipo_salida_id'] ??
+          tipoSalidaNode['id'],
+    );
+    final tipoSalidaNombre = _stringOrNull(
+      source['tipoSalidaNombre'] ??
+          source['tipo_salida_nombre'] ??
+          liquidacionNode['tipoSalidaNombre'] ??
+          liquidacionNode['tipo_salida_nombre'] ??
+          tipoSalidaNode['nombre'],
+    );
 
     final itemsRaw = source['items'];
     final itemsList = itemsRaw is List ? itemsRaw : const <dynamic>[];
@@ -541,6 +562,8 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         subtotalUsdTotal: subtotalUsd,
       ),
       remoteEnabled: true,
+      tipoSalidaId: tipoSalidaId,
+      tipoSalidaNombre: tipoSalidaNombre,
     );
   }
 
