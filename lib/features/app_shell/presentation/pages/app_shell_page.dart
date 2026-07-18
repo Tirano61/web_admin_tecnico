@@ -105,6 +105,8 @@ class _TopShellNavigation extends StatelessWidget {
   final ValueChanged<AppModule> onModuleSelected;
   final VoidCallback onLogout;
 
+  static const double _scale = 0.8;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -115,16 +117,20 @@ class _TopShellNavigation extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Container(
-              height: 42,
-              width: 42,
+              height: 42 * _scale,
+              width: 42 * _scale,
               decoration: BoxDecoration(
                 color: const Color(0x194FC2FF),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12 * _scale),
                 border: Border.all(color: const Color(0x555FB7ED)),
               ),
-              child: const Icon(Icons.memory_rounded, color: Color(0xFF9BD5FF)),
+              child: Icon(
+                Icons.memory_rounded,
+                color: const Color(0xFF9BD5FF),
+                size: 24 * _scale,
+              ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12 * _scale),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,10 +140,10 @@ class _TopShellNavigation extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: const Color(0xFFF2F8FF),
                           fontWeight: FontWeight.w700,
-                          fontSize: compact ? 18 : 20,
+                          fontSize: (compact ? 18 : 20) * _scale,
                         ),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2 * _scale),
                   Text(
                     currentModule.shortDescription,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -155,23 +161,37 @@ class _TopShellNavigation extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF14365A),
             foregroundColor: const Color(0xFFD8EBFF),
+            padding: EdgeInsets.symmetric(
+              horizontal: 14 * _scale,
+              vertical: 10 * _scale,
+            ),
           ),
-          icon: const Icon(Icons.logout, size: 18),
+          icon: Icon(Icons.logout, size: 18 * _scale),
           label: const Text('Salir'),
         );
 
         return Container(
-          margin: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          margin: EdgeInsets.fromLTRB(
+            18 * _scale,
+            18 * _scale,
+            18 * _scale,
+            0,
+          ),
+          padding: EdgeInsets.fromLTRB(
+            16 * _scale,
+            14 * _scale,
+            16 * _scale,
+            14 * _scale,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xCC0B223E),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16 * _scale),
             border: Border.all(color: const Color(0x335CA8E8)),
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: const Color(0xFF04111F).withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                blurRadius: 24 * _scale,
+                offset: Offset(0, 10 * _scale),
               ),
             ],
           ),
@@ -179,18 +199,18 @@ class _TopShellNavigation extends StatelessWidget {
             children: <Widget>[
               if (compact) ...<Widget>[
                 brand,
-                const SizedBox(height: 10),
+                SizedBox(height: 10 * _scale),
                 Align(alignment: Alignment.centerRight, child: logoutButton),
               ] else ...<Widget>[
                 Row(
                   children: <Widget>[
                     Expanded(child: brand),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12 * _scale),
                     logoutButton,
                   ],
                 ),
               ],
-              const SizedBox(height: 14),
+              SizedBox(height: 14 * _scale),
               SizedBox(
                 width: double.infinity,
                 child: SingleChildScrollView(
@@ -199,7 +219,7 @@ class _TopShellNavigation extends StatelessWidget {
                     children: modules
                         .map(
                           (module) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
+                            padding: EdgeInsets.only(right: 8 * _scale),
                             child: _TopNavItem(
                               module: module,
                               selected: module == currentModule,
@@ -230,6 +250,8 @@ class _TopNavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const double _scale = 0.8;
+
   @override
   Widget build(BuildContext context) {
     final backgroundColor = selected ? const Color(0xFF1C4A74) : const Color(0x33163352);
@@ -237,21 +259,24 @@ class _TopNavItem extends StatelessWidget {
     final textColor = selected ? const Color(0xFFEAF5FF) : const Color(0xFFB3C8DF);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(12 * _scale),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: 12 * _scale,
+          vertical: 10 * _scale,
+        ),
         decoration: BoxDecoration(
           color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12 * _scale),
           border: Border.all(color: borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(module.icon, size: 18, color: textColor),
-            const SizedBox(width: 8),
+            Icon(module.icon, size: 18 * _scale, color: textColor),
+            SizedBox(width: 8 * _scale),
             Text(
               module.label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(

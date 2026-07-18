@@ -14,35 +14,49 @@ class ModulePageLayout extends StatelessWidget {
   final Widget child;
   final Widget? trailing;
 
+  static const double _scale = 0.8;
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 720 ? 14.0 : 22.0;
-        final verticalPadding = constraints.maxWidth < 720 ? 14.0 : 22.0;
+        final horizontalPadding =
+          (constraints.maxWidth < 720 ? 14.0 : 22.0) * _scale;
+        final verticalPadding =
+          (constraints.maxWidth < 720 ? 14.0 : 22.0) * _scale;
 
         return Padding(
-          padding: EdgeInsets.fromLTRB(horizontalPadding, verticalPadding, horizontalPadding, 18),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            verticalPadding,
+            horizontalPadding,
+            18 * _scale,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xAA0C2440),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(18 * _scale),
               border: Border.all(color: const Color(0x3357AAE5)),
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: const Color(0xFF030C17).withValues(alpha: 0.38),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  blurRadius: 24 * _scale,
+                  offset: Offset(0, 10 * _scale),
                 ),
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              padding: EdgeInsets.fromLTRB(
+                20 * _scale,
+                18 * _scale,
+                20 * _scale,
+                18 * _scale,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Container(
-                    height: 3,
+                    height: 3 * _scale,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
                       gradient: const LinearGradient(
@@ -50,7 +64,7 @@ class ModulePageLayout extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14 * _scale),
                   LayoutBuilder(
                     builder: (context, headerConstraints) {
                       final compactHeader = headerConstraints.maxWidth < 900;
@@ -61,17 +75,17 @@ class ModulePageLayout extends StatelessWidget {
                           Text(
                             title,
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontSize: 26,
+                                  fontSize: 26 * _scale,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFFF2F8FF),
                                 ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6 * _scale),
                           Text(
                             subtitle,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: const Color(0xFF9FB8D3),
-                                  fontSize: 13,
+                                  fontSize: 13 * _scale,
                                 ),
                           ),
                         ],
@@ -86,7 +100,7 @@ class ModulePageLayout extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             titleBlock,
-                            const SizedBox(height: 12),
+                            SizedBox(height: 12 * _scale),
                             SizedBox(
                               width: double.infinity,
                               child: SingleChildScrollView(
@@ -102,7 +116,7 @@ class ModulePageLayout extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Expanded(child: titleBlock),
-                          const SizedBox(width: 16),
+                          SizedBox(width: 16 * _scale),
                           Flexible(
                             child: Align(
                               alignment: Alignment.topRight,
@@ -116,9 +130,9 @@ class ModulePageLayout extends StatelessWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16 * _scale),
                   const Divider(color: Color(0x334EA6FF), height: 1),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14 * _scale),
                   Expanded(child: child),
                 ],
               ),
@@ -142,10 +156,12 @@ class ModuleStatusChip extends StatelessWidget {
   final Color backgroundColor;
   final Color foregroundColor;
 
+  static const double _scale = 0.8;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(horizontal: 10 * _scale, vertical: 5 * _scale),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(999),
@@ -155,7 +171,7 @@ class ModuleStatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: foregroundColor,
-          fontSize: 12,
+          fontSize: 12 * _scale,
           fontWeight: FontWeight.w600,
           height: 1,
         ),
