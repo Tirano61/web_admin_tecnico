@@ -5,6 +5,52 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_pagos_cubit.dart';
 
+const Duration _argentinaUtcOffset = Duration(hours: -3);
+
+String _twoDigits(int value) => value.toString().padLeft(2, '0');
+
+String _formatDateOnlyAr(String? raw) {
+  final value = (raw ?? '').trim();
+  if (value.isEmpty || value == '-') {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+
+  final day = _twoDigits(parsed.day);
+  final month = _twoDigits(parsed.month);
+  final year = parsed.year.toString().padLeft(4, '0');
+  return '$day/$month/$year';
+}
+
+String _formatDateTimeAr(String? raw) {
+  final value = (raw ?? '').trim();
+  if (value.isEmpty || value == '-') {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+
+  final hasTime = value.contains('T') || RegExp(r'\d{2}:\d{2}').hasMatch(value);
+  if (!hasTime) {
+    return _formatDateOnlyAr(value);
+  }
+
+  final argentina = parsed.toUtc().add(_argentinaUtcOffset);
+  final day = _twoDigits(argentina.day);
+  final month = _twoDigits(argentina.month);
+  final year = argentina.year.toString().padLeft(4, '0');
+  final hour = _twoDigits(argentina.hour);
+  final minute = _twoDigits(argentina.minute);
+  return '$day/$month/$year $hour:$minute';
+}
+
 class LiquidacionesPagosPage extends StatelessWidget {
   const LiquidacionesPagosPage({
     super.key,
@@ -265,8 +311,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
               ),
               if (state.ultimoResumen != null)
                 ModuleStatusChip(
-                  label:
-                      'Ultimo: ${state.ultimoResumen!.desde} a ${state.ultimoResumen!.hasta}',
+                  label: 'Ultimo: ${_formatDateOnlyAr(state.ultimoResumen!.desde)} a ${_formatDateOnlyAr(state.ultimoResumen!.hasta)}',
                 ),
             ],
           ),
@@ -362,7 +407,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                                 ),
                                                 DataCell(Text(row.id)),
                                                 DataCell(Text(row.servicioId)),
-                                                DataCell(Text(row.fechaAprobacion ?? '-')),
+                                                DataCell(Text(_formatDateTimeAr(row.fechaAprobacion))),
                                                 DataCell(Text((row.subtotalSalidaUsd ?? 0).toStringAsFixed(2))),
                                                 DataCell(Text((row.subtotalItemsUsd ?? 0).toStringAsFixed(2))),
                                                 DataCell(Text(row.totalLiquidacionUsd.toStringAsFixed(2))),
@@ -464,7 +509,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                                         SizedBox(
                                                           width: 180,
                                                           child: Text(
-                                                            '${row.desde} a ${row.hasta}',
+                                                            '${_formatDateOnlyAr(row.desde)} a ${_formatDateOnlyAr(row.hasta)}',
                                                             maxLines: 1,
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -476,7 +521,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                                         SizedBox(
                                                           width: 150,
                                                           child: Text(
-                                                            row.createdAt,
+                                                            _formatDateTimeAr(row.createdAt),
                                                             maxLines: 1,
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -564,6 +609,7 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
       <String, LiquidacionItemsResponse?>{};
   final Set<String> _loadingLiquidaciones = <String>{};
   final Map<String, String> _errorByLiquidacion = <String, String>{};
+  final Set<String> _expandedLiquidaciones = <String>{};
 
   Future<void> _loadItems(String liquidacionId) async {
     if (_loadingLiquidaciones.contains(liquidacionId)) {
@@ -616,10 +662,12 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                 runSpacing: 8,
                 children: <Widget>[
                   ModuleStatusChip(label: 'Tecnico ${detail.tecnicoNombre}'),
-                  ModuleStatusChip(label: 'Periodo ${detail.desde} a ${detail.hasta}'),
+                  ModuleStatusChip(
+                    label: 'Periodo ${_formatDateOnlyAr(detail.desde)} a ${_formatDateOnlyAr(detail.hasta)}',
+                  ),
                   ModuleStatusChip(label: 'Total USD ${detail.totalUsdSnapshot.toStringAsFixed(2)}'),
                   ModuleStatusChip(label: 'Liquidaciones ${detail.totalLiquidaciones}'),
-                  ModuleStatusChip(label: 'Creado ${detail.createdAt}'),
+                  ModuleStatusChip(label: 'Creado ${_formatDateTimeAr(detail.createdAt)}'),
                   ModuleStatusChip(label: 'Por ${detail.createdByNombre}'),
                 ],
               ),
@@ -646,7 +694,9 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                               children: <Widget>[
                                 ModuleStatusChip(label: 'Liq ${row.liquidacionId}'),
                                 ModuleStatusChip(label: 'Srv ${row.servicioId}'),
-                                ModuleStatusChip(label: 'Fec ${row.fechaAprobacionSnapshot ?? '-'}'),
+                                ModuleStatusChip(
+                                  label: 'Fec ${_formatDateTimeAr(row.fechaAprobacionSnapshot)}',
+                                ),
                                 ModuleStatusChip(
                                   label:
                                       'Salida ${((row.subtotalSalidaUsdSnapshot ?? 0).toStringAsFixed(2))} USD',
@@ -661,63 +711,99 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: FilledButton.tonalIcon(
-                                onPressed: loading
-                                    ? null
-                                    : () => _loadItems(row.liquidacionId),
-                                icon: loading
-                                    ? const SizedBox(
+                            Theme(
+                              data: Theme.of(context).copyWith(
+                                dividerColor: Colors.transparent,
+                              ),
+                              child: ExpansionTile(
+                                tilePadding: EdgeInsets.zero,
+                                childrenPadding: const EdgeInsets.only(bottom: 4),
+                                initiallyExpanded: _expandedLiquidaciones.contains(row.liquidacionId),
+                                onExpansionChanged: (expanded) async {
+                                  setState(() {
+                                    if (expanded) {
+                                      _expandedLiquidaciones.add(row.liquidacionId);
+                                    } else {
+                                      _expandedLiquidaciones.remove(row.liquidacionId);
+                                    }
+                                  });
+
+                                  final alreadyLoaded = _itemsByLiquidacion.containsKey(row.liquidacionId);
+                                  if (expanded && !alreadyLoaded && !_loadingLiquidaciones.contains(row.liquidacionId)) {
+                                    await _loadItems(row.liquidacionId);
+                                  }
+                                },
+                                title: Row(
+                                  children: <Widget>[
+                                    const Icon(Icons.list_alt_outlined, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Detalle de items de liquidacion',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                    if (loading) ...<Widget>[
+                                      const SizedBox(width: 10),
+                                      const SizedBox(
                                         width: 14,
                                         height: 14,
                                         child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : const Icon(Icons.list_alt_outlined, size: 18),
-                                label: const Text('Ver detalle de items de liquidacion'),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                children: <Widget>[
+                                  if (error != null && error.trim().isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Text(
+                                        error,
+                                        style: const TextStyle(color: Colors.redAccent),
+                                      ),
+                                    ),
+                                  if (itemsResponse == null && !loading && (error == null || error.trim().isEmpty))
+                                    const Padding(
+                                      padding: EdgeInsets.only(bottom: 8),
+                                      child: Text('Expandi nuevamente para cargar los items.'),
+                                    ),
+                                  if (itemsResponse != null) ...<Widget>[
+                                    if ((itemsResponse.tipoSalidaNombre ?? '').trim().isNotEmpty)
+                                      Text(
+                                        'Tipo de salida: ${itemsResponse.tipoSalidaNombre}',
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                      ),
+                                    if ((itemsResponse.tipoSalidaNombre ?? '').trim().isNotEmpty)
+                                      const SizedBox(height: 4),
+                                    Text(
+                                      'Items: ${itemsResponse.meta.totalItems} | Subtotal USD ${itemsResponse.meta.subtotalUsdTotal.toStringAsFixed(2)}',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    if (itemsResponse.items.isEmpty)
+                                      const Text('Sin items registrados para esta liquidacion.')
+                                    else
+                                      SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: DataTable(
+                                          columns: const <DataColumn>[
+                                            DataColumn(label: Text('Tipo servicio')),
+                                            DataColumn(label: Text('Precio USD')),
+                                          ],
+                                          rows: itemsResponse.items
+                                              .map(
+                                                (item) => DataRow(
+                                                  cells: <DataCell>[
+                                                    DataCell(Text(item.tipoServicioNombre)),
+                                                    DataCell(Text(item.precioUsdSnapshot.toStringAsFixed(2))),
+                                                  ],
+                                                ),
+                                              )
+                                              .toList(),
+                                        ),
+                                      ),
+                                  ],
+                                ],
                               ),
                             ),
-                            if (error != null && error.trim().isNotEmpty) ...<Widget>[
-                              const SizedBox(height: 8),
-                              Text(
-                                error,
-                                style: const TextStyle(color: Colors.redAccent),
-                              ),
-                            ],
-                            if (itemsResponse != null) ...<Widget>[
-                              const SizedBox(height: 8),
-                              Text(
-                                'Items: ${itemsResponse.meta.totalItems} | Subtotal USD ${itemsResponse.meta.subtotalUsdTotal.toStringAsFixed(2)}',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                              const SizedBox(height: 6),
-                              if (itemsResponse.items.isEmpty)
-                                const Text('Sin items registrados para esta liquidacion.')
-                              else
-                                SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    columns: const <DataColumn>[
-                                      DataColumn(label: Text('Tipo servicio')),
-                                      DataColumn(label: Text('Precio USD')),
-                                      DataColumn(label: Text('Aprobado')),
-                                      DataColumn(label: Text('Fecha aprobacion')),
-                                    ],
-                                    rows: itemsResponse.items
-                                        .map(
-                                          (item) => DataRow(
-                                            cells: <DataCell>[
-                                              DataCell(Text(item.tipoServicioNombre)),
-                                              DataCell(Text(item.precioUsdSnapshot.toStringAsFixed(2))),
-                                              DataCell(Text(item.aprobado ? 'Si' : 'No')),
-                                              DataCell(Text(item.fechaAprobacion ?? '-')),
-                                            ],
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ),
-                            ],
                           ],
                         ),
                       ),
