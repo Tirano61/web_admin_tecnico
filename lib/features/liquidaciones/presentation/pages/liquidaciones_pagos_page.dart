@@ -20,13 +20,15 @@ class LiquidacionesPagosPage extends StatelessWidget {
       create: (_) => LiquidacionesPagosCubit(resolvedRepository)
         ..loadTecnicos()
         ..loadHistory(),
-      child: const _LiquidacionesPagosView(),
+      child: _LiquidacionesPagosView(repository: resolvedRepository),
     );
   }
 }
 
 class _LiquidacionesPagosView extends StatefulWidget {
-  const _LiquidacionesPagosView();
+  const _LiquidacionesPagosView({required this.repository});
+
+  final LiquidacionesRepository repository;
 
   @override
   State<_LiquidacionesPagosView> createState() => _LiquidacionesPagosViewState();
@@ -144,7 +146,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
       if (!mounted) {
         return;
       }
-      _openDetailDialog(context);
+      _openDetailScreen(context);
       return;
     }
 
@@ -208,82 +210,19 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
     );
   }
 
-  void _openDetailDialog(BuildContext context) {
+  void _openDetailScreen(BuildContext context) {
     final state = context.read<LiquidacionesPagosCubit>().state;
     final detail = state.historyDetail;
     if (detail == null) {
       return;
     }
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF102845),
-          title: const Text('Detalle de resumen'),
-          content: SizedBox(
-            width: 1020,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    ModuleStatusChip(label: 'Tecnico ${detail.tecnicoNombre}'),
-                    ModuleStatusChip(label: 'Periodo ${detail.desde} a ${detail.hasta}'),
-                    ModuleStatusChip(label: 'Total USD ${detail.totalUsdSnapshot.toStringAsFixed(2)}'),
-                    ModuleStatusChip(label: 'Creado ${detail.createdAt}'),
-                    ModuleStatusChip(label: 'Por ${detail.createdByNombre}'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: 980,
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          columns: const <DataColumn>[
-                            DataColumn(label: Text('Liquidacion')),
-                            DataColumn(label: Text('Servicio')),
-                            DataColumn(label: Text('Fecha aprobacion snapshot')),
-                            DataColumn(label: Text('Subtotal salida USD')),
-                            DataColumn(label: Text('Subtotal items USD')),
-                            DataColumn(label: Text('Total USD')),
-                          ],
-                          rows: detail.detalles
-                              .map(
-                                (row) => DataRow(
-                                  cells: <DataCell>[
-                                    DataCell(Text(row.liquidacionId)),
-                                    DataCell(Text(row.servicioId)),
-                                    DataCell(Text(row.fechaAprobacionSnapshot ?? '-')),
-                                    DataCell(Text((row.subtotalSalidaUsdSnapshot ?? 0).toStringAsFixed(2))),
-                                    DataCell(Text((row.subtotalItemsUsdSnapshot ?? 0).toStringAsFixed(2))),
-                                    DataCell(Text(row.totalLiquidacionUsdSnapshot.toStringAsFixed(2))),
-                                  ],
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ResumenPagoDetallePage(
+          detail: detail,
+          repository: widget.repository,
+        ),
+      ),
     );
   }
 
@@ -500,19 +439,59 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                               DataColumn(label: Text('Tot. liq.')),
                                               DataColumn(label: Text('Total USD')),
                                               DataColumn(label: Text('F. creacion')),
-                                              DataColumn(label: Text('Accion')),
+                                              DataColumn(
+                                                label: Tooltip(
+                                                  message: 'Accion',
+                                                  child: Icon(Icons.visibility_outlined, size: 14),
+                                                ),
+                                              ),
                                             ],
                                             rows: (state.history?.items ?? const <ResumenPagoHistorialItem>[])
                                                 .map(
                                                   (row) => DataRow(
                                                     cells: <DataCell>[
-                                                      DataCell(Text(row.tecnicoNombre)),
-                                                      DataCell(Text('${row.desde} a ${row.hasta}')),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: 170,
+                                                          child: Text(
+                                                            row.tecnicoNombre,
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        SizedBox(
+                                                          width: 180,
+                                                          child: Text(
+                                                            '${row.desde} a ${row.hasta}',
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ),
                                                       DataCell(Text(row.totalLiquidaciones.toString())),
                                                       DataCell(Text(row.totalUsdSnapshot.toStringAsFixed(2))),
-                                                      DataCell(Text(row.createdAt)),
                                                       DataCell(
-                                                        FilledButton.tonal(
+                                                        SizedBox(
+                                                          width: 150,
+                                                          child: Text(
+                                                            row.createdAt,
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      DataCell(
+                                                        IconButton(
+                                                          tooltip: 'Ver detalle',
+                                                          iconSize: 16,
+                                                          visualDensity: VisualDensity.compact,
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(
+                                                            minWidth: 24,
+                                                            minHeight: 24,
+                                                          ),
                                                           onPressed: () async {
                                                             await context
                                                                 .read<LiquidacionesPagosCubit>()
@@ -520,9 +499,9 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                                             if (!context.mounted) {
                                                               return;
                                                             }
-                                                            _openDetailDialog(context);
+                                                            _openDetailScreen(context);
                                                           },
-                                                          child: const Text('Ver detalle'),
+                                                          icon: const Icon(Icons.visibility_outlined),
                                                         ),
                                                       ),
                                                     ],
@@ -563,6 +542,193 @@ class _EmptyState extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(text),
+    );
+  }
+}
+
+class _ResumenPagoDetallePage extends StatefulWidget {
+  const _ResumenPagoDetallePage({
+    required this.detail,
+    required this.repository,
+  });
+
+  final ResumenPagoDetalleResponse detail;
+  final LiquidacionesRepository repository;
+
+  @override
+  State<_ResumenPagoDetallePage> createState() => _ResumenPagoDetallePageState();
+}
+
+class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
+  final Map<String, LiquidacionItemsResponse?> _itemsByLiquidacion =
+      <String, LiquidacionItemsResponse?>{};
+  final Set<String> _loadingLiquidaciones = <String>{};
+  final Map<String, String> _errorByLiquidacion = <String, String>{};
+
+  Future<void> _loadItems(String liquidacionId) async {
+    if (_loadingLiquidaciones.contains(liquidacionId)) {
+      return;
+    }
+    setState(() {
+      _loadingLiquidaciones.add(liquidacionId);
+      _errorByLiquidacion.remove(liquidacionId);
+    });
+
+    try {
+      final response = await widget.repository.fetchLiquidacionItems(liquidacionId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _itemsByLiquidacion[liquidacionId] = response;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorByLiquidacion[liquidacionId] = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingLiquidaciones.remove(liquidacionId);
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = widget.detail;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Detalle de resumen de pago'),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  ModuleStatusChip(label: 'Tecnico ${detail.tecnicoNombre}'),
+                  ModuleStatusChip(label: 'Periodo ${detail.desde} a ${detail.hasta}'),
+                  ModuleStatusChip(label: 'Total USD ${detail.totalUsdSnapshot.toStringAsFixed(2)}'),
+                  ModuleStatusChip(label: 'Liquidaciones ${detail.totalLiquidaciones}'),
+                  ModuleStatusChip(label: 'Creado ${detail.createdAt}'),
+                  ModuleStatusChip(label: 'Por ${detail.createdByNombre}'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: detail.detalles.length,
+                  separatorBuilder: (_, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final row = detail.detalles[index];
+                    final loading = _loadingLiquidaciones.contains(row.liquidacionId);
+                    final error = _errorByLiquidacion[row.liquidacionId];
+                    final itemsResponse = _itemsByLiquidacion[row.liquidacionId];
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: <Widget>[
+                                ModuleStatusChip(label: 'Liq ${row.liquidacionId}'),
+                                ModuleStatusChip(label: 'Srv ${row.servicioId}'),
+                                ModuleStatusChip(label: 'Fec ${row.fechaAprobacionSnapshot ?? '-'}'),
+                                ModuleStatusChip(
+                                  label:
+                                      'Salida ${((row.subtotalSalidaUsdSnapshot ?? 0).toStringAsFixed(2))} USD',
+                                ),
+                                ModuleStatusChip(
+                                  label:
+                                      'Items ${((row.subtotalItemsUsdSnapshot ?? 0).toStringAsFixed(2))} USD',
+                                ),
+                                ModuleStatusChip(
+                                  label: 'Total ${row.totalLiquidacionUsdSnapshot.toStringAsFixed(2)} USD',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: FilledButton.tonalIcon(
+                                onPressed: loading
+                                    ? null
+                                    : () => _loadItems(row.liquidacionId),
+                                icon: loading
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.list_alt_outlined, size: 18),
+                                label: const Text('Ver detalle de items de liquidacion'),
+                              ),
+                            ),
+                            if (error != null && error.trim().isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 8),
+                              Text(
+                                error,
+                                style: const TextStyle(color: Colors.redAccent),
+                              ),
+                            ],
+                            if (itemsResponse != null) ...<Widget>[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Items: ${itemsResponse.meta.totalItems} | Subtotal USD ${itemsResponse.meta.subtotalUsdTotal.toStringAsFixed(2)}',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: 6),
+                              if (itemsResponse.items.isEmpty)
+                                const Text('Sin items registrados para esta liquidacion.')
+                              else
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    columns: const <DataColumn>[
+                                      DataColumn(label: Text('Tipo servicio')),
+                                      DataColumn(label: Text('Precio USD')),
+                                      DataColumn(label: Text('Aprobado')),
+                                      DataColumn(label: Text('Fecha aprobacion')),
+                                    ],
+                                    rows: itemsResponse.items
+                                        .map(
+                                          (item) => DataRow(
+                                            cells: <DataCell>[
+                                              DataCell(Text(item.tipoServicioNombre)),
+                                              DataCell(Text(item.precioUsdSnapshot.toStringAsFixed(2))),
+                                              DataCell(Text(item.aprobado ? 'Si' : 'No')),
+                                              DataCell(Text(item.fechaAprobacion ?? '-')),
+                                            ],
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
