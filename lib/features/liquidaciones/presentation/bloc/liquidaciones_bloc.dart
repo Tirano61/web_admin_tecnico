@@ -245,14 +245,78 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     Emitter<LiquidacionesState> emit,
   ) async {
     try {
+      var autoAssignedDefaultItem = false;
+      final shouldAssignDefaultItem =
+          await _liquidacionRequiresDefaultItem(event.liquidacionId);
+
+      if (shouldAssignDefaultItem) {
+        final defaultTipoServicioId = await _resolveDefaultTipoServicioId();
+        await _repository.addLiquidacionItem(
+          input: AddLiquidacionItemInput(
+            liquidacionId: event.liquidacionId,
+            tipoServicioId: defaultTipoServicioId,
+          ),
+        );
+        autoAssignedDefaultItem = true;
+      }
+
       await _repository.approveLiquidacion(event.liquidacionId);
       await _loadAndEmit(
         emit: emit,
-        successMessage: 'Liquidacion aprobada correctamente',
+        successMessage: autoAssignedDefaultItem
+            ? 'Liquidacion aprobada correctamente. Se agrego item por defecto (tipo servicio normal).'
+            : 'Liquidacion aprobada correctamente',
       );
     } catch (error) {
       emit(LiquidacionesFailure(_errorMessage(error)));
     }
+  }
+
+  Future<bool> _liquidacionRequiresDefaultItem(String liquidacionId) async {
+    final remoteItems = await _repository.fetchLiquidacionItems(liquidacionId);
+    if (remoteItems != null) {
+      return remoteItems.items.isEmpty;
+    }
+
+    final cachedItems = _itemsCacheByLiquidacion[liquidacionId] ?? const <LiquidacionItemDetalle>[];
+    return cachedItems.isEmpty;
+  }
+
+  Future<String> _resolveDefaultTipoServicioId() async {
+    final tiposServicio = await _repository.fetchTiposServicio();
+    if (tiposServicio.isEmpty) {
+      throw const AppFailure(
+        'No hay tipos de servicio configurados para autoasignar item por defecto.',
+      );
+    }
+
+    String normalize(String value) => value.trim().toLowerCase();
+
+    TipoServicioCatalogoItem? pickByName(Iterable<TipoServicioCatalogoItem> source) {
+      for (final item in source) {
+        if (normalize(item.nombre).contains('normal')) {
+          return item;
+        }
+      }
+      return null;
+    }
+
+    final activos = tiposServicio.where((item) => item.activo).toList();
+    final preferredActive = pickByName(activos);
+    if (preferredActive != null) {
+      return preferredActive.id;
+    }
+
+    if (activos.isNotEmpty) {
+      return activos.first.id;
+    }
+
+    final preferredAny = pickByName(tiposServicio);
+    if (preferredAny != null) {
+      return preferredAny.id;
+    }
+
+    return tiposServicio.first.id;
   }
 
   Future<void> _onReopenRequested(

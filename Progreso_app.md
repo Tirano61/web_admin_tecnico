@@ -33,6 +33,4 @@
 
 ## Pendiente recomendado
 
-- No etsa andando bien la busqueda de resumenes por que hay liquidaciones que no las esta trayendo.
-  
-- Detalles del resumen al generarlo por que no se sabe que contiene, y eso no se puede aprobar si no se ben los detalles.
+- Se pasaron a issue
