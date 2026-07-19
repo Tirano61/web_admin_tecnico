@@ -1363,6 +1363,11 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       return;
     }
 
+    if (liquidacion.liquidadaPago) {
+      _showMessage('La liquidacion ya fue pasada a pago y no permite editar items.');
+      return;
+    }
+
     final tiposServicioActivos = state.tiposServicio.where((item) => item.activo).toList();
 
     var selectedTipoServicioId = _firstTipoServicioId(tiposServicioActivos);
@@ -1498,9 +1503,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> addItem() async {
-              if (!liquidacion.isEditable) {
+              if (liquidacion.liquidadaPago) {
                 _showMessage(
-                  'La liquidacion aprobada no permite agregar items. Reabrila para continuar.',
+                  'La liquidacion pasada a pago no permite agregar items.',
                 );
                 return;
               }
@@ -1555,9 +1560,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> approveItem(LiquidacionItemDetalle item) async {
-              if (!liquidacion.isEditable) {
+              if (liquidacion.liquidadaPago) {
                 _showMessage(
-                  'La liquidacion aprobada no permite aprobar items. Reabrila para continuar.',
+                  'La liquidacion pasada a pago no permite aprobar items.',
                 );
                 return;
               }
@@ -1597,9 +1602,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
             }
 
             Future<void> deleteItem(LiquidacionItemDetalle item) async {
-              if (!liquidacion.isEditable) {
+              if (liquidacion.liquidadaPago) {
                 _showMessage(
-                  'La liquidacion aprobada no permite eliminar items. Reabrila para continuar.',
+                  'La liquidacion pasada a pago no permite eliminar items.',
                 );
                 return;
               }
@@ -1653,7 +1658,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
               Future<void>.microtask(loadItems);
             }
 
-            final addBlocked = !liquidacion.isEditable || actionInProgress || items.length >= 6;
+            final addBlocked = liquidacion.liquidadaPago || actionInProgress || items.length >= 6;
             final totalTecnicoUsd = calculateLiquidacionTotalTecnicoUsd(
               tipoSalidaPrecioUsd: liquidacion.tipoSalidaPrecioUsd,
               items: items,
@@ -1720,7 +1725,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          if (!liquidacion.isEditable)
+                          if (liquidacion.liquidadaPago)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
@@ -1730,7 +1735,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 border: Border.all(color: const Color(0x660FA960)),
                               ),
                               child: Text(
-                                'Liquidacion ${liquidacion.estadoNormalizado}: cabecera e items en modo solo lectura.',
+                                'Liquidacion ${liquidacion.estadoNormalizado}: items en modo solo lectura por estado pasada a pago.',
                               ),
                             )
                           else
@@ -1906,7 +1911,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   IconButton(
                                                     tooltip: 'Aprobar item',
                                                     onPressed: actionInProgress ||
-                                                          !liquidacion.isEditable ||
+                                                          liquidacion.liquidadaPago ||
                                                             detalle.aprobado ||
                                                             !detalle.isPersisted
                                                         ? null
@@ -1918,7 +1923,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                                   IconButton(
                                                     tooltip: 'Eliminar item',
                                                     onPressed: actionInProgress ||
-                                                          !liquidacion.isEditable ||
+                                                          liquidacion.liquidadaPago ||
                                                             detalle.aprobado
                                                         ? null
                                                         : () => deleteItem(detalle),
