@@ -360,7 +360,10 @@ Notas:
 - Si un tecnico reintenta con el mismo `idempotencyKey`, el backend devuelve la misma orden creada previamente.
 - `replayed = true` indica que la respuesta es un replay idempotente (no una nueva insercion).
 - Si ocurre una carrera de concurrencia con la misma clave, la deduplicacion se resuelve en base de datos (sin duplicar ordenes).
-- La liquidacion de tecnico sigue siendo un flujo separado.
+- Al crear una orden elegible (`canal = campo`) se crea automaticamente una liquidacion en estado `pendiente` para el tecnico dueño de la orden.
+- La creacion de orden + liquidacion se ejecuta de forma consistente en una misma transaccion.
+- Si hay replay por `idempotencyKey`, se devuelve la misma orden y se mantiene una sola liquidacion asociada al servicio.
+- Existe unicidad por `servicio_id` en liquidacion para evitar duplicados ante reintentos/concurrencia.
 
 ### Payload PATCH /servicios/:id/documento
 
@@ -636,6 +639,12 @@ Notas:
 
 ### Payloads importantes de liquidacion
 
+Creacion automatica:
+
+- `POST /servicios` crea automaticamente una liquidacion pendiente cuando la orden es elegible (`canal = campo`).
+- `GET /liquidaciones/mias?estado=pendiente` debe reflejarla inmediatamente para el tecnico autenticado.
+- `POST /liquidaciones` queda disponible como flujo manual/admin (fallback operativo).
+
 `POST /liquidaciones`:
 
 ```json
@@ -683,6 +692,7 @@ Notas:
 - `tecnicoId` es opcional en query.
 - `estado` es opcional: `pendiente | aprobada | reabierta | todas`.
 - `liquidadaPago` es opcional: `true | false`.
+- `GET /liquidaciones/mias?estado=pendiente` lista pendientes reales del tecnico autenticado aunque no tengan items de servicio cargados.
 - Cada item del listado incluye `tecnicoId`, `tecnicoNombre` y `tecnicoEmail` para facilitar filtros/seleccion en UI.
 - Cuando `admin-tecnico` edita una liquidacion (`PATCH /liquidaciones/:id`, `POST /liquidaciones/:id/items`, `DELETE /liquidaciones/:id/items/:itemId`), queda aprobada automaticamente al finalizar la operacion.
 - `PATCH /liquidaciones/:id/reabrir` registra motivo/historial de reapertura para auditoria, pero no cambia el estado de aprobacion.

@@ -204,6 +204,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
     );
     _lastPendientesQuery = LiquidacionesPendientesQuery(
       tecnicoId: event.tecnicoId,
+      estado: 'pendiente',
       page: event.pendientesPage,
       limit: event.pendientesLimit,
     );

@@ -81,6 +81,7 @@
 				{
 					"name": "GET Tecnicos",
 					"request": {
+						"description": "Crea una orden de servicio. Si canal=campo, el backend crea automaticamente una liquidacion pendiente asociada al servicio (idempotente por idempotencyKey).",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -1351,8 +1352,9 @@
 					}
 				},
 				{
-					"name": "POST Liquidacion",
+					"name": "POST Liquidacion (Manual/Admin fallback)",
 					"request": {
+						"description": "Uso manual desde admin. En flujo normal, la liquidacion pendiente se crea automaticamente al hacer POST /servicios con canal=campo.",
 						"auth": {
 							"type": "bearer",
 							"bearer": [
@@ -1381,6 +1383,73 @@
 							],
 							"path": [
 								"liquidaciones"
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Liquidaciones Mias Pendientes (Auto desde Servicio)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function () {",
+									"  pm.response.to.have.status(200);",
+									"});",
+									"const payload = pm.response.json();",
+									"pm.test('Respuesta paginada con data array', function () {",
+									"  pm.expect(payload).to.have.property('data');",
+									"  pm.expect(payload.data).to.be.an('array');",
+									"});",
+									"if (Array.isArray(payload.data) && payload.data.length > 0) {",
+									"  const liq = payload.data[0];",
+									"  pm.collectionVariables.set('liquidacionId', liq.id);",
+									"  pm.test('Primera liquidacion pendiente no aprobada', function () {",
+									"    pm.expect(liq.estado).to.eql('pendiente');",
+									"    pm.expect(liq.aprobado).to.eql(false);",
+									"  });",
+									"}",
+									"pm.collectionVariables.set('pendingLiquidacionesCount', String((payload.data || []).length));"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/liquidaciones/mias?estado=pendiente&page=1&limit=20",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"liquidaciones",
+								"mias"
+							],
+							"query": [
+								{
+									"key": "estado",
+									"value": "pendiente"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "20"
+								}
 							]
 						}
 					}

@@ -363,7 +363,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF102845),
-          title: const Text('Crear liquidacion desde pendiente'),
+          title: const Text('Crear liquidacion manual (fallback)'),
           content: SizedBox(
             width: 520,
             child: Form(
@@ -392,7 +392,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'El tecnico se hereda automaticamente de la orden de servicio.',
+                    'Usa este flujo solo si la liquidacion automatica no se genero. El tecnico se hereda automaticamente de la orden de servicio.',
                     style: TextStyle(color: Color(0xFF9AB1CC)),
                   ),
                   const SizedBox(height: 10),
@@ -445,7 +445,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   setState(() => _activeView = _LiquidacionesPanelView.creadas);
                 }
               },
-              child: const Text('Crear liquidacion'),
+              child: const Text('Crear manual (fallback)'),
             ),
           ],
         );
@@ -2328,16 +2328,23 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 value: _formatDate(item.fechaHoraServicio),
                                 compact: compact,
                               ),
+                              SizedBox(height: verticalGap),
+                              const Text(
+                                'La liquidacion pendiente se genera automaticamente al crear servicio de campo. Usa la accion manual solo como fallback operativo.',
+                                style: TextStyle(color: Color(0xFF9AB1CC)),
+                              ),
                               SizedBox(height: compact ? 8 : 10),
-                              FilledButton.tonalIcon(
+                              OutlinedButton.icon(
                                 onPressed: (!isCanalCampo || alreadyLiquidated)
                                     ? null
                                     : () => _openCreateLiquidacionDialog(state, item),
                                 icon: const Icon(Icons.add_circle_outline, size: 18),
                                 label: Text(
                                   alreadyLiquidated
-                                      ? 'Ya liquidada'
-                                      : (isCanalCampo ? 'Crear liquidacion' : 'No aplica'),
+                                      ? 'Ya generada automaticamente'
+                                      : (isCanalCampo
+                                          ? 'Crear liquidacion manual (fallback)'
+                                          : 'No aplica'),
                                 ),
                               ),
                             ],
