@@ -1154,9 +1154,13 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     LiquidacionesPendientesQuery query,
   ) {
     final tecnicoId = _stringOrNull(query.tecnicoId);
+    final estado = _stringOrNull(query.estado);
     final tecnicoKeys = tecnicoId == null
         ? const <String?>[null]
         : const <String?>['tecnicoId', 'tecnico_id'];
+    final estadoKeys = estado == null
+        ? const <String?>[null]
+        : const <String?>['estado'];
 
     final signatures = <String>{};
     final candidates = <Map<String, String>>[];
@@ -1164,9 +1168,11 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     void addCandidate({
       required bool includePagination,
       required String? tecnicoKey,
+      required String? estadoKey,
     }) {
       final params = <String, String>{
         if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
+        if (estadoKey != null && estado != null) estadoKey: estado,
         if (includePagination) 'page': query.page.toString(),
         if (includePagination) 'limit': query.limit.toString(),
       };
@@ -1178,8 +1184,18 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     }
 
     for (final tecnicoKey in tecnicoKeys) {
-      addCandidate(includePagination: true, tecnicoKey: tecnicoKey);
-      addCandidate(includePagination: false, tecnicoKey: tecnicoKey);
+      for (final estadoKey in estadoKeys) {
+        addCandidate(
+          includePagination: true,
+          tecnicoKey: tecnicoKey,
+          estadoKey: estadoKey,
+        );
+        addCandidate(
+          includePagination: false,
+          tecnicoKey: tecnicoKey,
+          estadoKey: estadoKey,
+        );
+      }
     }
 
     return candidates;

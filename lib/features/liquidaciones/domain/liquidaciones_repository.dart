@@ -582,13 +582,29 @@ class LiquidacionesQuery {
 class LiquidacionesPendientesQuery {
   const LiquidacionesPendientesQuery({
     this.tecnicoId,
+    this.estado = 'pendiente',
     this.page = 1,
     this.limit = 20,
   });
 
   final String? tecnicoId;
+  final String? estado;
   final int page;
   final int limit;
+
+  LiquidacionesPendientesQuery copyWith({
+    String? tecnicoId,
+    String? estado,
+    int? page,
+    int? limit,
+  }) {
+    return LiquidacionesPendientesQuery(
+      tecnicoId: tecnicoId ?? this.tecnicoId,
+      estado: estado ?? this.estado,
+      page: page ?? this.page,
+      limit: limit ?? this.limit,
+    );
+  }
 }
 
 abstract class LiquidacionesRepository {
