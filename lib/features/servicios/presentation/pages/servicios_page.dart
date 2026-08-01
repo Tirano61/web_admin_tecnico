@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
@@ -173,8 +175,10 @@ class _ServiciosViewState extends State<_ServiciosView> {
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: state.items.isEmpty
-                      ? Container(
+                  child: LayoutBuilder(
+                    builder: (context, bodyConstraints) {
+                      if (state.items.isEmpty) {
+                        return Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -183,69 +187,97 @@ class _ServiciosViewState extends State<_ServiciosView> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(emptyMessage),
-                        )
-                      : Card(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              const minTableWidth = 1300.0;
-                              final availableWidth = constraints.maxWidth.isFinite
-                                  ? constraints.maxWidth
-                                  : minTableWidth;
-                              final tableWidth = availableWidth < minTableWidth
-                                  ? minTableWidth
-                                  : availableWidth;
+                        );
+                      }
 
-                              return SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: tableWidth,
-                                  child: SingleChildScrollView(
-                                    child: PaginatedDataTable(
-                                      key: ValueKey<String>(
-                                        'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
-                                      ),
-                                      initialFirstRowIndex: initialFirstRowIndex < 0
-                                          ? 0
-                                          : initialFirstRowIndex,
-                                      headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
-                                      columns: const <DataColumn>[
-                                        DataColumn(label: Text('Fecha')),
-                                        DataColumn(label: Text('Numero indicador')),
-                                        DataColumn(label: Text('Modelo indicador')),
-                                        DataColumn(label: Text('Descripcion')),
-                                        DataColumn(label: Text('Estado')),
-                                        DataColumn(label: Text('Accion')),
-                                      ],
-                                      source: _ServiciosTableSource(
-                                        items: state.items,
-                                        total: state.total,
-                                        page: state.page,
-                                        limit: effectiveLimit,
-                                        onOpen: _openDetalle,
-                                      ),
-                                      rowsPerPage: rowsPerPage,
-                                      availableRowsPerPage: rowsPerPageOptions,
-                                      showEmptyRows: false,
-                                      onRowsPerPageChanged: (value) {
-                                        if (value == null) {
-                                          return;
-                                        }
-                                        _requestPage(page: 1, limit: value);
-                                      },
-                                      onPageChanged: (firstRowIndex) {
-                                        final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
-                                        if (nextPage != state.page) {
-                                          _requestPage(page: nextPage, limit: effectiveLimit);
-                                        }
-                                      },
-                                      showFirstLastButtons: true,
+                      final useCompactLayout = bodyConstraints.maxWidth < 1080;
+
+                      if (useCompactLayout) {
+                        return _ServiciosCompactList(
+                          items: state.items,
+                          total: state.total,
+                          page: state.page,
+                          limit: effectiveLimit,
+                          rowsPerPage: rowsPerPage,
+                          rowsPerPageOptions: rowsPerPageOptions,
+                          onRowsPerPageChanged: (value) {
+                            _requestPage(page: 1, limit: value);
+                          },
+                          onPageChanged: (nextPage) {
+                            if (nextPage != state.page) {
+                              _requestPage(page: nextPage, limit: effectiveLimit);
+                            }
+                          },
+                          onOpen: _openDetalle,
+                        );
+                      }
+
+                      return Card(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            const minTableWidth = 1100.0;
+                            final availableWidth = constraints.maxWidth.isFinite
+                                ? constraints.maxWidth
+                                : minTableWidth;
+                            final tableWidth = availableWidth < minTableWidth
+                                ? minTableWidth
+                                : availableWidth;
+
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: tableWidth,
+                                child: SingleChildScrollView(
+                                  child: PaginatedDataTable(
+                                    key: ValueKey<String>(
+                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
                                     ),
+                                    initialFirstRowIndex: initialFirstRowIndex < 0
+                                        ? 0
+                                        : initialFirstRowIndex,
+                                    headingRowColor: WidgetStateProperty.all(const Color(0x1A4EA6FF)),
+                                    columnSpacing: 24,
+                                    horizontalMargin: 16,
+                                    columns: const <DataColumn>[
+                                      DataColumn(label: Text('Fecha')),
+                                      DataColumn(label: Text('Numero indicador')),
+                                      DataColumn(label: Text('Modelo indicador')),
+                                      DataColumn(label: Text('Descripcion')),
+                                      DataColumn(label: Text('Estado')),
+                                      DataColumn(label: Text('Accion')),
+                                    ],
+                                    source: _ServiciosTableSource(
+                                      items: state.items,
+                                      total: state.total,
+                                      page: state.page,
+                                      limit: effectiveLimit,
+                                      onOpen: _openDetalle,
+                                    ),
+                                    rowsPerPage: rowsPerPage,
+                                    availableRowsPerPage: rowsPerPageOptions,
+                                    showEmptyRows: false,
+                                    onRowsPerPageChanged: (value) {
+                                      if (value == null) {
+                                        return;
+                                      }
+                                      _requestPage(page: 1, limit: value);
+                                    },
+                                    onPageChanged: (firstRowIndex) {
+                                      final nextPage = (firstRowIndex ~/ effectiveLimit) + 1;
+                                      if (nextPage != state.page) {
+                                        _requestPage(page: nextPage, limit: effectiveLimit);
+                                      }
+                                    },
+                                    showFirstLastButtons: true,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
                         ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -284,6 +316,243 @@ class _EstadoChip extends StatelessWidget {
   }
 }
 
+class _ServiciosCompactList extends StatelessWidget {
+  const _ServiciosCompactList({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.rowsPerPage,
+    required this.rowsPerPageOptions,
+    required this.onRowsPerPageChanged,
+    required this.onPageChanged,
+    required this.onOpen,
+  });
+
+  final List<ServicioItem> items;
+  final int total;
+  final int page;
+  final int limit;
+  final int rowsPerPage;
+  final List<int> rowsPerPageOptions;
+  final ValueChanged<int> onRowsPerPageChanged;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<ServicioItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalPages = limit <= 0 ? 1 : math.max(1, (total / limit).ceil());
+    final clampedPage = page.clamp(1, totalPages);
+    final firstVisible = total == 0 ? 0 : ((clampedPage - 1) * limit) + 1;
+    final lastVisible = total == 0
+        ? 0
+        : math.min(total, firstVisible + items.length - 1);
+    final canGoPrev = clampedPage > 1;
+    final canGoNext = clampedPage < totalPages;
+
+    return Card(
+      child: Column(
+        children: <Widget>[
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _ServicioCompactCard(item: item, onOpen: onOpen);
+              },
+            ),
+          ),
+          const Divider(color: Color(0x334EA6FF), height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compactFooter = constraints.maxWidth < 760;
+
+                final rowsSelector = _RowsPerPageDropdown(
+                  value: rowsPerPage,
+                  options: rowsPerPageOptions,
+                  onChanged: onRowsPerPageChanged,
+                );
+
+                final pagerActions = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    IconButton(
+                      tooltip: 'Primera pagina',
+                      onPressed: canGoPrev ? () => onPageChanged(1) : null,
+                      icon: const Icon(Icons.first_page),
+                    ),
+                    IconButton(
+                      tooltip: 'Pagina anterior',
+                      onPressed: canGoPrev ? () => onPageChanged(clampedPage - 1) : null,
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                    IconButton(
+                      tooltip: 'Pagina siguiente',
+                      onPressed: canGoNext ? () => onPageChanged(clampedPage + 1) : null,
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                    IconButton(
+                      tooltip: 'Ultima pagina',
+                      onPressed: canGoNext ? () => onPageChanged(totalPages) : null,
+                      icon: const Icon(Icons.last_page),
+                    ),
+                  ],
+                );
+
+                if (compactFooter) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text('Filas por pagina'),
+                      const SizedBox(height: 6),
+                      rowsSelector,
+                      const SizedBox(height: 10),
+                      Text('$firstVisible-$lastVisible de $total'),
+                      const SizedBox(height: 4),
+                      pagerActions,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: <Widget>[
+                    const Text('Filas por pagina:'),
+                    const SizedBox(width: 8),
+                    rowsSelector,
+                    const Spacer(),
+                    Text('$firstVisible-$lastVisible de $total'),
+                    const SizedBox(width: 8),
+                    pagerActions,
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RowsPerPageDropdown extends StatelessWidget {
+  const _RowsPerPageDropdown({
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final int value;
+  final List<int> options;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF122B4A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x334EA6FF)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: value,
+          onChanged: (nextValue) {
+            if (nextValue == null || nextValue == value) {
+              return;
+            }
+            onChanged(nextValue);
+          },
+          items: options
+              .map(
+                (option) => DropdownMenuItem<int>(
+                  value: option,
+                  child: Text('$option'),
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServicioCompactCard extends StatelessWidget {
+  const _ServicioCompactCard({
+    required this.item,
+    required this.onOpen,
+  });
+
+  final ServicioItem item;
+  final ValueChanged<ServicioItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x1F122B4A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0x334EA6FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  _formatServicioFecha(item.fechaHoraServicio),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: const Color(0xFFEAF3FF),
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _EstadoChip(estado: item.estadoOrden),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Numero indicador: ${item.equipoSerie ?? '-'}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFCAE0F5),
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Modelo indicador: ${item.equipoModelo ?? '-'}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFFCAE0F5),
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.descripcion,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => onOpen(item),
+              icon: const Icon(Icons.open_in_new, size: 16),
+              label: const Text('Ver detalle'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ServiciosTableSource extends DataTableSource {
   _ServiciosTableSource({
     required this.items,
@@ -311,7 +580,7 @@ class _ServiciosTableSource extends DataTableSource {
     return DataRow.byIndex(
       index: index,
       cells: <DataCell>[
-        DataCell(Text(_formatFecha(item.fechaHoraServicio))),
+        DataCell(Text(_formatServicioFecha(item.fechaHoraServicio))),
         DataCell(Text(item.equipoSerie ?? '-')),
         DataCell(Text(item.equipoModelo ?? '-')),
         DataCell(Text(item.descripcion)),
@@ -335,23 +604,23 @@ class _ServiciosTableSource extends DataTableSource {
 
   @override
   int get selectedRowCount => 0;
+}
 
-  String _formatFecha(String? raw) {
-    if (raw == null || raw.trim().isEmpty) {
-      return '-';
-    }
-
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) {
-      return raw;
-    }
-
-    String twoDigits(int value) => value.toString().padLeft(2, '0');
-    final day = twoDigits(parsed.day);
-    final month = twoDigits(parsed.month);
-    final year = parsed.year.toString();
-    final hour = twoDigits(parsed.hour);
-    final minute = twoDigits(parsed.minute);
-    return '$day/$month/$year $hour:$minute';
+String _formatServicioFecha(String? raw) {
+  if (raw == null || raw.trim().isEmpty) {
+    return '-';
   }
+
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) {
+    return raw;
+  }
+
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  final day = twoDigits(parsed.day);
+  final month = twoDigits(parsed.month);
+  final year = parsed.year.toString();
+  final hour = twoDigits(parsed.hour);
+  final minute = twoDigits(parsed.minute);
+  return '$day/$month/$year $hour:$minute';
 }
