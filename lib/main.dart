@@ -11,6 +11,48 @@ class WebAdminTecnicoApp extends StatelessWidget {
 
   static const double _webUiScale = 0.8;
 
+  double _responsiveTextScale(double width) {
+    if (width <= 430) {
+      return 0.78;
+    }
+    if (width <= 560) {
+      return 0.84;
+    }
+    if (width <= 900) {
+      return 0.9;
+    }
+    if (width <= 1200) {
+      return 0.96;
+    }
+    return 1.0;
+  }
+
+  double _responsiveControlScale(double width) {
+    if (width <= 430) {
+      return 0.78;
+    }
+    if (width <= 560) {
+      return 0.84;
+    }
+    if (width <= 900) {
+      return 0.9;
+    }
+    if (width <= 1200) {
+      return 0.96;
+    }
+    return 1.0;
+  }
+
+  VisualDensity _responsiveDensity(double width) {
+    if (width <= 560) {
+      return const VisualDensity(horizontal: -2, vertical: -2);
+    }
+    if (width <= 900) {
+      return const VisualDensity(horizontal: -1.5, vertical: -1.5);
+    }
+    return VisualDensity.compact;
+  }
+
   TextStyle? _scaleTextStyle(TextStyle? style, double scale) {
     if (style == null) {
       return null;
@@ -187,6 +229,45 @@ class WebAdminTecnicoApp extends StatelessWidget {
       theme: webTheme,
       initialRoute: AppRoutes.login,
       onGenerateRoute: appRouter.onGenerateRoute,
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final width = media.size.width;
+        final textScale = _responsiveTextScale(width);
+        final controlScale = _responsiveControlScale(width);
+        final density = _responsiveDensity(width);
+
+        final theme = Theme.of(context);
+        final responsiveTheme = theme.copyWith(
+          visualDensity: density,
+          iconButtonTheme: IconButtonThemeData(
+            style: IconButton.styleFrom(
+              visualDensity: density,
+              padding: EdgeInsets.all(6 * controlScale),
+              minimumSize: Size.square(30 * controlScale),
+              iconSize: 18 * controlScale,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          dataTableTheme: theme.dataTableTheme.copyWith(
+            headingTextStyle: _scaleTextStyle(theme.dataTableTheme.headingTextStyle, textScale),
+            dataTextStyle: _scaleTextStyle(theme.dataTableTheme.dataTextStyle, textScale),
+            headingRowHeight: width < 560 ? 42 : null,
+            dataRowMinHeight: width < 560 ? 40 : null,
+            dataRowMaxHeight: width < 560 ? 48 : null,
+          ),
+        );
+
+        return MediaQuery(
+          data: media.copyWith(textScaler: TextScaler.linear(textScale)),
+          child: Theme(
+            data: responsiveTheme,
+            child: IconTheme.merge(
+              data: IconThemeData(size: 24 * controlScale),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
