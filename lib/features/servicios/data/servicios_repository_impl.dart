@@ -38,15 +38,23 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       fallbackLimit: query.limit,
     );
 
-    if (result.items.length <= query.limit) {
-      return result;
+    final sortedItems = List<ServicioItem>.from(result.items)
+      ..sort(_compareServiciosByFechaDesc);
+
+    if (sortedItems.length <= query.limit) {
+      return PagedResult<ServicioItem>(
+        items: sortedItems,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+      );
     }
 
     final start = (query.page - 1) * query.limit;
     final end = start + query.limit;
-    final pagedItems = start >= result.items.length
+    final pagedItems = start >= sortedItems.length
         ? <ServicioItem>[]
-        : result.items.sublist(start, end > result.items.length ? result.items.length : end);
+        : sortedItems.sublist(start, end > sortedItems.length ? sortedItems.length : end);
 
     return PagedResult<ServicioItem>(
       items: pagedItems,
@@ -54,6 +62,64 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       page: query.page,
       limit: query.limit,
     );
+  }
+
+  @override
+  Future<List<ServicioTecnicoOption>> fetchTecnicosFiltro() async {
+    final payload = await _httpClient.getJson(
+      '/auth/tecnicos',
+      queryParameters: const <String, String>{
+        'page': '1',
+        'limit': '100',
+        'activos': 'true',
+      },
+    );
+
+    final result = PagedResult<ServicioTecnicoOption>.fromDynamic(
+      payload,
+      (json) {
+        final root = _asMap(json);
+        return ServicioTecnicoOption(
+          id: _stringOrNull(root['id']) ?? '',
+          fullName: _stringOrNull(root['fullName'] ?? root['full_name']) ?? '',
+          email: _stringOrNull(root['email']) ?? '',
+          isActive: _toBool(root['isActive'] ?? root['is_active'] ?? true),
+        );
+      },
+      fallbackPage: 1,
+      fallbackLimit: 100,
+    );
+
+    final byId = <String, ServicioTecnicoOption>{};
+    for (final tecnico in result.items) {
+      final id = tecnico.id.trim();
+      if (id.isEmpty) {
+        continue;
+      }
+
+      final existing = byId[id];
+      if (existing == null) {
+        byId[id] = tecnico;
+        continue;
+      }
+
+      final resolvedName = existing.fullName.trim().isEmpty ? tecnico.fullName : existing.fullName;
+      final resolvedEmail = existing.email.trim().isEmpty ? tecnico.email : existing.email;
+      byId[id] = ServicioTecnicoOption(
+        id: id,
+        fullName: resolvedName,
+        email: resolvedEmail,
+        isActive: existing.isActive || tecnico.isActive,
+      );
+    }
+
+    final output = byId.values.where((item) => item.isActive).toList();
+    output.sort((a, b) {
+      final left = _tecnicoLabel(a).toLowerCase();
+      final right = _tecnicoLabel(b).toLowerCase();
+      return left.compareTo(right);
+    });
+    return output;
   }
 
   Future<dynamic> _fetchServiciosPayload({required ServiciosQuery query}) async {
@@ -80,10 +146,12 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     final search = query.search.trim();
     final estado = query.estado.trim().toLowerCase();
     final canal = query.canal.trim().toLowerCase();
+    final tecnicoId = query.tecnicoId.trim();
 
     final searchValue = search.isEmpty ? null : search;
     final estadoValue = (estado.isEmpty || estado == 'todos') ? null : estado;
     final canalValue = (canal.isEmpty || canal == 'todos') ? null : canal;
+    final tecnicoValue = (tecnicoId.isEmpty || tecnicoId == 'todos') ? null : tecnicoId;
     final signatures = <String>{};
     final candidates = <Map<String, String>>[];
     final searchParamKeys = searchValue == null ? <String?>[null] : <String?>['q', 'search'];
@@ -93,17 +161,31 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     final canalParamKeys = canalValue == null
         ? <String?>[null]
         : <String?>['canal', 'canalServicio', 'canal_servicio'];
+    final tecnicoParamKeys = tecnicoValue == null
+        ? <String?>[null]
+        : <String?>['tecnicoId', 'tecnico_id'];
+    final sortParamCandidates = <Map<String, String>>[
+      const <String, String>{
+        'sortBy': 'fechaHoraServicio',
+        'sortOrder': 'desc',
+      },
+      const <String, String>{},
+    ];
 
     void addCandidate({
       required bool includePagination,
       String? searchParamKey,
       String? estadoParamKey,
       String? canalParamKey,
+      String? tecnicoParamKey,
+      Map<String, String> sortParams = const <String, String>{},
     }) {
       final params = <String, String>{
         if (searchParamKey != null && searchValue != null) searchParamKey: searchValue,
         if (estadoParamKey != null && estadoValue != null) estadoParamKey: estadoValue,
         if (canalParamKey != null && canalValue != null) canalParamKey: canalValue,
+        if (tecnicoParamKey != null && tecnicoValue != null) tecnicoParamKey: tecnicoValue,
+        ...sortParams,
         if (includePagination) 'page': query.page.toString(),
         if (includePagination) 'limit': query.limit.toString(),
       };
@@ -117,23 +199,71 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
     for (final searchKey in searchParamKeys) {
       for (final estadoKey in estadoParamKeys) {
         for (final canalKey in canalParamKeys) {
-          addCandidate(
-            includePagination: true,
-            searchParamKey: searchKey,
-            estadoParamKey: estadoKey,
-            canalParamKey: canalKey,
-          );
-          addCandidate(
-            includePagination: false,
-            searchParamKey: searchKey,
-            estadoParamKey: estadoKey,
-            canalParamKey: canalKey,
-          );
+          for (final tecnicoKey in tecnicoParamKeys) {
+            for (final sortParams in sortParamCandidates) {
+              addCandidate(
+                includePagination: true,
+                searchParamKey: searchKey,
+                estadoParamKey: estadoKey,
+                canalParamKey: canalKey,
+                tecnicoParamKey: tecnicoKey,
+                sortParams: sortParams,
+              );
+              addCandidate(
+                includePagination: false,
+                searchParamKey: searchKey,
+                estadoParamKey: estadoKey,
+                canalParamKey: canalKey,
+                tecnicoParamKey: tecnicoKey,
+                sortParams: sortParams,
+              );
+            }
+          }
         }
       }
     }
 
     return candidates;
+  }
+
+  int _compareServiciosByFechaDesc(ServicioItem a, ServicioItem b) {
+    final aDate = _parseServicioDate(a.fechaHoraServicio);
+    final bDate = _parseServicioDate(b.fechaHoraServicio);
+
+    if (aDate != null && bDate != null) {
+      final dateComparison = bDate.compareTo(aDate);
+      if (dateComparison != 0) {
+        return dateComparison;
+      }
+    } else if (aDate == null && bDate != null) {
+      return 1;
+    } else if (aDate != null && bDate == null) {
+      return -1;
+    }
+
+    return a.id.compareTo(b.id);
+  }
+
+  DateTime? _parseServicioDate(String? rawDate) {
+    if (rawDate == null || rawDate.trim().isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(rawDate.trim());
+  }
+
+  String _tecnicoLabel(ServicioTecnicoOption tecnico) {
+    final name = tecnico.fullName.trim();
+    final email = tecnico.email.trim();
+    if (name.isNotEmpty && email.isNotEmpty) {
+      return '$name <$email>';
+    }
+    if (name.isNotEmpty) {
+      return name;
+    }
+    if (email.isNotEmpty) {
+      return email;
+    }
+    return 'ID ${tecnico.id}';
   }
 
   @override
@@ -369,6 +499,20 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       return int.tryParse(value);
     }
     return null;
+  }
+
+  bool _toBool(dynamic value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is num) {
+      return value != 0;
+    }
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    }
+    return false;
   }
 
   String? _normalizePdfUrl(String? rawUrl) {

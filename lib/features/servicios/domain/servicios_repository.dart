@@ -112,11 +112,26 @@ class ServicioDocumentoInfo {
   final String? firmaFechaHora;
 }
 
+class ServicioTecnicoOption {
+  const ServicioTecnicoOption({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.isActive,
+  });
+
+  final String id;
+  final String fullName;
+  final String email;
+  final bool isActive;
+}
+
 class ServiciosQuery {
   const ServiciosQuery({
     this.search = '',
     this.estado = 'todos',
     this.canal = 'todos',
+    this.tecnicoId = 'todos',
     this.page = 1,
     this.limit = 6,
   });
@@ -124,6 +139,7 @@ class ServiciosQuery {
   final String search;
   final String estado;
   final String canal;
+  final String tecnicoId;
   final int page;
   final int limit;
 
@@ -131,6 +147,7 @@ class ServiciosQuery {
     String? search,
     String? estado,
     String? canal,
+    String? tecnicoId,
     int? page,
     int? limit,
   }) {
@@ -138,6 +155,7 @@ class ServiciosQuery {
       search: search ?? this.search,
       estado: estado ?? this.estado,
       canal: canal ?? this.canal,
+      tecnicoId: tecnicoId ?? this.tecnicoId,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
@@ -146,6 +164,8 @@ class ServiciosQuery {
 
 abstract class ServiciosRepository {
   Future<PagedResult<ServicioItem>> fetchServicios({required ServiciosQuery query});
+
+  Future<List<ServicioTecnicoOption>> fetchTecnicosFiltro();
 
   Future<ServicioDetalle> fetchServicioDetalle(String servicioId);
 

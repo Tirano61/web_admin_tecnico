@@ -32,6 +32,53 @@ class _ServiciosViewState extends State<_ServiciosView> {
   final TextEditingController _searchController = TextEditingController();
   String _estadoFilter = 'todos';
   String _canalFilter = 'todos';
+  String _tecnicoFilterId = 'todos';
+
+  List<_TecnicoFilterItem> _buildTecnicoFilterItems(List<ServicioTecnicoOption> tecnicos) {
+    final byId = <String, _TecnicoFilterItem>{};
+    for (final tecnico in tecnicos) {
+      final id = tecnico.id.trim();
+      if (id.isEmpty) {
+        continue;
+      }
+
+      final label = _formatTecnicoFilterLabel(tecnico);
+      byId[id] = _TecnicoFilterItem(id: id, label: label);
+    }
+
+    final items = byId.values.toList()
+      ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+
+    if (_tecnicoFilterId != 'todos' && !byId.containsKey(_tecnicoFilterId)) {
+      items.add(
+        _TecnicoFilterItem(
+          id: _tecnicoFilterId,
+          label: 'ID $_tecnicoFilterId',
+        ),
+      );
+    }
+
+    return <_TecnicoFilterItem>[
+      const _TecnicoFilterItem(id: 'todos', label: 'TODOS LOS TECNICOS'),
+      ...items,
+    ];
+  }
+
+  String _formatTecnicoFilterLabel(ServicioTecnicoOption tecnico) {
+    final fullName = tecnico.fullName.trim();
+    final email = tecnico.email.trim();
+
+    if (fullName.isNotEmpty && email.isNotEmpty) {
+      return '$fullName <$email>';
+    }
+    if (fullName.isNotEmpty) {
+      return fullName;
+    }
+    if (email.isNotEmpty) {
+      return email;
+    }
+    return 'ID ${tecnico.id}';
+  }
 
   void _requestPage({int page = 1, int? limit}) {
     context.read<ServiciosBloc>().add(
@@ -39,6 +86,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
             search: _searchController.text.trim(),
             estado: _estadoFilter,
             canal: _canalFilter,
+            tecnicoId: _tecnicoFilterId,
             page: page,
             limit: limit ?? 6,
           ),
@@ -74,13 +122,17 @@ class _ServiciosViewState extends State<_ServiciosView> {
         if (state is ServiciosLoaded) {
           final estados = <String>{'todos', 'abierta', 'cerrada', 'firmada'};
           final canales = <String>{'todos', 'campo', 'remoto', 'fabrica'};
+          final tecnicoFilterItems = _buildTecnicoFilterItems(state.tecnicos);
           final effectiveLimit = state.limit > 0 ? state.limit : 6;
           final currentLimit = effectiveLimit;
           final rowsPerPage = normalizeRowsPerPage(effectiveLimit);
           final rowsPerPageOptions = buildRowsPerPageOptions(effectiveLimit);
           final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
           final hasFilters =
-            state.search.trim().isNotEmpty || state.estado != 'todos' || state.canal != 'todos';
+            state.search.trim().isNotEmpty ||
+            state.estado != 'todos' ||
+            state.canal != 'todos' ||
+            state.tecnicoId != 'todos';
           final emptyMessage = hasFilters
             ? 'No hay servicios para los filtros seleccionados.'
             : 'No hay servicios disponibles para mostrar.';
@@ -170,6 +222,56 @@ class _ServiciosViewState extends State<_ServiciosView> {
                           ),
                         ),
                       ),
+                      SizedBox(
+                        width: 320,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF122B4A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0x334EA6FF)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: _tecnicoFilterId,
+                              onChanged: (value) {
+                                if (value == null || value == _tecnicoFilterId) {
+                                  return;
+                                }
+                                setState(() => _tecnicoFilterId = value);
+                                _requestPage(page: 1, limit: currentLimit);
+                              },
+                              selectedItemBuilder: (_) {
+                                return tecnicoFilterItems
+                                    .map(
+                                      (item) => Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          item.label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                    .toList();
+                              },
+                              items: tecnicoFilterItems
+                                  .map(
+                                    (tecnicoItem) => DropdownMenuItem<String>(
+                                      value: tecnicoItem.id,
+                                      child: Text(
+                                        tecnicoItem.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -230,7 +332,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                 child: SingleChildScrollView(
                                   child: PaginatedDataTable(
                                     key: ValueKey<String>(
-                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}',
+                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}_${state.tecnicoId}',
                                     ),
                                     initialFirstRowIndex: initialFirstRowIndex < 0
                                         ? 0
@@ -357,7 +459,7 @@ class _ServiciosCompactList extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(12),
               itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final item = items[index];
                 return _ServicioCompactCard(item: item, onOpen: onOpen);
@@ -479,6 +581,16 @@ class _RowsPerPageDropdown extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TecnicoFilterItem {
+  const _TecnicoFilterItem({
+    required this.id,
+    required this.label,
+  });
+
+  final String id;
+  final String label;
 }
 
 class _ServicioCompactCard extends StatelessWidget {
