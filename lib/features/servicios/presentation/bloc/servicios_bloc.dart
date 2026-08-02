@@ -8,6 +8,7 @@ class ServiciosRequested extends ServiciosEvent {
     this.search = '',
     this.estado = 'todos',
     this.canal = 'todos',
+    this.tecnicoId = 'todos',
     this.page = 1,
     this.limit = 6,
   });
@@ -15,6 +16,7 @@ class ServiciosRequested extends ServiciosEvent {
   final String search;
   final String estado;
   final String canal;
+  final String tecnicoId;
   final int page;
   final int limit;
 }
@@ -28,21 +30,25 @@ class ServiciosLoading extends ServiciosState {}
 class ServiciosLoaded extends ServiciosState {
   ServiciosLoaded({
     required this.items,
+    required this.tecnicos,
     required this.total,
     required this.page,
     required this.limit,
     required this.search,
     required this.estado,
     required this.canal,
+    required this.tecnicoId,
   });
 
   final List<ServicioItem> items;
+  final List<ServicioTecnicoOption> tecnicos;
   final int total;
   final int page;
   final int limit;
   final String search;
   final String estado;
   final String canal;
+  final String tecnicoId;
 }
 
 class ServiciosFailure extends ServiciosState {
@@ -57,6 +63,20 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
   }
 
   final ServiciosRepository _repository;
+  List<ServicioTecnicoOption> _cachedTecnicos = const <ServicioTecnicoOption>[];
+
+  Future<void> _ensureTecnicosLoaded() async {
+    if (_cachedTecnicos.isNotEmpty) {
+      return;
+    }
+
+    try {
+      final tecnicos = await _repository.fetchTecnicosFiltro();
+      _cachedTecnicos = tecnicos;
+    } catch (_) {
+      _cachedTecnicos = const <ServicioTecnicoOption>[];
+    }
+  }
 
   Future<void> _onRequested(
     ServiciosRequested event,
@@ -64,11 +84,13 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
   ) async {
     emit(ServiciosLoading());
     try {
+      await _ensureTecnicosLoaded();
       final result = await _repository.fetchServicios(
         query: ServiciosQuery(
           search: event.search,
           estado: event.estado,
           canal: event.canal,
+          tecnicoId: event.tecnicoId,
           page: event.page,
           limit: event.limit,
         ),
@@ -76,12 +98,14 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
       emit(
         ServiciosLoaded(
           items: result.items,
+          tecnicos: _cachedTecnicos,
           total: result.total,
           page: result.page,
           limit: result.limit,
           search: event.search,
           estado: event.estado,
           canal: event.canal,
+          tecnicoId: event.tecnicoId,
         ),
       );
     } catch (error) {
