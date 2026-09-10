@@ -28,7 +28,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await _fillFiltersAndPreview(tester);
-      await tester.tap(find.byType(Checkbox).first);
+      await tester.tap(find.byKey(const ValueKey<String>('preview-check-liq-1')));
       await tester.pumpAndSettle();
 
       final enabledButton = tester.widget<FilledButton>(_confirmButtonFinder());
@@ -53,7 +53,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await _fillFiltersAndPreview(tester);
-      await tester.tap(find.byType(Checkbox).first);
+      await tester.tap(find.byKey(const ValueKey<String>('preview-check-liq-1')));
       await tester.pumpAndSettle();
 
       await tester.tap(_confirmButtonFinder());
@@ -66,21 +66,178 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('la grilla muestra el cliente y no los uuid', (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Agro SRL'), findsOneWidget);
+      // Los ids salieron de la grilla: solo estan dentro del panel expandido.
+      expect(find.text('Liq liq-1'), findsNothing);
+      expect(find.text('Srv srv-1'), findsNothing);
+    });
+
+    testWidgets('muestra el tipo de salida sin tener que expandir',
+        (tester) async {
+      // El endpoint de resumen no manda el tipo de salida y el de items no lo
+      // garantiza: lo resuelve la capa data contra GET /liquidaciones, asi que
+      // tiene que verse en la grilla antes de cualquier expansion.
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Media distancia'), findsOneWidget);
+      expect(repository.itemsCalls, 0);
+    });
+
+    testWidgets('si no se resuelve el tipo de salida cae al del endpoint de items',
+        (tester) async {
+      // Degradacion: sin nombre en el listado, la fila muestra '-' pero al
+      // expandir aparece lo que si devuelva el endpoint de items.
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository(tipoSalidaNombre: null);
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Media distancia'), findsNothing);
+      expect(find.text('-'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey<String>('preview-row-liq-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Visita normal'), findsOneWidget);
+    });
+
+    testWidgets('en pantalla angosta usa tarjetas en vez de la grilla',
+        (tester) async {
+      await _setSurface(tester, const Size(600, 900));
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository, size: const Size(600, 900)));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      // Sin grilla horizontal, la info sigue estando y no hay overflow.
+      expect(find.byType(Card), findsWidgets);
+      expect(find.text('Agro SRL'), findsOneWidget);
+      expect(find.textContaining('Salida Media distancia'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('sin cliente resuelto la grilla lo marca como sin dato',
+        (tester) async {
+      // El backend no manda cliente y la hidratacion es best-effort: la fila
+      // tiene que seguir siendo aprobable aunque el nombre no se resuelva.
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository(clienteNombre: null);
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Sin dato'), findsOneWidget);
+      expect(find.text('200.50'), findsOneWidget);
+    });
+
+    testWidgets('expandir una fila muestra tipo de salida e items', (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Instalacion'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey<String>('preview-row-liq-1')));
+      await tester.pumpAndSettle();
+
+      expect(repository.itemsCalls, 1);
+      expect(find.text('Instalacion'), findsOneWidget);
+      expect(find.textContaining('Total liquidacion USD 200.50'), findsOneWidget);
+    });
+
+    testWidgets('items no disponibles ofrece reintentar', (tester) async {
+      // Regresion del bug: una respuesta null dejaba la fila colgada sin forma
+      // de volver a pedir el detalle.
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository(
+        itemsQueue: <LiquidacionItemsResponse?>[
+          null,
+          _FakeLiquidacionesRepository.itemsResponse(),
+        ],
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      await tester.tap(find.byKey(const ValueKey<String>('preview-row-liq-1')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('El detalle de items no esta disponible en este momento.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Reintentar'));
+      await tester.pumpAndSettle();
+
+      expect(repository.itemsCalls, 2);
+      expect(find.text('Instalacion'), findsOneWidget);
+    });
+
+    testWidgets('muestra los totales del resumen y permite seleccionar todo',
+        (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(find.text('Elegibles 1'), findsOneWidget);
+      expect(find.text('Total resumen USD 200.50'), findsOneWidget);
+      expect(find.text('Seleccionadas 0 de 1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey<String>('preview-check-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('Seleccionadas 1 de 1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey<String>('preview-check-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('Seleccionadas 0 de 1'), findsOneWidget);
+    });
   });
 }
 
-Future<void> _setDesktopSurface(WidgetTester tester) async {
-  await tester.binding.setSurfaceSize(const Size(1800, 1200));
+Future<void> _setDesktopSurface(WidgetTester tester) =>
+    _setSurface(tester, const Size(1800, 1200));
+
+Future<void> _setSurface(WidgetTester tester, Size size) async {
+  await tester.binding.setSurfaceSize(size);
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
   });
 }
 
-Widget _testApp(LiquidacionesRepository repository) {
+Widget _testApp(
+  LiquidacionesRepository repository, {
+  Size size = const Size(1800, 1200),
+}) {
   return MediaQuery(
-    data: const MediaQueryData(
-      size: Size(1800, 1200),
-      textScaler: TextScaler.linear(1),
+    data: MediaQueryData(
+      size: size,
+      textScaler: const TextScaler.linear(1),
     ),
     child: MaterialApp(
       home: Scaffold(
@@ -93,20 +250,24 @@ Widget _testApp(LiquidacionesRepository repository) {
 Finder _confirmButtonFinder() =>
     find.widgetWithText(FilledButton, 'Confirmar resumen de pago');
 
+// Los campos de fecha son readOnly y abren un date picker al tocarlos, asi que
+// no aceptan enterText. Aceptamos el initialDate: la validacion del cubit solo
+// exige que desde/hasta no esten vacios, el valor concreto es indistinto.
+Future<void> _pickDate(WidgetTester tester, String label) async {
+  await tester.tap(find.widgetWithText(TextField, label));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Aceptar'));
+  await tester.pumpAndSettle();
+}
+
 Future<void> _fillFiltersAndPreview(WidgetTester tester) async {
   await tester.enterText(
     find.widgetWithText(TextField, 'Tecnico ID (obligatorio)'),
     'tec-1',
   );
 
-  await tester.enterText(
-    find.widgetWithText(TextField, 'Desde (YYYY-MM-DD)'),
-    '2026-07-01',
-  );
-  await tester.enterText(
-    find.widgetWithText(TextField, 'Hasta (YYYY-MM-DD)'),
-    '2026-07-31',
-  );
+  await _pickDate(tester, 'Desde');
+  await _pickDate(tester, 'Hasta');
 
   await tester.tap(find.widgetWithText(FilledButton, 'Previsualizar resumen'));
   await tester.pumpAndSettle();
@@ -115,11 +276,59 @@ Future<void> _fillFiltersAndPreview(WidgetTester tester) async {
 class _FakeLiquidacionesRepository implements LiquidacionesRepository {
   _FakeLiquidacionesRepository({
     this.confirmError,
-  });
+    this.clienteNombre = 'Agro SRL',
+    this.tipoSalidaNombre = 'Media distancia',
+    List<LiquidacionItemsResponse?>? itemsQueue,
+  }) : _itemsQueue = itemsQueue;
 
   final AppFailure? confirmError;
+  final String? clienteNombre;
+
+  /// Lo resuelve la capa data contra GET /liquidaciones; el endpoint de items
+  /// devuelve otro nombre a proposito, para verificar cual tiene prioridad.
+  final String? tipoSalidaNombre;
+
+  /// Permite guionar la secuencia de respuestas: null primero (endpoint no
+  /// disponible) y valor despues, para ejercitar el reintento.
+  final List<LiquidacionItemsResponse?>? _itemsQueue;
+
   int previewCalls = 0;
   int confirmCalls = 0;
+  int itemsCalls = 0;
+
+  ResumenPagoPreviewItem get _previewRow => ResumenPagoPreviewItem(
+        id: 'liq-1',
+        servicioId: 'srv-1',
+        fechaAprobacion: '2026-07-10T14:20:00.000Z',
+        subtotalSalidaUsd: 80,
+        subtotalItemsUsd: 120.5,
+        totalLiquidacionUsd: 200.5,
+        clienteNombre: clienteNombre,
+        tipoSalidaNombre: tipoSalidaNombre,
+      );
+
+  static LiquidacionItemsResponse itemsResponse() {
+    return const LiquidacionItemsResponse(
+      liquidacionId: 'liq-1',
+      items: <LiquidacionItemDetalle>[
+        LiquidacionItemDetalle(
+          id: 'item-1',
+          tipoServicioId: 'ts-1',
+          tipoServicioNombre: 'Instalacion',
+          precioUsdSnapshot: 120.5,
+          aprobado: true,
+        ),
+      ],
+      meta: LiquidacionItemsMeta(
+        totalItems: 1,
+        aprobados: 1,
+        pendientes: 0,
+        subtotalUsdTotal: 120.5,
+      ),
+      remoteEnabled: true,
+      tipoSalidaNombre: 'Visita normal',
+    );
+  }
 
   @override
   Future<PagedResult<TecnicoListadoItem>> fetchTecnicosListado({
@@ -138,18 +347,12 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
     required ResumenPagoPreviewQuery query,
   }) async {
     previewCalls += 1;
-    return const ResumenPagoPreviewResponse(
-      items: <ResumenPagoPreviewItem>[
-        ResumenPagoPreviewItem(
-          id: 'liq-1',
-          servicioId: 'srv-1',
-          fechaAprobacion: '2026-07-10T14:20:00.000Z',
-          subtotalSalidaUsd: 80,
-          subtotalItemsUsd: 120.5,
-          totalLiquidacionUsd: 200.5,
-        ),
-      ],
-      meta: ResumenPagoPreviewMeta(totalLiquidaciones: 1, totalResumenUsd: 200.5),
+    return ResumenPagoPreviewResponse(
+      items: <ResumenPagoPreviewItem>[_previewRow],
+      meta: const ResumenPagoPreviewMeta(
+        totalLiquidaciones: 1,
+        totalResumenUsd: 200.5,
+      ),
     );
   }
 
@@ -162,19 +365,13 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
       throw confirmError!;
     }
 
-    return const ResumenPagoPreviewResponse(
-      items: <ResumenPagoPreviewItem>[
-        ResumenPagoPreviewItem(
-          id: 'liq-1',
-          servicioId: 'srv-1',
-          fechaAprobacion: '2026-07-10T14:20:00.000Z',
-          subtotalSalidaUsd: 80,
-          subtotalItemsUsd: 120.5,
-          totalLiquidacionUsd: 200.5,
-        ),
-      ],
-      meta: ResumenPagoPreviewMeta(totalLiquidaciones: 1, totalResumenUsd: 200.5),
-      confirmacion: ResumenPagoConfirmacion(
+    return ResumenPagoPreviewResponse(
+      items: <ResumenPagoPreviewItem>[_previewRow],
+      meta: const ResumenPagoPreviewMeta(
+        totalLiquidaciones: 1,
+        totalResumenUsd: 200.5,
+      ),
+      confirmacion: const ResumenPagoConfirmacion(
         updated: 1,
         resumenPagoId: null,
         fechaLiquidadaPago: '2026-07-31T18:45:00.000Z',
@@ -248,7 +445,13 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
 
   @override
   Future<LiquidacionItemsResponse?> fetchLiquidacionItems(String liquidacionId) async {
-    throw UnimplementedError();
+    itemsCalls += 1;
+    final queue = _itemsQueue;
+    if (queue == null) {
+      return itemsResponse();
+    }
+    final index = itemsCalls - 1 >= queue.length ? queue.length - 1 : itemsCalls - 1;
+    return queue[index];
   }
 
   @override
