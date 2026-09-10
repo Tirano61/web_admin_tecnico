@@ -9,10 +9,34 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     defaultValue: true,
   );
 
+  // El flujo de pago no recibe cliente del backend: se hidrata con
+  // GET /servicios/:id. Apagable si el fan-out resulta caro en produccion.
+  static const bool enableClienteHydration = bool.fromEnvironment(
+    'LIQUIDACIONES_ENABLE_PREVIEW_CLIENTE_HYDRATION',
+    defaultValue: true,
+  );
+
+  static const int _liquidacionLookupPageSize = 100;
+  static const int _maxLiquidacionLookupPages = 5;
+
+  // El navegador limita ~6 conexiones por host; mas concurrencia no acelera.
+  static const int _hydrationConcurrency = 6;
+
   LiquidacionesRepositoryImpl({AuthenticatedHttpClient? httpClient})
       : _httpClient = httpClient ?? AuthenticatedHttpClient();
 
   final AuthenticatedHttpClient _httpClient;
+
+  // Cache por instancia de repositorio (vive lo que vive la pagina). Evita
+  // repetir el fan-out cuando confirmarResumen() vuelve a pedir el preview.
+  final Map<String, _ServicioResumen> _servicioResumenCache =
+      <String, _ServicioResumen>{};
+  final Map<String, Future<_ServicioResumen?>> _servicioResumenInFlight =
+      <String, Future<_ServicioResumen?>>{};
+
+  // id de liquidacion -> datos que solo devuelve GET /liquidaciones.
+  final Map<String, Map<String, _LiquidacionResumen>>
+      _liquidacionResumenPorTecnico = <String, Map<String, _LiquidacionResumen>>{};
 
   @override
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
@@ -319,52 +343,132 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     );
   }
 
-  Future<List<LiquidacionPendienteItem>> _hydratePendientesFromServiciosIfNeeded(
-    List<LiquidacionPendienteItem> items,
-  ) async {
-    final indexesToHydrate = <int>[];
-    for (var index = 0; index < items.length; index++) {
-      if (_requiresServicioHydration(items[index])) {
-        indexesToHydrate.add(index);
-      }
+  /// Trae y cachea el resumen de un servicio. Devuelve null si el servicio no
+  /// se puede leer: la hidratacion es best-effort y nunca voltea al caller.
+  Future<_ServicioResumen?> _fetchServicioResumen(String servicioId) async {
+    final id = servicioId.trim();
+    if (id.isEmpty || id == '-') {
+      return null;
     }
 
-    if (indexesToHydrate.isEmpty) {
+    final cached = _servicioResumenCache[id];
+    if (cached != null) {
+      return cached;
+    }
+
+    final inFlight = _servicioResumenInFlight[id];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final future = _loadServicioResumen(id);
+    _servicioResumenInFlight[id] = future;
+    try {
+      final resolved = await future;
+      if (resolved != null) {
+        _servicioResumenCache[id] = resolved;
+      }
+      return resolved;
+    } finally {
+      _servicioResumenInFlight.remove(id);
+    }
+  }
+
+  Future<_ServicioResumen?> _loadServicioResumen(String servicioId) async {
+    try {
+      final payload = await _httpClient.getJson('/servicios/$servicioId');
+      final root = _asMap(payload);
+      final servicioNode = _asMap(root['servicio']);
+      final source = servicioNode.isEmpty ? root : servicioNode;
+      final clienteNode = _asMap(source['cliente'] ?? root['cliente']);
+      final clienteRaw = source['cliente'] ?? root['cliente'];
+      final clienteTextoPlano =
+          clienteRaw is String && !_looksLikeUuid(clienteRaw) ? clienteRaw : null;
+      final facturacionNode =
+          _asMap(root['facturacion'] ?? source['facturacion']);
+
+      return _ServicioResumen(
+        clienteNombre: _resolveClienteNombrePendiente(
+          root: root,
+          source: source,
+          clienteNode: clienteNode,
+          clienteTextoPlano: clienteTextoPlano,
+        ),
+        canal: _stringOrNull(source['canal'] ?? root['canal']),
+        fechaHoraServicio: _stringOrNull(
+          root['fechaHoraServicio'] ??
+              root['fecha_hora_servicio'] ??
+              source['fechaHoraServicio'] ??
+              source['fecha_hora_servicio'] ??
+              source['createdAt'] ??
+              source['created_at'],
+        ),
+        kmSugerido: _toInt(
+          source['km'] ??
+              source['kmCantidad'] ??
+              source['km_cantidad'] ??
+              root['km'] ??
+              root['kmCantidad'] ??
+              root['km_cantidad'] ??
+              facturacionNode['kmCantidad'] ??
+              facturacionNode['km_cantidad'] ??
+              facturacionNode['km'],
+        ),
+      );
+    } catch (_) {
+      // Incluye ClientException (CORS / red caida en web), no solo AppFailure.
+      return null;
+    }
+  }
+
+  /// Fan-out con concurrencia acotada sobre las filas que necesitan hidratacion.
+  Future<List<T>> _hydrateFromServicios<T>({
+    required List<T> items,
+    required bool Function(T item) needsHydration,
+    required Future<T> Function(T item) hydrate,
+  }) async {
+    final pending = <int>[
+      for (var index = 0; index < items.length; index++)
+        if (needsHydration(items[index])) index,
+    ];
+
+    if (pending.isEmpty) {
       return items;
     }
 
-    final hydrated = List<LiquidacionPendienteItem>.from(items);
-    await Future.wait(
-      indexesToHydrate.map((index) async {
-        hydrated[index] = await _hydratePendienteFromServicio(hydrated[index]);
-      }),
-    );
+    final output = List<T>.from(items);
+    for (var start = 0; start < pending.length; start += _hydrationConcurrency) {
+      final end = start + _hydrationConcurrency > pending.length
+          ? pending.length
+          : start + _hydrationConcurrency;
+      await Future.wait(
+        pending.sublist(start, end).map((index) async {
+          output[index] = await hydrate(output[index]);
+        }),
+      );
+    }
 
-    return hydrated;
+    return output;
+  }
+
+  Future<List<LiquidacionPendienteItem>> _hydratePendientesFromServiciosIfNeeded(
+    List<LiquidacionPendienteItem> items,
+  ) {
+    return _hydrateFromServicios<LiquidacionPendienteItem>(
+      items: items,
+      needsHydration: _requiresServicioHydration,
+      hydrate: _hydratePendienteFromServicio,
+    );
   }
 
   Future<List<LiquidacionItem>> _hydrateLiquidacionesFromServiciosIfNeeded(
     List<LiquidacionItem> items,
-  ) async {
-    final indexesToHydrate = <int>[];
-    for (var index = 0; index < items.length; index++) {
-      if (_requiresLiquidacionServicioHydration(items[index])) {
-        indexesToHydrate.add(index);
-      }
-    }
-
-    if (indexesToHydrate.isEmpty) {
-      return items;
-    }
-
-    final hydrated = List<LiquidacionItem>.from(items);
-    await Future.wait(
-      indexesToHydrate.map((index) async {
-        hydrated[index] = await _hydrateLiquidacionFromServicio(hydrated[index]);
-      }),
+  ) {
+    return _hydrateFromServicios<LiquidacionItem>(
+      items: items,
+      needsHydration: _requiresLiquidacionServicioHydration,
+      hydrate: _hydrateLiquidacionFromServicio,
     );
-
-    return hydrated;
   }
 
   bool _requiresLiquidacionServicioHydration(LiquidacionItem item) {
@@ -375,56 +479,32 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   Future<LiquidacionItem> _hydrateLiquidacionFromServicio(
     LiquidacionItem item,
   ) async {
-    final servicioId = item.servicioId.trim();
-    if (servicioId.isEmpty || servicioId == '-') {
+    final servicio = await _fetchServicioResumen(item.servicioId);
+    final clienteNombre = servicio?.clienteNombre;
+    if (clienteNombre == null || clienteNombre.trim().isEmpty) {
       return item;
     }
 
-    try {
-      final payload = await _httpClient.getJson('/servicios/$servicioId');
-      final root = _asMap(payload);
-      final servicioNode = _asMap(root['servicio']);
-      final source = servicioNode.isEmpty ? root : servicioNode;
-      final clienteNode = _asMap(source['cliente'] ?? root['cliente']);
-      final clienteRaw = source['cliente'] ?? root['cliente'];
-      final clienteTextoPlano = clienteRaw is String && !_looksLikeUuid(clienteRaw)
-          ? clienteRaw
-          : null;
-
-      final clienteNombre = _resolveClienteNombrePendiente(
-        root: root,
-        source: source,
-        clienteNode: clienteNode,
-        clienteTextoPlano: clienteTextoPlano,
-      );
-
-      if ((clienteNombre ?? '').trim().isEmpty) {
-        return item;
-      }
-
-      return LiquidacionItem(
-        id: item.id,
-        servicioId: item.servicioId,
-        servicioCanal: item.servicioCanal,
-        tecnicoId: item.tecnicoId,
-        tecnicoNombre: item.tecnicoNombre,
-        tecnicoEmail: item.tecnicoEmail,
-        clienteNombre: clienteNombre,
-        tipoSalidaId: item.tipoSalidaId,
-        tipoSalidaNombre: item.tipoSalidaNombre,
-        tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
-        km: item.km,
-        precioKmUsdSnapshotLegacy: item.precioKmUsdSnapshotLegacy,
-        aprobada: item.aprobada,
-        liquidadaPago: item.liquidadaPago,
-        estado: item.estado,
-        fechaLiquidadaPago: item.fechaLiquidadaPago,
-        fechaAprobacion: item.fechaAprobacion,
-        createdAt: item.createdAt,
-      );
-    } catch (_) {
-      return item;
-    }
+    return LiquidacionItem(
+      id: item.id,
+      servicioId: item.servicioId,
+      servicioCanal: item.servicioCanal,
+      tecnicoId: item.tecnicoId,
+      tecnicoNombre: item.tecnicoNombre,
+      tecnicoEmail: item.tecnicoEmail,
+      clienteNombre: clienteNombre,
+      tipoSalidaId: item.tipoSalidaId,
+      tipoSalidaNombre: item.tipoSalidaNombre,
+      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
+      km: item.km,
+      precioKmUsdSnapshotLegacy: item.precioKmUsdSnapshotLegacy,
+      aprobada: item.aprobada,
+      liquidadaPago: item.liquidadaPago,
+      estado: item.estado,
+      fechaLiquidadaPago: item.fechaLiquidadaPago,
+      fechaAprobacion: item.fechaAprobacion,
+      createdAt: item.createdAt,
+    );
   }
 
   bool _requiresServicioHydration(LiquidacionPendienteItem item) {
@@ -436,60 +516,21 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   Future<LiquidacionPendienteItem> _hydratePendienteFromServicio(
     LiquidacionPendienteItem item,
   ) async {
-    final servicioId = item.servicioId.trim();
-    if (servicioId.isEmpty || servicioId == '-') {
+    final servicio = await _fetchServicioResumen(item.servicioId);
+    if (servicio == null) {
       return item;
     }
 
-    try {
-      final payload = await _httpClient.getJson('/servicios/$servicioId');
-      final root = _asMap(payload);
-      final servicioNode = _asMap(root['servicio']);
-      final source = servicioNode.isEmpty ? root : servicioNode;
-      final clienteNode = _asMap(source['cliente'] ?? root['cliente']);
-      final facturacionNode =
-          _asMap(root['facturacion'] ?? source['facturacion']);
-
-      final clienteNombre = _resolveClienteNombrePendiente(
-        root: root,
-        source: source,
-        clienteNode: clienteNode,
-        clienteTextoPlano: null,
-      );
-      final kmSugerido = _toInt(
-        source['km'] ??
-            source['kmCantidad'] ??
-            source['km_cantidad'] ??
-            root['km'] ??
-            root['kmCantidad'] ??
-            root['km_cantidad'] ??
-            facturacionNode['kmCantidad'] ??
-            facturacionNode['km_cantidad'] ??
-            facturacionNode['km'],
-      );
-      final fechaHoraServicio = _stringOrNull(
-        root['fechaHoraServicio'] ??
-            root['fecha_hora_servicio'] ??
-            source['fechaHoraServicio'] ??
-            source['fecha_hora_servicio'] ??
-            source['createdAt'] ??
-            source['created_at'],
-      );
-      final canal = _stringOrNull(source['canal'] ?? root['canal']);
-
-      return LiquidacionPendienteItem(
-        servicioId: item.servicioId,
-        servicioCanal: canal ?? item.servicioCanal,
-        kmSugerido: kmSugerido ?? item.kmSugerido,
-        tecnicoId: item.tecnicoId,
-        tecnicoNombre: item.tecnicoNombre,
-        tecnicoEmail: item.tecnicoEmail,
-        clienteNombre: clienteNombre ?? item.clienteNombre,
-        fechaHoraServicio: fechaHoraServicio ?? item.fechaHoraServicio,
-      );
-    } on AppFailure {
-      return item;
-    }
+    return LiquidacionPendienteItem(
+      servicioId: item.servicioId,
+      servicioCanal: servicio.canal ?? item.servicioCanal,
+      kmSugerido: servicio.kmSugerido ?? item.kmSugerido,
+      tecnicoId: item.tecnicoId,
+      tecnicoNombre: item.tecnicoNombre,
+      tecnicoEmail: item.tecnicoEmail,
+      clienteNombre: servicio.clienteNombre ?? item.clienteNombre,
+      fechaHoraServicio: servicio.fechaHoraServicio ?? item.fechaHoraServicio,
+    );
   }
 
   @override
@@ -843,7 +884,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       },
     );
 
-    return _mapResumenPagoPreviewResponse(payload);
+    return _mapAndHydrateResumenPagoPreview(
+      payload,
+      tecnicoId: query.tecnicoId,
+    );
   }
 
   @override
@@ -860,7 +904,14 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       },
     );
 
-    return _mapResumenPagoPreviewResponse(payload);
+    // Confirmar cambia liquidadaPago a true, asi que el lookup cacheado (que
+    // se armo con liquidadaPago=false) queda viejo.
+    _liquidacionResumenPorTecnico.remove('${input.tecnicoId.trim()}|false');
+
+    return _mapAndHydrateResumenPagoPreview(
+      payload,
+      tecnicoId: input.tecnicoId,
+    );
   }
 
   @override
@@ -972,6 +1023,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     final detallesList = detallesRaw is List ? detallesRaw : const <dynamic>[];
 
     final detalles = detallesList.map(_asMap).map((detail) {
+      final servicioNode = _asMap(detail['servicio']);
+      final clienteNode = _asMap(detail['cliente'] ?? servicioNode['cliente']);
+
       return ResumenPagoDetalleItem(
         id: _stringOrNull(detail['id']) ?? '-',
         liquidacionId:
@@ -991,8 +1045,59 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
           detail['totalLiquidacionUsdSnapshot'] ??
               detail['total_liquidacion_usd_snapshot'],
         ),
+        clienteNombre: _stringOrNull(
+          detail['clienteNombre'] ??
+              detail['cliente_nombre'] ??
+              servicioNode['clienteNombre'] ??
+              servicioNode['cliente_nombre'] ??
+              clienteNode['nombre'] ??
+              clienteNode['razonSocial'] ??
+              clienteNode['razon_social'],
+        ),
+        fechaHoraServicio: _stringOrNull(
+          detail['fechaHoraServicio'] ??
+              detail['fecha_hora_servicio'] ??
+              servicioNode['fechaHoraServicio'] ??
+              servicioNode['fecha_hora_servicio'],
+        ),
       );
     }).toList();
+
+    final tecnicoIdDetalle = _stringOrNull(tecnico['id']) ?? '';
+    final lookupDetalle = enableClienteHydration
+        ? await _fetchLiquidacionResumenPorTecnico(
+            tecnicoIdDetalle,
+            liquidadaPago: true,
+          )
+        : const <String, _LiquidacionResumen>{};
+
+    final detallesConLookup = detalles.map((item) {
+      final resumen = lookupDetalle[item.liquidacionId];
+      if (resumen == null) {
+        return item;
+      }
+      return item.copyWith(
+        clienteNombre: resumen.clienteNombre,
+        tipoSalidaNombre: resumen.tipoSalidaNombre,
+      );
+    }).toList();
+
+    final detallesHidratados = !enableClienteHydration
+        ? detallesConLookup
+        : await _hydrateFromServicios<ResumenPagoDetalleItem>(
+            items: detallesConLookup,
+            needsHydration: (item) => (item.clienteNombre ?? '').trim().isEmpty,
+            hydrate: (item) async {
+              final servicio = await _fetchServicioResumen(item.servicioId);
+              if (servicio == null) {
+                return item;
+              }
+              return item.copyWith(
+                clienteNombre: servicio.clienteNombre,
+                fechaHoraServicio: servicio.fechaHoraServicio,
+              );
+            },
+          );
 
     return ResumenPagoDetalleResponse(
       id: _stringOrNull(root['id']) ?? '-',
@@ -1005,7 +1110,120 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       totalUsdSnapshot: _toDouble(resumen['totalUsdSnapshot']),
       createdByNombre: _stringOrNull(createdBy['nombre']) ?? '-',
       createdAt: _stringOrNull(root['createdAt']) ?? '-',
-      detalles: detalles,
+      detalles: detallesHidratados,
+    );
+  }
+
+  /// Datos que el flujo de resumen de pago no devuelve pero GET /liquidaciones
+  /// si: sobre todo el nombre del tipo de salida, que es lo que el admin usa
+  /// para reconocer la salida al aprobar.
+  ///
+  /// Se consulta el universo elegible del tecnico (aprobadas y no liquidadas),
+  /// superconjunto de cualquier periodo del preview, y se cachea por tecnico
+  /// mientras viva el repositorio.
+  Future<Map<String, _LiquidacionResumen>> _fetchLiquidacionResumenPorTecnico(
+    String tecnicoId, {
+    required bool liquidadaPago,
+  }) async {
+    final id = tecnicoId.trim();
+    if (id.isEmpty) {
+      return const <String, _LiquidacionResumen>{};
+    }
+
+    // El preview mira liquidaciones sin pagar y el detalle confirmado mira las
+    // ya pagadas: son universos disjuntos, por eso el flag entra en la clave.
+    final cacheKey = '$id|$liquidadaPago';
+    final cached = _liquidacionResumenPorTecnico[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    final resumen = <String, _LiquidacionResumen>{};
+    try {
+      var page = 1;
+      while (page <= _maxLiquidacionLookupPages) {
+        final result = await fetchLiquidaciones(
+          query: LiquidacionesQuery(
+            tecnicoId: id,
+            aprobado: true,
+            liquidadaPago: liquidadaPago,
+            page: page,
+            limit: _liquidacionLookupPageSize,
+          ),
+        );
+
+        for (final item in result.items) {
+          resumen[item.id] = _LiquidacionResumen(
+            clienteNombre: item.clienteNombre,
+            tipoSalidaNombre: item.tipoSalidaNombre,
+          );
+        }
+
+        final vistos = page * _liquidacionLookupPageSize;
+        if (result.items.isEmpty || vistos >= result.total) {
+          break;
+        }
+        page += 1;
+      }
+    } catch (_) {
+      // Best-effort: sin el lookup el resumen se sigue pudiendo aprobar por
+      // montos, solo pierde el nombre de la salida.
+    }
+
+    _liquidacionResumenPorTecnico[cacheKey] = resumen;
+    return resumen;
+  }
+
+  /// Completa cada fila del resumen con los datos del servicio (cliente, fecha)
+  /// que el endpoint de resumen-pago no devuelve. El mapper sigue siendo
+  /// sincronico porque lo comparten preview y confirmar.
+  Future<ResumenPagoPreviewResponse> _mapAndHydrateResumenPagoPreview(
+    dynamic payload, {
+    required String tecnicoId,
+  }) async {
+    final mapped = _mapResumenPagoPreviewResponse(payload);
+    if (!enableClienteHydration) {
+      return mapped;
+    }
+
+    // Primero el lookup por tecnico: una consulta paginada resuelve el tipo de
+    // salida y, de paso, el cliente de casi todas las filas.
+    final lookup = await _fetchLiquidacionResumenPorTecnico(
+      tecnicoId,
+      liquidadaPago: false,
+    );
+    final desdeLookup = mapped.items.map((item) {
+      final resumen = lookup[item.id];
+      if (resumen == null) {
+        return item;
+      }
+      return item.copyWith(
+        clienteNombre: resumen.clienteNombre,
+        tipoSalidaNombre: resumen.tipoSalidaNombre,
+      );
+    }).toList();
+
+    // Y recien despues, un GET /servicios/:id por cada fila que quedo sin
+    // cliente.
+    final hydrated = await _hydrateFromServicios<ResumenPagoPreviewItem>(
+      items: desdeLookup,
+      needsHydration: (item) => (item.clienteNombre ?? '').trim().isEmpty,
+      hydrate: (item) async {
+        final servicio = await _fetchServicioResumen(item.servicioId);
+        if (servicio == null) {
+          return item;
+        }
+        return item.copyWith(
+          clienteNombre: servicio.clienteNombre,
+          fechaHoraServicio: servicio.fechaHoraServicio,
+        );
+      },
+    );
+
+    return ResumenPagoPreviewResponse(
+      items: hydrated,
+      meta: mapped.meta,
+      confirmacion: mapped.confirmacion,
     );
   }
 
@@ -1018,6 +1236,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
 
     return ResumenPagoPreviewResponse(
       items: rows.map(_asMap).map((row) {
+        final servicioNode = _asMap(row['servicio']);
+        final clienteNode = _asMap(row['cliente'] ?? servicioNode['cliente']);
+
         return ResumenPagoPreviewItem(
           id: _stringOrNull(row['id']) ?? '-',
           servicioId: _stringOrNull(row['servicioId'] ?? row['servicio_id']) ?? '-',
@@ -1029,6 +1250,23 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
               _toDouble(row['subtotalItemsUsd'] ?? row['subtotal_items_usd']),
           totalLiquidacionUsd:
               _toDouble(row['totalLiquidacionUsd'] ?? row['total_liquidacion_usd']),
+          // Hoy el backend no lo manda, pero si algun dia lo hace evitamos el
+          // fan-out de hidratacion por completo.
+          clienteNombre: _stringOrNull(
+            row['clienteNombre'] ??
+                row['cliente_nombre'] ??
+                servicioNode['clienteNombre'] ??
+                servicioNode['cliente_nombre'] ??
+                clienteNode['nombre'] ??
+                clienteNode['razonSocial'] ??
+                clienteNode['razon_social'],
+          ),
+          fechaHoraServicio: _stringOrNull(
+            row['fechaHoraServicio'] ??
+                row['fecha_hora_servicio'] ??
+                servicioNode['fechaHoraServicio'] ??
+                servicioNode['fecha_hora_servicio'],
+          ),
         );
       }).toList(),
       meta: ResumenPagoPreviewMeta(
@@ -1095,6 +1333,9 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     final aprobado = query.aprobado;
     final aprobadoValue = aprobado == null ? null : (aprobado ? 'true' : 'false');
     final estado = _stringOrNull(query.estado);
+    final liquidadaPago = query.liquidadaPago;
+    final liquidadaPagoValue =
+        liquidadaPago == null ? null : (liquidadaPago ? 'true' : 'false');
     final tecnicoKeys = tecnicoId == null
         ? const <String?>[null]
         : const <String?>['tecnicoId', 'tecnico_id'];
@@ -1118,6 +1359,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
         if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
         if (aprobadoKey != null && aprobadoValue != null) aprobadoKey: aprobadoValue,
         if (estadoKey != null && estado != null) estadoKey: estado,
+        'liquidadaPago': ?liquidadaPagoValue,
         if (includePagination) 'page': query.page.toString(),
         if (includePagination) 'limit': query.limit.toString(),
       };
@@ -1694,4 +1936,29 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     );
     return uuidPattern.hasMatch(text);
   }
+}
+
+/// Datos del servicio que el flujo de liquidaciones necesita pero que los
+/// endpoints de liquidacion/resumen no devuelven. Se resuelven con
+/// GET /servicios/:id y se cachean por servicioId.
+class _ServicioResumen {
+  const _ServicioResumen({
+    this.clienteNombre,
+    this.canal,
+    this.fechaHoraServicio,
+    this.kmSugerido,
+  });
+
+  final String? clienteNombre;
+  final String? canal;
+  final String? fechaHoraServicio;
+  final int? kmSugerido;
+}
+
+/// Datos de una liquidacion que solo estan en GET /liquidaciones.
+class _LiquidacionResumen {
+  const _LiquidacionResumen({this.clienteNombre, this.tipoSalidaNombre});
+
+  final String? clienteNombre;
+  final String? tipoSalidaNombre;
 }

@@ -3,7 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/widgets/module_page_layout.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repository_impl.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidacion_items_cache.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_pagos_cubit.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/liquidacion_items_breakdown.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/resumen_pago_preview_table.dart';
 
 const Duration _argentinaUtcOffset = Duration(hours: -3);
 
@@ -305,6 +308,10 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
+              if (state.preview != null)
+                ModuleStatusChip(
+                  label: 'Elegibles ${state.preview!.meta.totalLiquidaciones}',
+                ),
               ModuleStatusChip(label: 'Seleccionadas $selectedCount'),
               ModuleStatusChip(
                 label: 'Total seleccionado USD ${state.totalSeleccionadoUsd.toStringAsFixed(2)}',
@@ -372,52 +379,39 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                                 text:
                                     'Sin liquidaciones elegibles para el tecnico y periodo seleccionado.',
                               )
-                            : SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: 1080,
-                                  child: SingleChildScrollView(
-                                    child: DataTable(
-                                      columns: const <DataColumn>[
-                                        DataColumn(label: Text('Sel')),
-                                        DataColumn(label: Text('Liq')),
-                                        DataColumn(label: Text('Srv')),
-                                        DataColumn(label: Text('Fec')),
-                                        DataColumn(label: Text('Sal')),
-                                        DataColumn(label: Text('Ite')),
-                                        DataColumn(label: Text('Tot')),
-                                      ],
-                                      rows: previewItems
-                                          .map(
-                                            (row) => DataRow(
-                                              cells: <DataCell>[
-                                                DataCell(
-                                                  Checkbox(
-                                                    value: state.selectedLiquidacionIds
-                                                        .contains(row.id),
-                                                    onChanged: (selected) {
-                                                      context
-                                                          .read<LiquidacionesPagosCubit>()
-                                                          .toggleSelected(
-                                                            row.id,
-                                                            selected ?? false,
-                                                          );
-                                                    },
-                                                  ),
-                                                ),
-                                                DataCell(Text(row.id)),
-                                                DataCell(Text(row.servicioId)),
-                                                DataCell(Text(_formatDateTimeAr(row.fechaAprobacion))),
-                                                DataCell(Text((row.subtotalSalidaUsd ?? 0).toStringAsFixed(2))),
-                                                DataCell(Text((row.subtotalItemsUsd ?? 0).toStringAsFixed(2))),
-                                                DataCell(Text(row.totalLiquidacionUsd.toStringAsFixed(2))),
-                                              ],
-                                            ),
-                                          )
-                                          .toList(),
+                            : Column(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: ResumenPagoPreviewTable(
+                                      items: previewItems,
+                                      selectedIds: state.selectedLiquidacionIds,
+                                      expandedIds: state.expandedLiquidacionIds,
+                                      itemsCache: state.itemsByLiquidacion,
+                                      allSelected: state.allPreviewSelected,
+                                      someSelected: state.somePreviewSelected,
+                                      onToggleSelected: (id, selected) => context
+                                          .read<LiquidacionesPagosCubit>()
+                                          .toggleSelected(id, selected),
+                                      onToggleSelectAll: (selected) => context
+                                          .read<LiquidacionesPagosCubit>()
+                                          .toggleSelectAll(selected),
+                                      onToggleExpanded: (id, expanded) => context
+                                          .read<LiquidacionesPagosCubit>()
+                                          .toggleExpanded(id, expanded),
+                                      onRetryItems: (id) => context
+                                          .read<LiquidacionesPagosCubit>()
+                                          .ensureLiquidacionItems(id, force: true),
                                     ),
                                   ),
-                                ),
+                                  _PreviewTotalsBar(
+                                    seleccionadas: selectedCount,
+                                    elegibles: state.preview?.meta.totalLiquidaciones ??
+                                        previewItems.length,
+                                    totalSeleccionadoUsd: state.totalSeleccionadoUsd,
+                                    totalResumenUsd:
+                                        state.preview?.meta.totalResumenUsd ?? 0,
+                                  ),
+                                ],
                               ),
                     Column(
                       children: <Widget>[
@@ -591,6 +585,63 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// Totales al pie de la grilla: el trailing del layout queda lejos del listado
+/// en pantallas anchas, y este es el numero contra el que se aprueba.
+class _PreviewTotalsBar extends StatelessWidget {
+  const _PreviewTotalsBar({
+    required this.seleccionadas,
+    required this.elegibles,
+    required this.totalSeleccionadoUsd,
+    required this.totalResumenUsd,
+  });
+
+  final int seleccionadas;
+  final int elegibles;
+  final double totalSeleccionadoUsd;
+  final double totalResumenUsd;
+
+  static const double _scale = 0.8;
+
+  @override
+  Widget build(BuildContext context) {
+    final haySeleccion = seleccionadas > 0;
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(top: 10 * _scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 12 * _scale,
+        vertical: 10 * _scale,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0x1F122B4A),
+        border: Border.all(color: const Color(0x334EA6FF)),
+        borderRadius: BorderRadius.circular(10 * _scale),
+      ),
+      child: Wrap(
+        spacing: 8 * _scale,
+        runSpacing: 8 * _scale,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: <Widget>[
+          ModuleStatusChip(label: 'Seleccionadas $seleccionadas de $elegibles'),
+          ModuleStatusChip(
+            label: 'Total seleccionado USD ${totalSeleccionadoUsd.toStringAsFixed(2)}',
+            backgroundColor: haySeleccion
+                ? const Color(0x1F0FA960)
+                : const Color(0x1F4EA6FF),
+            foregroundColor: haySeleccion
+                ? const Color(0xFF8FF0BC)
+                : const Color(0xFFCDE4FF),
+          ),
+          ModuleStatusChip(
+            label: 'Total resumen USD ${totalResumenUsd.toStringAsFixed(2)}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ResumenPagoDetallePage extends StatefulWidget {
   const _ResumenPagoDetallePage({
     required this.detail,
@@ -605,42 +656,45 @@ class _ResumenPagoDetallePage extends StatefulWidget {
 }
 
 class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
-  final Map<String, LiquidacionItemsResponse?> _itemsByLiquidacion =
-      <String, LiquidacionItemsResponse?>{};
-  final Set<String> _loadingLiquidaciones = <String>{};
-  final Map<String, String> _errorByLiquidacion = <String, String>{};
+  final Map<String, LiquidacionItemsEntry> _itemsByLiquidacion =
+      <String, LiquidacionItemsEntry>{};
   final Set<String> _expandedLiquidaciones = <String>{};
 
-  Future<void> _loadItems(String liquidacionId) async {
-    if (_loadingLiquidaciones.contains(liquidacionId)) {
+  /// Misma regla que el cubit: una respuesta null significa que el endpoint no
+  /// esta disponible, no que la liquidacion no tenga items, asi que reintentar
+  /// tiene sentido.
+  Future<void> _loadItems(String liquidacionId, {bool force = false}) async {
+    final current = _itemsByLiquidacion[liquidacionId];
+    if (current != null && current.isLoading) {
       return;
     }
+    if (!force && current != null && current.isLoaded) {
+      return;
+    }
+
     setState(() {
-      _loadingLiquidaciones.add(liquidacionId);
-      _errorByLiquidacion.remove(liquidacionId);
+      _itemsByLiquidacion[liquidacionId] = const LiquidacionItemsEntry.loading();
     });
 
     try {
-      final response = await widget.repository.fetchLiquidacionItems(liquidacionId);
+      final response =
+          await widget.repository.fetchLiquidacionItems(liquidacionId);
       if (!mounted) {
         return;
       }
       setState(() {
-        _itemsByLiquidacion[liquidacionId] = response;
+        _itemsByLiquidacion[liquidacionId] = response == null
+            ? const LiquidacionItemsEntry.unavailable()
+            : LiquidacionItemsEntry.loaded(response);
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorByLiquidacion[liquidacionId] = error.toString();
+        _itemsByLiquidacion[liquidacionId] =
+            LiquidacionItemsEntry.failed(error.toString());
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingLiquidaciones.remove(liquidacionId);
-        });
-      }
     }
   }
 
@@ -663,11 +717,19 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                 children: <Widget>[
                   ModuleStatusChip(label: 'Tecnico ${detail.tecnicoNombre}'),
                   ModuleStatusChip(
-                    label: 'Periodo ${_formatDateOnlyAr(detail.desde)} a ${_formatDateOnlyAr(detail.hasta)}',
+                    label:
+                        'Periodo ${_formatDateOnlyAr(detail.desde)} a ${_formatDateOnlyAr(detail.hasta)}',
                   ),
-                  ModuleStatusChip(label: 'Total USD ${detail.totalUsdSnapshot.toStringAsFixed(2)}'),
-                  ModuleStatusChip(label: 'Liquidaciones ${detail.totalLiquidaciones}'),
-                  ModuleStatusChip(label: 'Creado ${_formatDateTimeAr(detail.createdAt)}'),
+                  ModuleStatusChip(
+                    label:
+                        'Total USD ${detail.totalUsdSnapshot.toStringAsFixed(2)}',
+                  ),
+                  ModuleStatusChip(
+                    label: 'Liquidaciones ${detail.totalLiquidaciones}',
+                  ),
+                  ModuleStatusChip(
+                    label: 'Creado ${_formatDateTimeAr(detail.createdAt)}',
+                  ),
                   ModuleStatusChip(label: 'Por ${detail.createdByNombre}'),
                 ],
               ),
@@ -678,9 +740,11 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                   separatorBuilder: (_, index) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final row = detail.detalles[index];
-                    final loading = _loadingLiquidaciones.contains(row.liquidacionId);
-                    final error = _errorByLiquidacion[row.liquidacionId];
-                    final itemsResponse = _itemsByLiquidacion[row.liquidacionId];
+                    final entry = _itemsByLiquidacion[row.liquidacionId];
+                    final cliente = (row.clienteNombre ?? '').trim();
+                    final clienteLabel = cliente.isEmpty ? 'Sin dato' : cliente;
+                    final salida = (row.tipoSalidaNombre ?? '').trim();
+                    final salidaLabel = salida.isEmpty ? 'Sin dato' : salida;
 
                     return Card(
                       child: Padding(
@@ -692,21 +756,27 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                               spacing: 8,
                               runSpacing: 8,
                               children: <Widget>[
-                                ModuleStatusChip(label: 'Liq ${row.liquidacionId}'),
-                                ModuleStatusChip(label: 'Srv ${row.servicioId}'),
                                 ModuleStatusChip(
-                                  label: 'Fec ${_formatDateTimeAr(row.fechaAprobacionSnapshot)}',
+                                  label: 'Cliente $clienteLabel',
+                                ),
+                                ModuleStatusChip(
+                                  label: 'Salida $salidaLabel',
                                 ),
                                 ModuleStatusChip(
                                   label:
-                                      'Salida ${((row.subtotalSalidaUsdSnapshot ?? 0).toStringAsFixed(2))} USD',
+                                      'Fec ${_formatDateTimeAr(row.fechaAprobacionSnapshot)}',
                                 ),
                                 ModuleStatusChip(
                                   label:
-                                      'Items ${((row.subtotalItemsUsdSnapshot ?? 0).toStringAsFixed(2))} USD',
+                                      'Salida ${(row.subtotalSalidaUsdSnapshot ?? 0).toStringAsFixed(2)} USD',
                                 ),
                                 ModuleStatusChip(
-                                  label: 'Total ${row.totalLiquidacionUsdSnapshot.toStringAsFixed(2)} USD',
+                                  label:
+                                      'Items ${(row.subtotalItemsUsdSnapshot ?? 0).toStringAsFixed(2)} USD',
+                                ),
+                                ModuleStatusChip(
+                                  label:
+                                      'Total ${row.totalLiquidacionUsdSnapshot.toStringAsFixed(2)} USD',
                                 ),
                               ],
                             ),
@@ -717,19 +787,22 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                               ),
                               child: ExpansionTile(
                                 tilePadding: EdgeInsets.zero,
-                                childrenPadding: const EdgeInsets.only(bottom: 4),
-                                initiallyExpanded: _expandedLiquidaciones.contains(row.liquidacionId),
+                                childrenPadding:
+                                    const EdgeInsets.only(bottom: 4),
+                                initiallyExpanded: _expandedLiquidaciones
+                                    .contains(row.liquidacionId),
                                 onExpansionChanged: (expanded) async {
                                   setState(() {
                                     if (expanded) {
-                                      _expandedLiquidaciones.add(row.liquidacionId);
+                                      _expandedLiquidaciones
+                                          .add(row.liquidacionId);
                                     } else {
-                                      _expandedLiquidaciones.remove(row.liquidacionId);
+                                      _expandedLiquidaciones
+                                          .remove(row.liquidacionId);
                                     }
                                   });
 
-                                  final alreadyLoaded = _itemsByLiquidacion.containsKey(row.liquidacionId);
-                                  if (expanded && !alreadyLoaded && !_loadingLiquidaciones.contains(row.liquidacionId)) {
+                                  if (expanded) {
                                     await _loadItems(row.liquidacionId);
                                   }
                                 },
@@ -739,68 +812,29 @@ class _ResumenPagoDetallePageState extends State<_ResumenPagoDetallePage> {
                                     const SizedBox(width: 8),
                                     Text(
                                       'Detalle de items de liquidacion',
-                                      style: Theme.of(context).textTheme.bodyMedium,
+                                      style:
+                                          Theme.of(context).textTheme.bodyMedium,
                                     ),
-                                    if (loading) ...<Widget>[
-                                      const SizedBox(width: 10),
-                                      const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                    ],
                                   ],
                                 ),
                                 children: <Widget>[
-                                  if (error != null && error.trim().isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: Text(
-                                        error,
-                                        style: const TextStyle(color: Colors.redAccent),
-                                      ),
+                                  LiquidacionItemsBreakdown(
+                                    entry: entry,
+                                    tipoSalidaNombre: row.tipoSalidaNombre,
+                                    subtotalSalidaUsd:
+                                        row.subtotalSalidaUsdSnapshot,
+                                    expectedTotalUsd:
+                                        row.totalLiquidacionUsdSnapshot,
+                                    onRetry: () => _loadItems(
+                                      row.liquidacionId,
+                                      force: true,
                                     ),
-                                  if (itemsResponse == null && !loading && (error == null || error.trim().isEmpty))
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 8),
-                                      child: Text('Expandi nuevamente para cargar los items.'),
+                                    header: PreviewRowIdsLine(
+                                      liquidacionId: row.liquidacionId,
+                                      servicioId: row.servicioId,
+                                      fechaHoraServicio: row.fechaHoraServicio,
                                     ),
-                                  if (itemsResponse != null) ...<Widget>[
-                                    if ((itemsResponse.tipoSalidaNombre ?? '').trim().isNotEmpty)
-                                      Text(
-                                        'Tipo de salida: ${itemsResponse.tipoSalidaNombre}',
-                                        style: Theme.of(context).textTheme.bodyMedium,
-                                      ),
-                                    if ((itemsResponse.tipoSalidaNombre ?? '').trim().isNotEmpty)
-                                      const SizedBox(height: 4),
-                                    Text(
-                                      'Items: ${itemsResponse.meta.totalItems} | Subtotal USD ${itemsResponse.meta.subtotalUsdTotal.toStringAsFixed(2)}',
-                                      style: Theme.of(context).textTheme.bodyMedium,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    if (itemsResponse.items.isEmpty)
-                                      const Text('Sin items registrados para esta liquidacion.')
-                                    else
-                                      SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: DataTable(
-                                          columns: const <DataColumn>[
-                                            DataColumn(label: Text('Tipo servicio')),
-                                            DataColumn(label: Text('Precio USD')),
-                                          ],
-                                          rows: itemsResponse.items
-                                              .map(
-                                                (item) => DataRow(
-                                                  cells: <DataCell>[
-                                                    DataCell(Text(item.tipoServicioNombre)),
-                                                    DataCell(Text(item.precioUsdSnapshot.toStringAsFixed(2))),
-                                                  ],
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
-                                      ),
-                                  ],
+                                  ),
                                 ],
                               ),
                             ),

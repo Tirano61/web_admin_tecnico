@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidacion_items_cache.dart';
 
 class LiquidacionesPagosState {
   const LiquidacionesPagosState({
@@ -16,6 +19,8 @@ class LiquidacionesPagosState {
     this.tecnicos,
     this.preview,
     this.selectedLiquidacionIds = const <String>{},
+    this.itemsByLiquidacion = const <String, LiquidacionItemsEntry>{},
+    this.expandedLiquidacionIds = const <String>{},
     this.history,
     this.historyPage = 1,
     this.historyLimit = 20,
@@ -36,6 +41,8 @@ class LiquidacionesPagosState {
   final PagedResult<TecnicoListadoItem>? tecnicos;
   final ResumenPagoPreviewResponse? preview;
   final Set<String> selectedLiquidacionIds;
+  final Map<String, LiquidacionItemsEntry> itemsByLiquidacion;
+  final Set<String> expandedLiquidacionIds;
   final PagedResult<ResumenPagoHistorialItem>? history;
   final int historyPage;
   final int historyLimit;
@@ -50,6 +57,18 @@ class LiquidacionesPagosState {
         .where((row) => selectedLiquidacionIds.contains(row.id))
         .fold<double>(0, (sum, row) => sum + row.totalLiquidacionUsd);
   }
+
+  List<ResumenPagoPreviewItem> get previewItems =>
+      preview?.items ?? const <ResumenPagoPreviewItem>[];
+
+  bool get allPreviewSelected {
+    final rows = previewItems;
+    return rows.isNotEmpty &&
+        rows.every((row) => selectedLiquidacionIds.contains(row.id));
+  }
+
+  bool get somePreviewSelected =>
+      selectedLiquidacionIds.isNotEmpty && !allPreviewSelected;
 
   List<TecnicoPagoOption> get tecnicoOptions {
     final catalog = tecnicos?.items ?? const <TecnicoListadoItem>[];
@@ -98,6 +117,8 @@ class LiquidacionesPagosState {
     Object? tecnicos = _noChange,
     Object? preview = _noChange,
     Set<String>? selectedLiquidacionIds,
+    Map<String, LiquidacionItemsEntry>? itemsByLiquidacion,
+    Set<String>? expandedLiquidacionIds,
     Object? history = _noChange,
     int? historyPage,
     int? historyLimit,
@@ -123,6 +144,9 @@ class LiquidacionesPagosState {
           : preview as ResumenPagoPreviewResponse?,
       selectedLiquidacionIds:
           selectedLiquidacionIds ?? this.selectedLiquidacionIds,
+      itemsByLiquidacion: itemsByLiquidacion ?? this.itemsByLiquidacion,
+      expandedLiquidacionIds:
+          expandedLiquidacionIds ?? this.expandedLiquidacionIds,
       history: identical(history, _noChange)
           ? this.history
           : history as PagedResult<ResumenPagoHistorialItem>?,
@@ -258,6 +282,10 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
           loadingPreview: false,
           preview: preview,
           selectedLiquidacionIds: const <String>{},
+          // El preview anterior puede ser de otro tecnico o periodo: si no se
+          // limpia, quedan items pegados a ids que ya no estan en la lista.
+          itemsByLiquidacion: const <String, LiquidacionItemsEntry>{},
+          expandedLiquidacionIds: const <String>{},
         ),
       );
     } catch (error) {
@@ -278,6 +306,73 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
       next.remove(liquidacionId);
     }
     emit(state.copyWith(selectedLiquidacionIds: next, message: null, error: null));
+  }
+
+  void toggleSelectAll(bool selected) {
+    final next = selected
+        ? <String>{for (final row in state.previewItems) row.id}
+        : const <String>{};
+    emit(state.copyWith(selectedLiquidacionIds: next, message: null, error: null));
+  }
+
+  void toggleExpanded(String liquidacionId, bool expanded) {
+    final next = <String>{...state.expandedLiquidacionIds};
+    if (expanded) {
+      next.add(liquidacionId);
+    } else {
+      next.remove(liquidacionId);
+    }
+    emit(state.copyWith(expandedLiquidacionIds: next));
+
+    if (expanded) {
+      unawaited(ensureLiquidacionItems(liquidacionId));
+    }
+  }
+
+  /// Carga el desglose de una liquidacion, una sola vez por id.
+  ///
+  /// Reintenta cuando el estado previo es `unavailable` o `error`: el
+  /// repositorio devuelve null si el endpoint de items no esta disponible, y
+  /// ese caso no debe quedar cacheado como exito.
+  Future<void> ensureLiquidacionItems(
+    String liquidacionId, {
+    bool force = false,
+  }) async {
+    final current = state.itemsByLiquidacion[liquidacionId];
+    if (current != null && current.isLoading) {
+      return;
+    }
+    if (!force && current != null && current.isLoaded) {
+      return;
+    }
+
+    _emitItemsEntry(liquidacionId, const LiquidacionItemsEntry.loading());
+
+    try {
+      final response = await _repository.fetchLiquidacionItems(liquidacionId);
+      _emitItemsEntry(
+        liquidacionId,
+        response == null
+            ? const LiquidacionItemsEntry.unavailable()
+            : LiquidacionItemsEntry.loaded(response),
+      );
+    } catch (error) {
+      _emitItemsEntry(
+        liquidacionId,
+        LiquidacionItemsEntry.failed(_errorMessage(error)),
+      );
+    }
+  }
+
+  void _emitItemsEntry(String liquidacionId, LiquidacionItemsEntry entry) {
+    emit(
+      state.copyWith(
+        itemsByLiquidacion: <String, LiquidacionItemsEntry>{
+          ...state.itemsByLiquidacion,
+          liquidacionId: entry,
+        },
+      ),
+    );
   }
 
   Future<String?> confirmarResumen() async {

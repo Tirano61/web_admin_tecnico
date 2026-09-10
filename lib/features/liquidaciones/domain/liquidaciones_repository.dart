@@ -209,6 +209,9 @@ class ResumenPagoPreviewItem {
     this.subtotalSalidaUsd,
     this.subtotalItemsUsd,
     required this.totalLiquidacionUsd,
+    this.clienteNombre,
+    this.fechaHoraServicio,
+    this.tipoSalidaNombre,
   });
 
   final String id;
@@ -217,6 +220,31 @@ class ResumenPagoPreviewItem {
   final double? subtotalSalidaUsd;
   final double? subtotalItemsUsd;
   final double totalLiquidacionUsd;
+
+  // El endpoint de preview no manda cliente, fecha del servicio ni tipo de
+  // salida: los hidrata la capa data desde GET /liquidaciones y, como fallback
+  // para el cliente, GET /servicios/:id. Quedan null si eso no se resuelve.
+  final String? clienteNombre;
+  final String? fechaHoraServicio;
+  final String? tipoSalidaNombre;
+
+  ResumenPagoPreviewItem copyWith({
+    String? clienteNombre,
+    String? fechaHoraServicio,
+    String? tipoSalidaNombre,
+  }) {
+    return ResumenPagoPreviewItem(
+      id: id,
+      servicioId: servicioId,
+      fechaAprobacion: fechaAprobacion,
+      subtotalSalidaUsd: subtotalSalidaUsd,
+      subtotalItemsUsd: subtotalItemsUsd,
+      totalLiquidacionUsd: totalLiquidacionUsd,
+      clienteNombre: clienteNombre ?? this.clienteNombre,
+      fechaHoraServicio: fechaHoraServicio ?? this.fechaHoraServicio,
+      tipoSalidaNombre: tipoSalidaNombre ?? this.tipoSalidaNombre,
+    );
+  }
 }
 
 class ResumenPagoPreviewMeta {
@@ -346,6 +374,9 @@ class ResumenPagoDetalleItem {
     this.subtotalSalidaUsdSnapshot,
     this.subtotalItemsUsdSnapshot,
     required this.totalLiquidacionUsdSnapshot,
+    this.clienteNombre,
+    this.fechaHoraServicio,
+    this.tipoSalidaNombre,
   });
 
   final String id;
@@ -355,6 +386,30 @@ class ResumenPagoDetalleItem {
   final double? subtotalSalidaUsdSnapshot;
   final double? subtotalItemsUsdSnapshot;
   final double totalLiquidacionUsdSnapshot;
+
+  // Hidratados igual que en el preview.
+  final String? clienteNombre;
+  final String? fechaHoraServicio;
+  final String? tipoSalidaNombre;
+
+  ResumenPagoDetalleItem copyWith({
+    String? clienteNombre,
+    String? fechaHoraServicio,
+    String? tipoSalidaNombre,
+  }) {
+    return ResumenPagoDetalleItem(
+      id: id,
+      liquidacionId: liquidacionId,
+      servicioId: servicioId,
+      fechaAprobacionSnapshot: fechaAprobacionSnapshot,
+      subtotalSalidaUsdSnapshot: subtotalSalidaUsdSnapshot,
+      subtotalItemsUsdSnapshot: subtotalItemsUsdSnapshot,
+      totalLiquidacionUsdSnapshot: totalLiquidacionUsdSnapshot,
+      clienteNombre: clienteNombre ?? this.clienteNombre,
+      fechaHoraServicio: fechaHoraServicio ?? this.fechaHoraServicio,
+      tipoSalidaNombre: tipoSalidaNombre ?? this.tipoSalidaNombre,
+    );
+  }
 }
 
 class ResumenPagoDetalleResponse {
@@ -550,6 +605,7 @@ class LiquidacionesQuery {
     this.tecnicoId,
     this.aprobado,
     this.estado,
+    this.liquidadaPago,
     this.page = 1,
     this.limit = 20,
   });
@@ -557,6 +613,7 @@ class LiquidacionesQuery {
   final String? tecnicoId;
   final bool? aprobado;
   final String? estado;
+  final bool? liquidadaPago;
   final int page;
   final int limit;
 
@@ -564,6 +621,7 @@ class LiquidacionesQuery {
     String? tecnicoId,
     Object? aprobado = _aprobadoNoChange,
     String? estado,
+    Object? liquidadaPago = _aprobadoNoChange,
     int? page,
     int? limit,
   }) {
@@ -573,6 +631,9 @@ class LiquidacionesQuery {
           ? this.aprobado
           : aprobado as bool?,
       estado: estado ?? this.estado,
+      liquidadaPago: identical(liquidadaPago, _aprobadoNoChange)
+          ? this.liquidadaPago
+          : liquidadaPago as bool?,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
