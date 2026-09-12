@@ -7,6 +7,12 @@ class SessionStore {
 
   static bool get isAuthenticated => _session != null;
 
+  static List<String> get rolesActuales => _session?.roles ?? const <String>[];
+
+  static bool get puedeAccederAlPanel => _session?.puedeAccederAlPanel ?? false;
+
+  static bool tieneRol(String rol) => _session?.tieneRol(rol) ?? false;
+
   static void setSession(AuthSession session) {
     _session = session;
   }

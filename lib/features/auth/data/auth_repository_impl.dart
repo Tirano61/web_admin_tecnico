@@ -53,44 +53,35 @@ class AuthRepositoryImpl implements AuthRepository {
       throw lastFailure ?? const AppFailure('No fue posible autenticar usuario', statusCode: 401);
     }
 
+    // Shape de POST /auth/login: { access_token, user: { id, fullName, email, roles } }
     final root = _asMap(payload);
     final data = _asMap(root['data']);
-    final auth = _asMap(root['auth']);
     final rootUser = _asMap(root['user']);
     final user = rootUser.isNotEmpty ? rootUser : _asMap(data['user']);
+
     final token = _stringOrNull(
-      root['token'] ??
+      root['access_token'] ??
           root['accessToken'] ??
-          root['access_token'] ??
-          root['jwt'] ??
-          data['token'] ??
-          data['accessToken'] ??
           data['access_token'] ??
-          data['jwt'] ??
-          auth['token'] ??
-          auth['accessToken'] ??
-          auth['access_token'] ??
-          user['token'] ??
-          user['accessToken'] ??
-          user['access_token'],
+          data['accessToken'],
     );
 
     if (token == null || token.isEmpty) {
-      throw const AppFailure('La respuesta de login no contiene token', statusCode: 500);
+      throw const AppFailure(
+        'La respuesta de login no contiene access_token',
+        statusCode: 500,
+      );
     }
 
-    final resolvedEmail = _stringOrNull(
-          user['email'] ??
-              user['usuario'] ??
-              user['username'] ??
-              data['email'] ??
-              data['usuario'] ??
-              root['email'] ??
-              root['usuario'],
-        ) ??
-        email;
+    final resolvedEmail = _stringOrNull(user['email'] ?? data['email'] ?? root['email']) ?? email;
 
-    return AuthSession(token: token, email: resolvedEmail);
+    return AuthSession(
+      token: token,
+      email: resolvedEmail,
+      id: _stringOrNull(user['id']),
+      fullName: _stringOrNull(user['fullName'] ?? user['full_name']),
+      roles: _rolesFrom(user['roles'] ?? user['role'] ?? user['rol']),
+    );
   }
 
   @override
@@ -104,6 +95,22 @@ class AuthRepositoryImpl implements AuthRepository {
       return Map<String, dynamic>.from(value);
     }
     return const <String, dynamic>{};
+  }
+
+  List<String> _rolesFrom(dynamic value) {
+    if (value is List) {
+      final roles = <String>[];
+      for (final item in value) {
+        final rol = _stringOrNull(item);
+        if (rol != null) {
+          roles.add(rol);
+        }
+      }
+      return roles;
+    }
+
+    final single = _stringOrNull(value);
+    return single == null ? const <String>[] : <String>[single];
   }
 
   String? _stringOrNull(dynamic value) {
