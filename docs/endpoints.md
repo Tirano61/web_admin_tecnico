@@ -12,12 +12,52 @@ Header para privados:
 Authorization: Bearer <token>
 ```
 
+### Rol `admin`
+
+`admin` es superusuario y `UserRoleGuard` lo trata como comodin: pasa cualquier
+validacion de rol. Las columnas "Rol" de este documento listan los roles
+declarados en cada `@Auth()`, y `admin` accede a todas las rutas aunque no
+aparezca en la lista.
+
 ## Auth publico
 
 | Metodo | Endpoint |
 |---|---|
 | POST | `/auth/register` |
 | POST | `/auth/login` |
+
+### POST /auth/login
+
+Payload:
+
+```json
+{
+  "email": "tecnico@empresa.com",
+  "password": "Abc123"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "8f3b1c2a-4d5e-4a7b-9c10-2f6e8d1a3b4c",
+    "fullName": "Juan Perez",
+    "email": "tecnico@empresa.com",
+    "roles": ["tecnico"]
+  }
+}
+```
+
+Notas:
+
+- El token viaja en `access_token` (antes se llamaba `token`). Es el valor que se manda en `Authorization: Bearer <access_token>`.
+- `user.roles` es un array: un usuario puede tener mas de un rol.
+- El payload del JWT es `{ id, roles, iat, exp }`, asi los guards de los frontends leen el rol del token sin una llamada extra.
+- El backend no autoriza con los `roles` del token: `JwtStrategy` recarga el usuario desde la base por `id` y `UserRoleGuard` valida contra los roles persistidos. Los `roles` del token son solo para la UI.
+- `POST /auth/register` sigue devolviendo `{ ...user, token }`; su JWT tambien incluye ahora `roles`.
 
 ## Auth privado
 

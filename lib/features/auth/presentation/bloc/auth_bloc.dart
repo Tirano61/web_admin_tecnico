@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/auth/auth_session.dart';
+import 'package:web_admin_tecnico/core/auth/roles_panel.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/auth/domain/auth_repository.dart';
 
@@ -32,6 +33,11 @@ class AuthFailureState extends AuthState {
   final String message;
 }
 
+/// Credenciales validas pero sin rol para operar este panel (ej. `tecnico`).
+class AuthAccesoDenegado extends AuthFailureState {
+  AuthAccesoDenegado() : super(RolesPanel.mensajeAccesoDenegado);
+}
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc(this._repository) : super(AuthInitial()) {
     on<AuthSubmitted>(_onSubmitted);
@@ -46,6 +52,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final session = await _repository.login(
         LoginInput(email: event.email, password: event.password),
       );
+
+      if (!session.puedeAccederAlPanel) {
+        emit(AuthAccesoDenegado());
+        return;
+      }
+
       emit(AuthAuthenticated(session));
     } on AppFailure catch (error) {
       emit(AuthFailureState(_messageForFailure(error)));
