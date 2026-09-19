@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:web_admin_tecnico/core/auth/jwt_token.dart';
+import 'package:web_admin_tecnico/core/auth/roles_panel.dart';
 import 'package:web_admin_tecnico/core/auth/session_store.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/core/utils/paginated_table_prefs.dart';
@@ -8,7 +10,6 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidacion_pago_calculator.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
-import 'dart:convert';
 
 enum _LiquidacionesPanelView {
   pendientes,
@@ -59,55 +60,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
   String? _tecnicoFilterId;
   _LiquidacionesPanelView _activeView = _LiquidacionesPanelView.pendientes;
 
+  /// Los roles firmados en el token mandan sobre lo que haya en memoria.
   bool get _canReopenByRole {
     final token = SessionStore.currentSession?.token;
     if (token == null || token.trim().isEmpty) {
       return false;
     }
 
-    final payload = _tryDecodeJwtPayload(token);
-    if (payload.isEmpty) {
-      return false;
-    }
-
-    final role = (payload['role'] ?? payload['rol'] ?? '').toString().trim().toLowerCase();
-    if (role == 'admin-tecnico' || role == 'admin') {
-      return true;
-    }
-
-    final rolesRaw = payload['roles'];
-    if (rolesRaw is List) {
-      for (final roleItem in rolesRaw) {
-        final normalized = roleItem.toString().trim().toLowerCase();
-        if (normalized == 'admin-tecnico' || normalized == 'admin') {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  Map<String, dynamic> _tryDecodeJwtPayload(String token) {
-    final parts = token.split('.');
-    if (parts.length < 2) {
-      return const <String, dynamic>{};
-    }
-
-    try {
-      final normalized = base64Url.normalize(parts[1]);
-      final decoded = utf8.decode(base64Url.decode(normalized));
-      final json = jsonDecode(decoded);
-      if (json is Map<String, dynamic>) {
-        return json;
-      }
-      if (json is Map) {
-        return Map<String, dynamic>.from(json);
-      }
-      return const <String, dynamic>{};
-    } catch (_) {
-      return const <String, dynamic>{};
-    }
+    return RolesPanel.puedeAccederAlPanel(JwtToken.roles(token));
   }
 
   void _requestDashboard({

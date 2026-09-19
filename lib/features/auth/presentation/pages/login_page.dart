@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:web_admin_tecnico/core/auth/session_store.dart';
-import 'package:web_admin_tecnico/core/routing/app_routes.dart';
 import 'package:web_admin_tecnico/core/widgets/tech_admin_background.dart';
-import 'package:web_admin_tecnico/features/auth/data/auth_repository_impl.dart';
 import 'package:web_admin_tecnico/features/auth/presentation/bloc/auth_bloc.dart';
 
 class LoginPage extends StatefulWidget {
@@ -27,45 +24,37 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthBloc>(
-      create: (_) => AuthBloc(AuthRepositoryImpl()),
-      child: Scaffold(
-        body: TechAdminBackground(
-          child: SafeArea(
-            child: BlocListener<AuthBloc, AuthState>(
-              listener: (context, state) {
-                if (state is AuthAuthenticated) {
-                  SessionStore.setSession(state.session);
-                  Navigator.of(context).pushReplacementNamed(AppRoutes.servicios);
-                }
-
-                if (state is AuthFailureState) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(state.message)),
-                  );
-                }
-              },
-              child: Column(
-                children: <Widget>[
-                  const _TopBar(),
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 500),
-                          child: _LoginPanel(
-                            formKey: _formKey,
-                            emailController: _emailController,
-                            passwordController: _passwordController,
-                          ),
+    return Scaffold(
+      body: TechAdminBackground(
+        child: SafeArea(
+          child: BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthFailureState) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.message)),
+                );
+              }
+            },
+            child: Column(
+              children: <Widget>[
+                const _TopBar(),
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        child: _LoginPanel(
+                          formKey: _formKey,
+                          emailController: _emailController,
+                          passwordController: _passwordController,
                         ),
                       ),
                     ),
                   ),
-                  const _FooterBar(),
-                ],
-              ),
+                ),
+                const _FooterBar(),
+              ],
             ),
           ),
         ),
@@ -191,6 +180,7 @@ class _LoginPanel extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 20),
+            const _AvisoSesion(),
             _PanelFieldLabel(label: 'USUARIO'),
             const SizedBox(height: 6),
             TextFormField(
@@ -312,6 +302,53 @@ class _LoginPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFFF8585), width: 1.4),
       ),
+    );
+  }
+}
+
+/// Motivo por el que se cerro la sesion (token vencido, 401 o rol sin acceso).
+class _AvisoSesion extends StatelessWidget {
+  const _AvisoSesion();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (anterior, actual) => actual is AuthUnauthenticated || anterior is AuthUnauthenticated,
+      builder: (context, state) {
+        final mensaje = state is AuthUnauthenticated ? state.mensaje : null;
+        if (mensaje == null || mensaje.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE85D04).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE85D04).withValues(alpha: 0.45)),
+            ),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.info_outline, color: Color(0xFFFFB067), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    mensaje,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFFFFD2AC),
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

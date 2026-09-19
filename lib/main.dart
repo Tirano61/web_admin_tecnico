@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:web_admin_tecnico/core/routing/app_router.dart';
 import 'package:web_admin_tecnico/core/routing/app_routes.dart';
+import 'package:web_admin_tecnico/features/auth/data/auth_repository_impl.dart';
+import 'package:web_admin_tecnico/features/auth/domain/auth_repository.dart';
+import 'package:web_admin_tecnico/features/auth/presentation/bloc/auth_bloc.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const WebAdminTecnicoApp());
 }
 
 class WebAdminTecnicoApp extends StatelessWidget {
-  const WebAdminTecnicoApp({super.key});
+  const WebAdminTecnicoApp({super.key, this.authRepository});
+
+  /// Inyectable para tests; en la app real usa el storage seguro del navegador.
+  final AuthRepository? authRepository;
+
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   static const double _webUiScale = 0.8;
 
@@ -223,11 +233,27 @@ class WebAdminTecnicoApp extends StatelessWidget {
       ),
     );
 
+    return BlocProvider<AuthBloc>(
+      create: (_) =>
+          AuthBloc(authRepository ?? AuthRepositoryImpl())..add(AuthSessionRestoreRequested()),
+      child: BlocListener<AuthBloc, AuthState>(
+        // Si la sesion se cae con el panel abierto (logout, token vencido o
+        // 401), se vuelve al login descartando las pantallas apiladas.
+        listenWhen: (anterior, actual) =>
+            anterior is AuthAuthenticated && actual is! AuthAuthenticated,
+        listener: (_, _) => navigatorKey.currentState
+            ?.pushNamedAndRemoveUntil(AppRoutes.login, (_) => false),
+        child: _buildApp(webTheme, appRouter),
+      ),
+    );
+  }
+
+  Widget _buildApp(ThemeData webTheme, AppRouter appRouter) {
     return MaterialApp(
       title: 'Web Admin Tecnico',
       debugShowCheckedModeBanner: false,
       theme: webTheme,
-      initialRoute: AppRoutes.login,
+      navigatorKey: navigatorKey,
       onGenerateRoute: appRouter.onGenerateRoute,
       builder: (context, child) {
         final media = MediaQuery.of(context);
