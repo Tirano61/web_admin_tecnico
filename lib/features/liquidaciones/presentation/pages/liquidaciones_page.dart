@@ -10,6 +10,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidacion_pago_calculator.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_bloc.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/liquidacion_estado_badge.dart';
 
 enum _LiquidacionesPanelView {
   pendientes,
@@ -30,7 +31,8 @@ class LiquidacionesPage extends StatelessWidget {
         ..add(
           LiquidacionesRequested(
             tecnicoId: null,
-            aprobado: null,
+            // Arranca en TODAS: el filtro por estado lo define el usuario.
+            estado: null,
             liquidacionesPage: 1,
             liquidacionesLimit: 20,
             pendientesPage: 1,
@@ -56,7 +58,7 @@ class _LiquidacionesView extends StatefulWidget {
 }
 
 class _LiquidacionesViewState extends State<_LiquidacionesView> {
-  bool? _aprobadoFilter;
+  LiquidacionEstadoFiltro _estadoFilter = LiquidacionEstadoFiltro.todas;
   String? _tecnicoFilterId;
   _LiquidacionesPanelView _activeView = _LiquidacionesPanelView.pendientes;
 
@@ -79,7 +81,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
     context.read<LiquidacionesBloc>().add(
           LiquidacionesRequested(
             tecnicoId: _tecnicoFilterId,
-            aprobado: _aprobadoFilter,
+            // Desde que reabrir deja `aprobado=false`, filtrar por aprobado
+            // mezclaria reabiertas con pendientes: se filtra por estado.
+            estado: _estadoFilter.queryValue,
             liquidacionesPage: liquidacionesPage,
             liquidacionesLimit: liquidacionesLimit,
             pendientesPage: pendientesPage,
@@ -634,9 +638,35 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                 children: <Widget>[
                   _LiquidacionInfoLine(label: 'Liquidacion ID', value: item.id),
                   const SizedBox(height: 10),
-                  const Text(
-                    'Esta accion vuelve la liquidacion a edicion y requerira reaprobacion.',
-                    style: TextStyle(color: Color(0xFF9AB1CC)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: LiquidacionEstadoColores.reabiertaFondo,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: LiquidacionEstadoColores.reabiertaBorde,
+                      ),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'La liquidacion pasa a estado REABIERTA y vuelve a edicion.',
+                          style: TextStyle(
+                            color: LiquidacionEstadoColores.reabiertaTexto,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'Sale del circuito de pago: no aparece en liquidaciones para '
+                          'pago, no entra en el resumen por tecnico y no se puede marcar '
+                          'como pagada hasta que la vuelvas a aprobar.',
+                          style: TextStyle(color: Color(0xFFEAF3FF)),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
@@ -1685,6 +1715,21 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                             ],
                           ),
                           const SizedBox(height: 10),
+                          if (liquidacion.isReabierta) ...<Widget>[
+                            LiquidacionReabiertaAviso(
+                              motivo: liquidacion.motivoReapertura ??
+                                  (reaperturas.isEmpty
+                                      ? null
+                                      : reaperturas.first.motivo),
+                              fecha: _formatDate(
+                                liquidacion.fechaReapertura ??
+                                    (reaperturas.isEmpty
+                                        ? null
+                                        : reaperturas.first.fecha),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                           if (liquidacion.liquidadaPago)
                             Container(
                               width: double.infinity,
@@ -2020,6 +2065,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     itemBuilder: (context, index) {
                       final item = state.liquidaciones[index];
                       final approved = item.isAprobadaEstado;
+                      final reabierta = item.isReabierta;
                       final paid = item.liquidadaPago;
                       final isCanalCampo = _isCanalCampo(item.servicioCanal);
                       final itemDetalles = state.itemDetallesByLiquidacion[item.id] ??
@@ -2041,7 +2087,7 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                 children: <Widget>[
                                   ModuleStatusChip(label: 'ID ${item.id}'),
                                   ModuleStatusChip(label: item.servicioCanal.toUpperCase()),
-                                  _AprobadaChip(item: item),
+                                  LiquidacionEstadoBadge(liquidacion: item),
                                 ],
                               ),
                               SizedBox(height: compact ? 6 : 8),
@@ -2081,9 +2127,20 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                               SizedBox(height: verticalGap),
                               _LiquidacionInfoLine(
                                 label: 'Fecha aprobacion',
-                                value: _formatDate(item.fechaAprobacion),
+                                value: reabierta
+                                    ? 'Sin aprobacion vigente (reabierta)'
+                                    : _formatDate(item.fechaAprobacion),
                                 compact: compact,
                               ),
+                              if (reabierta) ...<Widget>[
+                                SizedBox(height: compact ? 8 : 10),
+                                LiquidacionReabiertaAviso(
+                                  motivo: item.motivoReapertura,
+                                  fecha: item.fechaReapertura == null
+                                      ? null
+                                      : _formatDate(item.fechaReapertura),
+                                ),
+                              ],
                               SizedBox(height: compact ? 8 : 10),
                               Wrap(
                                 spacing: 8,
@@ -2099,7 +2156,9 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                     onPressed: !approved && !paid && isCanalCampo
                                         ? () => _confirmApproveLiquidacion(item)
                                         : null,
-                                    child: const Text('Aprobar'),
+                                    child: Text(
+                                      reabierta ? 'Volver a aprobar' : 'Aprobar',
+                                    ),
                                   ),
                                   if (_canReopenByRole)
                                     FilledButton.tonal(
@@ -2369,7 +2428,10 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 
             final approvedCount =
               state.liquidaciones.where((item) => item.isAprobadaEstado).length;
-            final pendingCount = state.liquidaciones.length - approvedCount;
+            final reabiertasCount =
+              state.liquidaciones.where((item) => item.isReabierta).length;
+            final pendingCount =
+                state.liquidaciones.length - approvedCount - reabiertasCount;
             final pendientesCampoCount =
                 state.pendientes.where((item) => _isCanalCampo(item.servicioCanal)).length;
 
@@ -2393,17 +2455,18 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                     ? '__all__'
                     : selectedTecnicoId;
 
-            final selectedAprobado = _aprobadoFilter ?? state.aprobado;
-            final approvedFilterValue = selectedAprobado == null
-                ? 'todos'
-                : (selectedAprobado ? 'aprobadas' : 'pendientes');
+            final selectedEstado = _estadoFilter;
 
             final hasTecnicoFilter =
                 selectedTecnicoId != null && selectedTecnicoId.isNotEmpty;
-            final createdHasFilters = hasTecnicoFilter || selectedAprobado != null;
-            final createdEmptyMessage = createdHasFilters
-                ? 'No hay liquidaciones creadas para el filtro seleccionado.'
-                : 'No hay liquidaciones creadas para mostrar.';
+            final createdHasFilters = hasTecnicoFilter ||
+                selectedEstado != LiquidacionEstadoFiltro.todas;
+            final createdEmptyMessage = selectedEstado ==
+                    LiquidacionEstadoFiltro.reabierta
+                ? 'No hay liquidaciones reabiertas pendientes de volver a aprobar.'
+                : (createdHasFilters
+                    ? 'No hay liquidaciones creadas para el filtro seleccionado.'
+                    : 'No hay liquidaciones creadas para mostrar.');
             final pendientesEmptyMessage = hasTecnicoFilter
                 ? 'No hay servicios pendientes para el tecnico seleccionado.'
                 : 'No hay servicios pendientes de liquidar.';
@@ -2425,13 +2488,18 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                   ModuleStatusChip(label: 'CREADAS ${state.liquidacionesTotal}'),
                   ModuleStatusChip(
                     label: 'APROBADAS $approvedCount',
-                    backgroundColor: const Color(0x1F0FA960),
-                    foregroundColor: const Color(0xFF8FF0BC),
+                    backgroundColor: LiquidacionEstadoColores.aprobadaFondo,
+                    foregroundColor: LiquidacionEstadoColores.aprobadaTexto,
                   ),
                   ModuleStatusChip(
                     label: 'PENDIENTES APROBACION $pendingCount',
-                    backgroundColor: const Color(0x1FF4B942),
-                    foregroundColor: const Color(0xFFFFD98B),
+                    backgroundColor: LiquidacionEstadoColores.pendienteFondo,
+                    foregroundColor: LiquidacionEstadoColores.pendienteTexto,
+                  ),
+                  ModuleStatusChip(
+                    label: 'REABIERTAS $reabiertasCount',
+                    backgroundColor: LiquidacionEstadoColores.reabiertaFondo,
+                    foregroundColor: LiquidacionEstadoColores.reabiertaTexto,
                   ),
                 ],
               ),
@@ -2533,23 +2601,15 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                               border: Border.all(color: const Color(0x334EA6FF)),
                             ),
                             child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: approvedFilterValue,
+                              child: DropdownButton<LiquidacionEstadoFiltro>(
+                                key: const ValueKey<String>('filtro-estado-liquidaciones'),
+                                value: selectedEstado,
                                 onChanged: (value) {
                                   if (value == null) {
                                     return;
                                   }
 
-                                  bool? approved;
-                                  if (value == 'aprobadas') {
-                                    approved = true;
-                                  } else if (value == 'pendientes') {
-                                    approved = false;
-                                  } else {
-                                    approved = null;
-                                  }
-
-                                  setState(() => _aprobadoFilter = approved);
+                                  setState(() => _estadoFilter = value);
                                   _requestDashboard(
                                     liquidacionesPage: 1,
                                     liquidacionesLimit: liquidacionesLimit,
@@ -2557,20 +2617,14 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
                                     pendientesLimit: pendientesLimit,
                                   );
                                 },
-                                items: const <DropdownMenuItem<String>>[
-                                  DropdownMenuItem(
-                                    value: 'todos',
-                                    child: Text('TODAS'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'aprobadas',
-                                    child: Text('APROBADAS'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'pendientes',
-                                    child: Text('PENDIENTES'),
-                                  ),
-                                ],
+                                items: LiquidacionEstadoFiltro.values
+                                    .map(
+                                      (filtro) => DropdownMenuItem<LiquidacionEstadoFiltro>(
+                                        value: filtro,
+                                        child: Text(filtro.etiqueta),
+                                      ),
+                                    )
+                                    .toList(),
                               ),
                             ),
                           ),
@@ -2648,38 +2702,6 @@ class _LiquidacionesViewState extends State<_LiquidacionesView> {
 bool _isCanalCampoValue(String? canal) {
   final normalized = (canal ?? '').trim().toLowerCase();
   return normalized == 'campo';
-}
-
-class _AprobadaChip extends StatelessWidget {
-  const _AprobadaChip({required this.item});
-
-  final LiquidacionItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    if (item.liquidadaPago) {
-      return const ModuleStatusChip(
-        label: 'PASADA A PAGO',
-        backgroundColor: Color(0x1F7A4CFF),
-        foregroundColor: Color(0xFFCFBEFF),
-      );
-    }
-
-    final isReabierta = item.isReabierta;
-    final aprobada = item.isAprobadaEstado;
-
-    return ModuleStatusChip(
-      label: isReabierta
-          ? 'REABIERTA'
-          : (aprobada ? 'APROBADA PAGO' : 'PENDIENTE'),
-      backgroundColor: isReabierta
-          ? const Color(0x1F4EA6FF)
-          : (aprobada ? const Color(0x1F0FA960) : const Color(0x1FF4B942)),
-      foregroundColor: isReabierta
-          ? const Color(0xFF9CCDFF)
-          : (aprobada ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B)),
-    );
-  }
 }
 
 class _TecnicoOption {

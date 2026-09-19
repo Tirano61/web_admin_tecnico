@@ -12,12 +12,14 @@ class LiquidacionesPagosState {
     this.loadingPreview = false,
     this.loadingHistory = false,
     this.loadingDetail = false,
+    this.loadingReabiertas = false,
     this.confirming = false,
     this.tecnicoId,
     this.desde,
     this.hasta,
     this.tecnicos,
     this.preview,
+    this.reabiertas = const <LiquidacionItem>[],
     this.selectedLiquidacionIds = const <String>{},
     this.itemsByLiquidacion = const <String, LiquidacionItemsEntry>{},
     this.expandedLiquidacionIds = const <String>{},
@@ -34,12 +36,18 @@ class LiquidacionesPagosState {
   final bool loadingTecnicos;
   final bool loadingHistory;
   final bool loadingDetail;
+  final bool loadingReabiertas;
   final bool confirming;
   final String? tecnicoId;
   final String? desde;
   final String? hasta;
   final PagedResult<TecnicoListadoItem>? tecnicos;
   final ResumenPagoPreviewResponse? preview;
+
+  /// Liquidaciones del tecnico que quedaron en `estado=reabierta`: el preview
+  /// las excluye, asi que se listan aparte para que no desaparezcan sin
+  /// explicacion.
+  final List<LiquidacionItem> reabiertas;
   final Set<String> selectedLiquidacionIds;
   final Map<String, LiquidacionItemsEntry> itemsByLiquidacion;
   final Set<String> expandedLiquidacionIds;
@@ -110,12 +118,14 @@ class LiquidacionesPagosState {
     bool? loadingPreview,
     bool? loadingHistory,
     bool? loadingDetail,
+    bool? loadingReabiertas,
     bool? confirming,
     String? tecnicoId,
     String? desde,
     String? hasta,
     Object? tecnicos = _noChange,
     Object? preview = _noChange,
+    List<LiquidacionItem>? reabiertas,
     Set<String>? selectedLiquidacionIds,
     Map<String, LiquidacionItemsEntry>? itemsByLiquidacion,
     Set<String>? expandedLiquidacionIds,
@@ -132,6 +142,7 @@ class LiquidacionesPagosState {
       loadingTecnicos: loadingTecnicos ?? this.loadingTecnicos,
       loadingHistory: loadingHistory ?? this.loadingHistory,
       loadingDetail: loadingDetail ?? this.loadingDetail,
+      loadingReabiertas: loadingReabiertas ?? this.loadingReabiertas,
       confirming: confirming ?? this.confirming,
       tecnicoId: tecnicoId ?? this.tecnicoId,
       desde: desde ?? this.desde,
@@ -142,6 +153,7 @@ class LiquidacionesPagosState {
       preview: identical(preview, _noChange)
           ? this.preview
           : preview as ResumenPagoPreviewResponse?,
+      reabiertas: reabiertas ?? this.reabiertas,
       selectedLiquidacionIds:
           selectedLiquidacionIds ?? this.selectedLiquidacionIds,
       itemsByLiquidacion: itemsByLiquidacion ?? this.itemsByLiquidacion,
@@ -267,7 +279,14 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
       return;
     }
 
-    emit(state.copyWith(loadingPreview: true, error: null, message: null));
+    emit(
+      state.copyWith(
+        loadingPreview: true,
+        error: null,
+        message: null,
+        reabiertas: const <LiquidacionItem>[],
+      ),
+    );
 
     try {
       final preview = await _repository.fetchResumenPagoPreview(
@@ -293,6 +312,52 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
         state.copyWith(
           loadingPreview: false,
           error: _errorMessage(error),
+        ),
+      );
+    }
+
+    // Se pide igual si el preview fallo o vino vacio: muchas veces el vacio se
+    // explica justamente por las reabiertas.
+    await loadReabiertas(tecnicoId);
+  }
+
+  /// Trae las liquidaciones del tecnico en `estado=reabierta` y sin pagar.
+  ///
+  /// Reabrir deja `aprobado=false` y `fechaAprobacion=null`: esas liquidaciones
+  /// no entran en el preview ni en `marcar-pagadas`, y como perdieron la fecha
+  /// de aprobacion tampoco pertenecen a ningun periodo. Por eso se listan
+  /// completas, sin filtrar por desde/hasta.
+  Future<void> loadReabiertas(String tecnicoId) async {
+    final id = tecnicoId.trim();
+    if (id.isEmpty) {
+      emit(state.copyWith(reabiertas: const <LiquidacionItem>[]));
+      return;
+    }
+
+    emit(state.copyWith(loadingReabiertas: true));
+
+    try {
+      final result = await _repository.fetchLiquidaciones(
+        query: LiquidacionesQuery(
+          tecnicoId: id,
+          estado: LiquidacionEstadoFiltro.reabierta.queryValue,
+          liquidadaPago: false,
+          page: 1,
+          limit: 50,
+        ),
+      );
+      emit(
+        state.copyWith(
+          loadingReabiertas: false,
+          reabiertas: result.items,
+        ),
+      );
+    } catch (_) {
+      // El aviso es informativo: si no se puede resolver, el resumen sigue.
+      emit(
+        state.copyWith(
+          loadingReabiertas: false,
+          reabiertas: const <LiquidacionItem>[],
         ),
       );
     }
@@ -437,7 +502,8 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
         emit(
           state.copyWith(
             confirming: false,
-            error: 'Algunas liquidaciones ya no son elegibles; actualizamos la lista.',
+            error: 'Algunas liquidaciones ya no son elegibles (pueden haberse '
+                'reabierto); actualizamos la lista.',
           ),
         );
         return null;

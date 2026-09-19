@@ -208,7 +208,7 @@ Respuesta ejemplo:
 | PATCH | `/servicios/:id/documento` | tecnico, admin-tecnico, admin-desarrollo, admin |
 | POST | `/servicios/:id/documento/firmado` | tecnico, admin-tecnico, admin-desarrollo, admin |
 
-### Payload ejemplo POST /servicios
+### Payload ejemplo POST /servicios (canal = campo)
 
 ```json
 {
@@ -288,6 +288,118 @@ Respuesta ejemplo:
   }
 }
 ```
+
+### Payload ejemplo POST /servicios (canal = remoto)
+
+En `canal = remoto` y `canal = fabrica`, las claves `lugarProvinciaId`, `lugarDetalle` y `km` **no son requeridas**: se pueden omitir del body o enviar en `null`. Ambas formas son equivalentes, el backend las normaliza igual.
+
+Body minimo valido (la orden queda en `estadoOrden = abierta`, sin facturacion):
+
+```json
+{
+  "idempotencyKey": "6b1f0c2e-6d21-4f0a-9a3e-7c5f1d2b8e40",
+  "canal": "remoto",
+  "clienteId": "{{clienteId}}",
+  "partesFallaron": ["app_movil"],
+  "sintoma": "La app no sincroniza las pesadas",
+  "diagnosticoDetalle": "Token vencido en el dispositivo",
+  "diagnosticoCatId": ["{{diagnosticoId}}"],
+  "productosFalla": [
+    { "parteFallo": "app_movil", "productoFallaId": "{{productoId}}" }
+  ]
+}
+```
+
+El backend guarda `lugarProvinciaId = null`, `lugarDetalle = "Soporte remoto"` y `km = null`.
+
+### Payload ejemplo POST /servicios (canal = fabrica)
+
+Mismo contrato que `remoto`. Este ejemplo manda las tres claves en `null` para mostrar que es equivalente a omitirlas:
+
+```json
+{
+  "idempotencyKey": "8d7a5e13-42bc-4a90-b3f1-9e02c6d47a55",
+  "canal": "fabrica",
+  "clienteId": "{{clienteId}}",
+  "lugarProvinciaId": null,
+  "lugarDetalle": null,
+  "km": null,
+  "equipoNroSerie": "SN-002",
+  "equipoModelo": "ST455",
+  "partesFallaron": ["indicador"],
+  "sintoma": "No enciende",
+  "diagnosticoDetalle": "Fuente quemada, reparado en banco",
+  "diagnosticoCatId": ["{{diagnosticoId}}"],
+  "resolucionId": ["{{resolucionId}}"],
+  "productosFalla": [
+    { "parteFallo": "indicador", "productoFallaId": "{{productoId}}" }
+  ]
+}
+```
+
+El backend guarda `lugarProvinciaId = null`, `lugarDetalle = "Fábrica"` y `km = null`.
+
+### Payload ejemplo POST /servicios (canal = remoto con facturacion)
+
+Si se envia `facturacion`, el objeto sigue siendo obligatorio completo: `kmCantidad`, `subtotalKmUsd` y `subtotalKmArs` van en `0` y no se carga item `viatico`. La orden queda en `estadoOrden = cerrada`.
+
+```json
+{
+  "idempotencyKey": "1c9e4b77-0a52-4d38-8e61-b34f7a0c9d12",
+  "canal": "remoto",
+  "clienteId": "{{clienteId}}",
+  "partesFallaron": ["app_movil"],
+  "sintoma": "La app no sincroniza las pesadas",
+  "diagnosticoDetalle": "Token vencido en el dispositivo",
+  "diagnosticoCatId": ["{{diagnosticoId}}"],
+  "productosFalla": [
+    { "parteFallo": "app_movil", "productoFallaId": "{{productoId}}" }
+  ],
+  "facturacion": {
+    "kmCantidad": 0,
+    "subtotalKmUsd": 0,
+    "subtotalKmArs": 0,
+    "subtotalGeneralUsd": 80,
+    "subtotalGeneralArs": 89600,
+    "ivaPorcentaje": 21,
+    "totalConIvaArs": 108416,
+    "descuentoPorcentaje": 0,
+    "totalFinalArs": 108416,
+    "version": 1
+  },
+  "facturacionItems": [
+    {
+      "tipoItem": "mano_obra",
+      "referenciaId": null,
+      "descripcion": "Soporte remoto",
+      "cantidad": 1,
+      "precioUnitarioUsd": 80,
+      "precioUnitarioArs": 89600,
+      "subtotalUsd": 80,
+      "subtotalArs": 89600
+    }
+  ]
+}
+```
+
+### Reglas de `lugarProvinciaId`, `lugarDetalle` y `km` por canal
+
+| canal | lugarProvinciaId | lugarDetalle | km |
+|---|---|---|---|
+| `campo` | requerido (uuid de zona) | requerido (texto no vacio) | requerido y mayor a `0` |
+| `remoto` | opcional, se guarda `null` | opcional, se guarda `"Soporte remoto"` | opcional, se guarda `null` |
+| `fabrica` | opcional, se guarda `null` | opcional, se guarda `"Fábrica"` | opcional, se guarda `null` |
+
+- Para `remoto` y `fabrica`, **omitir la clave y mandarla en `null` son equivalentes**: el cliente puede usar cualquiera de las dos formas.
+- Si un cliente envia esas claves con valor en `remoto` o `fabrica`, el backend **las ignora** y guarda los valores normalizados de la tabla. No devuelve error.
+- Para `campo`, si falta alguna de las tres el backend responde `400`:
+  - `lugarProvinciaId es requerido cuando canal = campo`
+  - `lugarDetalle es requerido cuando canal = campo`
+  - `km es requerido cuando canal = campo`
+- `remoto` y `fabrica` **no generan liquidacion** (solo `canal = campo` la genera). Por eso `km` no aplica en esos canales.
+- En `campo`, `km` debe ser mayor a `0`: la liquidacion automatica lo exige.
+- En `remoto` y `fabrica`, enviar datos de firma en `documento` devuelve `400` (`Solo las ordenes de campo pueden registrarse como firmadas`). Mandar esas claves en `null` esta permitido.
+- `productosFalla` debe cubrir exactamente las partes listadas en `partesFallaron` (una entrada por parte, sin repetir).
 
 ### Respuesta ejemplo POST /servicios (orden completa)
 
@@ -735,7 +847,9 @@ Notas:
 - `GET /liquidaciones/mias?estado=pendiente` lista pendientes reales del tecnico autenticado aunque no tengan items de servicio cargados.
 - Cada item del listado incluye `tecnicoId`, `tecnicoNombre` y `tecnicoEmail` para facilitar filtros/seleccion en UI.
 - Cuando `admin-tecnico` edita una liquidacion (`PATCH /liquidaciones/:id`, `POST /liquidaciones/:id/items`, `DELETE /liquidaciones/:id/items/:itemId`), queda aprobada automaticamente al finalizar la operacion.
-- `PATCH /liquidaciones/:id/reabrir` registra motivo/historial de reapertura para auditoria, pero no cambia el estado de aprobacion.
+- `PATCH /liquidaciones/:id/reabrir` registra motivo/historial de reapertura y ademas deja la liquidacion en `estado=reabierta`, con `aprobado=false` y `fechaAprobacion=null`. Solo se puede reabrir una liquidacion aprobada.
+- Una liquidacion `reabierta` sale del circuito de pago: no aparece en `GET /liquidaciones/para-pago`, no se puede marcar con `PATCH /liquidaciones/marcar-pagadas` y no entra en el resumen de pago hasta que se vuelva a aprobar.
+- Volver a aprobarla (`PATCH /liquidaciones/:id/aprobar`, o cualquier edicion de admin que auto-aprueba) la devuelve a `estado=aprobada` con nueva `fechaAprobacion`, y vuelve a ser elegible para pago.
 - Si `liquidadaPago = true`, la liquidacion ya fue pasada para pago y no se puede editar.
 
 `GET /liquidaciones/para-pago` (admin):
@@ -746,7 +860,7 @@ Notas:
 
 Notas:
 
-- Devuelve solo liquidaciones aprobadas (`aprobado=true`) y no liquidadas para pago (`liquidadaPago=false`).
+- Devuelve solo liquidaciones aprobadas (`aprobado=true`), no liquidadas para pago (`liquidadaPago=false`) y que no esten en `estado=reabierta`.
 - Sirve como fuente para armar el lote de pago desde la web admin.
 
 `PATCH /liquidaciones/marcar-pagadas`:
@@ -763,7 +877,7 @@ Notas:
 Notas:
 
 - Marca en lote las liquidaciones seleccionadas como `liquidadaPago=true`.
-- Solo permite liquidaciones aprobadas, no liquidadas previamente y con al menos un item (`tipo_servicio`) asignado.
+- Solo permite liquidaciones aprobadas, no reabiertas, no liquidadas previamente y con al menos un item (`tipo_servicio`) asignado.
 - Una vez marcadas, ya no se pueden volver a editar ni volver a seleccionar para otro lote de pago.
 
 `GET /liquidaciones/resumen-pago/preview`:
@@ -775,7 +889,7 @@ Notas:
 Notas:
 
 - Genera el resumen por tecnico y rango de fechas.
-- La elegibilidad exige: aprobada, no liquidada para pago, fechaAprobacion dentro del rango y con items de servicio.
+- La elegibilidad exige: aprobada, no reabierta, no liquidada para pago, fechaAprobacion dentro del rango y con items de servicio.
 
 Respuesta ejemplo:
 

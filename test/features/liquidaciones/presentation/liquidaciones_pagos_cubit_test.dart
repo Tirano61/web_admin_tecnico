@@ -91,6 +91,53 @@ void main() {
     });
   });
 
+  group('LiquidacionesPagosCubit reabiertas', () {
+    test('el preview trae aparte las reabiertas del tecnico', () async {
+      // El backend las excluye del resumen: sin este listado el admin solo ve
+      // que la fila desaparecio.
+      final repository = _FakeRepository(
+        reabiertas: <LiquidacionItem>[_reabierta()],
+      );
+      final cubit = LiquidacionesPagosCubit(repository);
+
+      cubit.updateFilters(
+        tecnicoId: 'tec-1',
+        desde: '2026-07-01',
+        hasta: '2026-07-31',
+      );
+      await cubit.previewResumen();
+
+      expect(cubit.state.reabiertas, hasLength(1));
+      expect(cubit.state.reabiertas.single.motivoReapertura, 'Km mal cargados');
+      expect(cubit.state.loadingReabiertas, isFalse);
+
+      final query = repository.lastLiquidacionesQuery;
+      expect(query?.tecnicoId, 'tec-1');
+      expect(query?.estado, 'reabierta');
+      expect(query?.liquidadaPago, isFalse);
+      // Al reabrirse pierden fechaAprobacion: no pertenecen a ningun periodo.
+      expect(query?.aprobado, isNull);
+    });
+
+    test('si el listado de reabiertas falla el preview igual queda', () async {
+      final repository = _FakeRepository(
+        reabiertasError: const AppFailure('boom', statusCode: 500),
+      );
+      final cubit = LiquidacionesPagosCubit(repository);
+
+      cubit.updateFilters(
+        tecnicoId: 'tec-1',
+        desde: '2026-07-01',
+        hasta: '2026-07-31',
+      );
+      await cubit.previewResumen();
+
+      expect(cubit.state.reabiertas, isEmpty);
+      expect(cubit.state.previewItems, hasLength(2));
+      expect(cubit.state.error, isNull);
+    });
+  });
+
   group('LiquidacionesPagosCubit seleccion', () {
     test('toggleSelectAll selecciona y limpia todo el preview', () async {
       final repository = _FakeRepository();
@@ -118,6 +165,24 @@ void main() {
       expect(cubit.state.somePreviewSelected, isFalse);
     });
   });
+}
+
+LiquidacionItem _reabierta() {
+  return const LiquidacionItem(
+    id: 'liq-9',
+    servicioId: 'srv-9',
+    servicioCanal: 'campo',
+    tipoSalidaPrecioUsd: 80,
+    km: 40,
+    precioKmUsdSnapshotLegacy: 0,
+    aprobada: false,
+    liquidadaPago: false,
+    estado: 'reabierta',
+    clienteNombre: 'Agro SRL',
+    tipoSalidaNombre: 'Media distancia',
+    motivoReapertura: 'Km mal cargados',
+    fechaReapertura: '2026-07-12T09:00:00.000Z',
+  );
 }
 
 LiquidacionItemsResponse _itemsResponse() {
@@ -148,13 +213,18 @@ class _FakeRepository implements LiquidacionesRepository {
     List<LiquidacionItemsResponse?>? itemsQueue,
     this.itemsError,
     this.delay,
+    this.reabiertas,
+    this.reabiertasError,
   }) : _itemsQueue = itemsQueue;
 
   final List<LiquidacionItemsResponse?>? _itemsQueue;
   final AppFailure? itemsError;
   final Duration? delay;
+  final List<LiquidacionItem>? reabiertas;
+  final Object? reabiertasError;
 
   int itemsCalls = 0;
+  LiquidacionesQuery? lastLiquidacionesQuery;
 
   @override
   Future<LiquidacionItemsResponse?> fetchLiquidacionItems(
@@ -231,8 +301,22 @@ class _FakeRepository implements LiquidacionesRepository {
   @override
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
     required LiquidacionesQuery query,
-  }) async =>
+  }) async {
+    lastLiquidacionesQuery = query;
+    if (reabiertasError != null) {
+      throw reabiertasError!;
+    }
+    final items = reabiertas;
+    if (items == null) {
       throw UnimplementedError();
+    }
+    return PagedResult<LiquidacionItem>(
+      items: items,
+      total: items.length,
+      page: 1,
+      limit: 50,
+    );
+  }
 
   @override
   Future<PagedResult<LiquidacionPendienteItem>> fetchLiquidacionesPendientes({

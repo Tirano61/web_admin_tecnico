@@ -5,6 +5,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/data/liquidaciones_repo
 import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_repository.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidacion_items_cache.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/bloc/liquidaciones_pagos_cubit.dart';
+import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/liquidacion_estado_badge.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/liquidacion_items_breakdown.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/widgets/resumen_pago_preview_table.dart';
 
@@ -312,6 +313,12 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                 ModuleStatusChip(
                   label: 'Elegibles ${state.preview!.meta.totalLiquidaciones}',
                 ),
+              if (state.reabiertas.isNotEmpty)
+                ModuleStatusChip(
+                  label: 'Reabiertas ${state.reabiertas.length}',
+                  backgroundColor: LiquidacionEstadoColores.reabiertaFondo,
+                  foregroundColor: LiquidacionEstadoColores.reabiertaTexto,
+                ),
               ModuleStatusChip(label: 'Seleccionadas $selectedCount'),
               ModuleStatusChip(
                 label: 'Total seleccionado USD ${state.totalSeleccionadoUsd.toStringAsFixed(2)}',
@@ -374,45 +381,53 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
                   children: <Widget>[
                     state.loadingPreview
                         ? const Center(child: CircularProgressIndicator())
-                        : previewItems.isEmpty
-                            ? const _EmptyState(
-                                text:
-                                    'Sin liquidaciones elegibles para el tecnico y periodo seleccionado.',
-                              )
-                            : Column(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: ResumenPagoPreviewTable(
-                                      items: previewItems,
-                                      selectedIds: state.selectedLiquidacionIds,
-                                      expandedIds: state.expandedLiquidacionIds,
-                                      itemsCache: state.itemsByLiquidacion,
-                                      allSelected: state.allPreviewSelected,
-                                      someSelected: state.somePreviewSelected,
-                                      onToggleSelected: (id, selected) => context
-                                          .read<LiquidacionesPagosCubit>()
-                                          .toggleSelected(id, selected),
-                                      onToggleSelectAll: (selected) => context
-                                          .read<LiquidacionesPagosCubit>()
-                                          .toggleSelectAll(selected),
-                                      onToggleExpanded: (id, expanded) => context
-                                          .read<LiquidacionesPagosCubit>()
-                                          .toggleExpanded(id, expanded),
-                                      onRetryItems: (id) => context
-                                          .read<LiquidacionesPagosCubit>()
-                                          .ensureLiquidacionItems(id, force: true),
-                                    ),
-                                  ),
-                                  _PreviewTotalsBar(
-                                    seleccionadas: selectedCount,
-                                    elegibles: state.preview?.meta.totalLiquidaciones ??
-                                        previewItems.length,
-                                    totalSeleccionadoUsd: state.totalSeleccionadoUsd,
-                                    totalResumenUsd:
-                                        state.preview?.meta.totalResumenUsd ?? 0,
-                                  ),
-                                ],
+                        : Column(
+                            children: <Widget>[
+                              if (state.reabiertas.isNotEmpty) ...<Widget>[
+                                _ReabiertasFueraDePagoAviso(
+                                  items: state.reabiertas,
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              Expanded(
+                                child: previewItems.isEmpty
+                                    ? _EmptyState(
+                                        text: state.reabiertas.isEmpty
+                                            ? 'Sin liquidaciones elegibles para el tecnico y periodo seleccionado.'
+                                            : 'Sin liquidaciones elegibles en el periodo: las reabiertas listadas arriba no entran hasta volver a aprobarse.',
+                                      )
+                                    : ResumenPagoPreviewTable(
+                                        items: previewItems,
+                                        selectedIds: state.selectedLiquidacionIds,
+                                        expandedIds: state.expandedLiquidacionIds,
+                                        itemsCache: state.itemsByLiquidacion,
+                                        allSelected: state.allPreviewSelected,
+                                        someSelected: state.somePreviewSelected,
+                                        onToggleSelected: (id, selected) => context
+                                            .read<LiquidacionesPagosCubit>()
+                                            .toggleSelected(id, selected),
+                                        onToggleSelectAll: (selected) => context
+                                            .read<LiquidacionesPagosCubit>()
+                                            .toggleSelectAll(selected),
+                                        onToggleExpanded: (id, expanded) => context
+                                            .read<LiquidacionesPagosCubit>()
+                                            .toggleExpanded(id, expanded),
+                                        onRetryItems: (id) => context
+                                            .read<LiquidacionesPagosCubit>()
+                                            .ensureLiquidacionItems(id, force: true),
+                                      ),
                               ),
+                              if (previewItems.isNotEmpty)
+                                _PreviewTotalsBar(
+                                  seleccionadas: selectedCount,
+                                  elegibles: state.preview?.meta.totalLiquidaciones ??
+                                      previewItems.length,
+                                  totalSeleccionadoUsd: state.totalSeleccionadoUsd,
+                                  totalResumenUsd:
+                                      state.preview?.meta.totalResumenUsd ?? 0,
+                                ),
+                            ],
+                          ),
                     Column(
                       children: <Widget>[
                         Wrap(
@@ -582,6 +597,98 @@ class _EmptyState extends StatelessWidget {
       ),
       child: Text(text),
     );
+  }
+}
+
+/// Aviso de las liquidaciones que quedaron fuera del resumen por estar
+/// reabiertas.
+///
+/// Sin esto el admin solo ve que la fila desaparecio: el backend las excluye de
+/// `para-pago`, del preview y de `marcar-pagadas` mientras `estado=reabierta`.
+class _ReabiertasFueraDePagoAviso extends StatelessWidget {
+  const _ReabiertasFueraDePagoAviso({required this.items});
+
+  final List<LiquidacionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('aviso-reabiertas-fuera-de-pago'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: LiquidacionEstadoColores.reabiertaFondo,
+        border: Border.all(color: LiquidacionEstadoColores.reabiertaBorde),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.lock_reset_outlined,
+                size: 18,
+                color: LiquidacionEstadoColores.reabiertaTexto,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${items.length} liquidacion(es) reabiertas fuera del circuito de pago',
+                  style: const TextStyle(
+                    color: LiquidacionEstadoColores.reabiertaTexto,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'No entran en este resumen ni se pueden marcar como pagadas hasta '
+            'volver a aprobarlas desde Liquidaciones. Se listan sin filtrar por '
+            'periodo porque al reabrirse pierden la fecha de aprobacion.',
+            style: TextStyle(color: Color(0xFFEAF3FF)),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 132),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: items
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          _describeReabierta(item),
+                          style: const TextStyle(color: Color(0xFF9AB1CC)),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _describeReabierta(LiquidacionItem item) {
+    final cliente = (item.clienteNombre ?? '').trim();
+    final salida = (item.tipoSalidaNombre ?? '').trim();
+    final motivo = (item.motivoReapertura ?? '').trim();
+    final fecha = _formatDateTimeAr(item.fechaReapertura);
+
+    final encabezado = <String>[
+      if (cliente.isNotEmpty) cliente,
+      if (salida.isNotEmpty) salida,
+      if (fecha != '-') fecha,
+    ].join(' - ');
+
+    final prefijo = encabezado.isEmpty ? 'Liquidacion reabierta' : encabezado;
+    return motivo.isEmpty ? '$prefijo: sin motivo registrado' : '$prefijo: $motivo';
   }
 }
 

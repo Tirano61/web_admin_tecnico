@@ -56,6 +56,63 @@ void main() {
       expect(repository.lastApprovedLiquidacionId, 'liq-1');
       expect(repository.lastPendientesQuery?.estado, 'pendiente');
     });
+
+    test('reabrir avisa el motivo y la salida del circuito de pago', () async {
+      // Reabrir ya no deja la liquidacion aprobada: el mensaje tiene que decir
+      // que queda fuera del pago hasta volver a aprobarla.
+      final repository = _FakeLiquidacionesRepository();
+      final bloc = LiquidacionesBloc(repository);
+      addTearDown(bloc.close);
+
+      final expectation = expectLater(
+        bloc.stream,
+        emitsThrough(
+          predicate<LiquidacionesState>(
+            (state) =>
+                state is LiquidacionesLoaded &&
+                (state.message?.contains('Km mal cargados') ?? false) &&
+                (state.message?.contains('fuera del circuito de pago') ?? false),
+          ),
+        ),
+      );
+
+      bloc.add(
+        LiquidacionesReopenRequested(
+          input: const ReopenLiquidacionInput(
+            liquidacionId: 'liq-1',
+            motivo: 'Km mal cargados',
+          ),
+        ),
+      );
+
+      await expectation.timeout(const Duration(seconds: 2));
+      expect(repository.lastReopenInput?.motivo, 'Km mal cargados');
+    });
+
+    test('el filtro de estado viaja en la query y queda en el estado', () async {
+      final repository = _FakeLiquidacionesRepository();
+      final bloc = LiquidacionesBloc(repository);
+      addTearDown(bloc.close);
+
+      final expectation = expectLater(
+        bloc.stream,
+        emitsThrough(
+          predicate<LiquidacionesState>(
+            (state) => state is LiquidacionesLoaded && state.estado == 'reabierta',
+          ),
+        ),
+      );
+
+      bloc.add(
+        LiquidacionesRequested(
+          estado: LiquidacionEstadoFiltro.reabierta.queryValue,
+        ),
+      );
+
+      await expectation.timeout(const Duration(seconds: 2));
+      expect(repository.lastLiquidacionesQuery?.estado, 'reabierta');
+      expect(repository.lastLiquidacionesQuery?.aprobado, isNull);
+    });
   });
 }
 
@@ -65,11 +122,14 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
   String? lastApprovedLiquidacionId;
   CreateLiquidacionInput? lastCreateInput;
   LiquidacionesPendientesQuery? lastPendientesQuery;
+  LiquidacionesQuery? lastLiquidacionesQuery;
+  ReopenLiquidacionInput? lastReopenInput;
 
   @override
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
     required LiquidacionesQuery query,
   }) async {
+    lastLiquidacionesQuery = query;
     return const PagedResult<LiquidacionItem>(
       items: <LiquidacionItem>[],
       total: 0,
@@ -137,7 +197,9 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
   }
 
   @override
-  Future<void> reopenLiquidacion({required ReopenLiquidacionInput input}) async {}
+  Future<void> reopenLiquidacion({required ReopenLiquidacionInput input}) async {
+    lastReopenInput = input;
+  }
 
   @override
   Future<LiquidacionReaperturasResponse> fetchLiquidacionReaperturas(String liquidacionId) async {
