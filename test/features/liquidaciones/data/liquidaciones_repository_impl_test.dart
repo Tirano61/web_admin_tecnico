@@ -7,6 +7,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/domain/liquidaciones_re
 
 void main() {
   _mainHidratacionCliente();
+  _mainReabiertas();
 
   group('LiquidacionesRepositoryImpl pendientes', () {
     test('envia estado=pendiente al consultar pendientes', () async {
@@ -29,6 +30,113 @@ void main() {
       expect(client.calls.first.queryParameters['tecnicoId'] ?? client.calls.first.queryParameters['tecnico_id'], 'tec-1');
     });
   });
+}
+
+void _mainReabiertas() {
+  group('LiquidacionesRepositoryImpl reabiertas', () {
+    test('filtra por estado=reabierta en vez de aprobado', () async {
+      // Reabrir deja aprobado=false: filtrar por aprobado ya no distingue una
+      // reabierta de una pendiente.
+      final client = _RecordingHttpClient();
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      await repository.fetchLiquidaciones(
+        query: LiquidacionesQuery(
+          tecnicoId: 'tec-1',
+          estado: LiquidacionEstadoFiltro.reabierta.queryValue,
+          liquidadaPago: false,
+          page: 1,
+          limit: 50,
+        ),
+      );
+
+      final call = client.calls.first;
+      expect(call.endpoint, '/liquidaciones');
+      expect(call.queryParameters['estado'], 'reabierta');
+      expect(call.queryParameters['liquidadaPago'], 'false');
+      expect(call.queryParameters.containsKey('aprobado'), isFalse);
+    });
+
+    test('el filtro todas no manda el parametro estado', () async {
+      final client = _RecordingHttpClient();
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      await repository.fetchLiquidaciones(
+        query: LiquidacionesQuery(
+          estado: LiquidacionEstadoFiltro.todas.queryValue,
+          page: 1,
+          limit: 20,
+        ),
+      );
+
+      expect(client.calls.first.queryParameters.containsKey('estado'), isFalse);
+    });
+
+    test('mapea motivo y fecha de reapertura, y la deja fuera de pago', () async {
+      final client = _RouteHttpClient(
+        responses: <String, dynamic>{
+          '/liquidaciones': _liquidacionReabiertaPayload(),
+        },
+      );
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      final result = await repository.fetchLiquidaciones(
+        query: const LiquidacionesQuery(estado: 'reabierta'),
+      );
+
+      final item = result.items.single;
+      expect(item.estadoNormalizado, 'reabierta');
+      expect(item.isReabierta, isTrue);
+      expect(item.motivoReapertura, 'Faltaba cargar un item');
+      expect(item.fechaReapertura, '2026-07-12T09:00:00.000Z');
+      expect(item.fechaAprobacion, isNull);
+      expect(item.isElegibleParaPago, isFalse);
+    });
+
+    test('hidratar el cliente no pierde el motivo de reapertura', () async {
+      // El item se reconstruia campo por campo al hidratar: cualquier dato
+      // nuevo se perdia justo en las filas sin cliente.
+      final client = _RouteHttpClient(
+        responses: <String, dynamic>{
+          '/liquidaciones': _liquidacionReabiertaPayload(conCliente: false),
+          '/servicios/srv-9': _servicioPayload('Agro SRL'),
+        },
+      );
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      final result = await repository.fetchLiquidaciones(
+        query: const LiquidacionesQuery(estado: 'reabierta'),
+      );
+
+      final item = result.items.single;
+      expect(item.clienteNombre, 'Agro SRL');
+      expect(item.motivoReapertura, 'Faltaba cargar un item');
+      expect(item.isReabierta, isTrue);
+    });
+  });
+}
+
+Map<String, dynamic> _liquidacionReabiertaPayload({bool conCliente = true}) {
+  return <String, dynamic>{
+    'data': <dynamic>[
+      <String, dynamic>{
+        'id': 'liq-9',
+        'servicioId': 'srv-9',
+        'servicio': <String, dynamic>{'id': 'srv-9', 'canal': 'campo'},
+        'clienteNombre': conCliente ? 'Agro SRL' : null,
+        'tipoSalidaNombre': 'Media distancia',
+        'tipoSalidaPrecioUsd': 80,
+        'km': 40,
+        'aprobado': false,
+        'estado': 'reabierta',
+        'fechaAprobacion': null,
+        'motivoReapertura': 'Faltaba cargar un item',
+        'fechaReapertura': '2026-07-12T09:00:00.000Z',
+        'liquidadaPago': false,
+      },
+    ],
+    'meta': <String, dynamic>{'total': 1, 'page': 1, 'limit': 20},
+  };
 }
 
 void _mainHidratacionCliente() {

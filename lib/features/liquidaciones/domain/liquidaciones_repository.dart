@@ -117,6 +117,8 @@ class LiquidacionItem {
     required this.aprobada,
     required this.liquidadaPago,
     this.estado,
+    this.motivoReapertura,
+    this.fechaReapertura,
     this.fechaLiquidadaPago,
     this.tecnicoId,
     this.tecnicoNombre,
@@ -143,6 +145,10 @@ class LiquidacionItem {
   final bool aprobada;
   final bool liquidadaPago;
   final String? estado;
+
+  /// Motivo de la ultima reapertura. El backend lo limpia al volver a aprobar.
+  final String? motivoReapertura;
+  final String? fechaReapertura;
   final String? fechaLiquidadaPago;
   final String? fechaAprobacion;
   final String? createdAt;
@@ -173,6 +179,41 @@ class LiquidacionItem {
   bool get isEditable => !liquidadaPago && (isPendiente || isReabierta);
 
   bool get isPassedToPayment => liquidadaPago;
+
+  /// Copia el item cambiando solo el cliente, que es lo unico que aporta la
+  /// hidratacion contra `GET /servicios/:id`.
+  ///
+  /// Reconstruir el item campo por campo en la capa data hacia que cada campo
+  /// nuevo (por ejemplo el motivo de reapertura) se perdiera al hidratar.
+  LiquidacionItem conClienteNombre(String clienteNombre) {
+    return LiquidacionItem(
+      id: id,
+      servicioId: servicioId,
+      servicioCanal: servicioCanal,
+      tecnicoId: tecnicoId,
+      tecnicoNombre: tecnicoNombre,
+      tecnicoEmail: tecnicoEmail,
+      clienteNombre: clienteNombre,
+      tipoSalidaId: tipoSalidaId,
+      tipoSalidaNombre: tipoSalidaNombre,
+      tipoSalidaPrecioUsd: tipoSalidaPrecioUsd,
+      km: km,
+      precioKmUsdSnapshotLegacy: precioKmUsdSnapshotLegacy,
+      aprobada: aprobada,
+      liquidadaPago: liquidadaPago,
+      estado: estado,
+      motivoReapertura: motivoReapertura,
+      fechaReapertura: fechaReapertura,
+      fechaLiquidadaPago: fechaLiquidadaPago,
+      fechaAprobacion: fechaAprobacion,
+      createdAt: createdAt,
+    );
+  }
+
+  /// Reabrir deja `aprobado=false`, `fechaAprobacion=null` y saca la
+  /// liquidacion de `GET /liquidaciones/para-pago`, del resumen de pago y de
+  /// `PATCH /liquidaciones/marcar-pagadas` hasta que se vuelva a aprobar.
+  bool get isElegibleParaPago => aprobada && !liquidadaPago && !isReabierta;
 }
 
 class ResumenPagoPreviewQuery {
@@ -596,6 +637,43 @@ class ReopenLiquidacionInput {
 
   final String liquidacionId;
   final String motivo;
+}
+
+/// Valores que acepta `GET /liquidaciones?estado=`.
+///
+/// Desde que reabrir deja `estado=reabierta` con `aprobado=false`, filtrar por
+/// `aprobado` mezcla reabiertas con pendientes: el panel filtra por estado.
+enum LiquidacionEstadoFiltro {
+  todas,
+  pendiente,
+  aprobada,
+  reabierta;
+
+  /// `null` para `todas`: no se manda el parametro.
+  String? get queryValue => this == LiquidacionEstadoFiltro.todas ? null : name;
+
+  String get etiqueta {
+    switch (this) {
+      case LiquidacionEstadoFiltro.todas:
+        return 'TODAS';
+      case LiquidacionEstadoFiltro.pendiente:
+        return 'PENDIENTES';
+      case LiquidacionEstadoFiltro.aprobada:
+        return 'APROBADAS';
+      case LiquidacionEstadoFiltro.reabierta:
+        return 'REABIERTAS';
+    }
+  }
+
+  static LiquidacionEstadoFiltro desdeQueryValue(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
+    for (final filtro in LiquidacionEstadoFiltro.values) {
+      if (filtro.name == normalized) {
+        return filtro;
+      }
+    }
+    return LiquidacionEstadoFiltro.todas;
+  }
 }
 
 const Object _aprobadoNoChange = Object();

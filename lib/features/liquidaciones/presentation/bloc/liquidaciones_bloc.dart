@@ -100,6 +100,7 @@ class LiquidacionesLoaded extends LiquidacionesState {
     required this.pendientesLimit,
     required this.tecnicoId,
     required this.aprobado,
+    required this.estado,
     required this.tiposSalida,
     required this.tiposServicio,
     required this.itemDetallesByLiquidacion,
@@ -116,6 +117,10 @@ class LiquidacionesLoaded extends LiquidacionesState {
   final int pendientesLimit;
   final String? tecnicoId;
   final bool? aprobado;
+
+  /// Filtro de estado activo (`pendiente | aprobada | reabierta`), o `null`
+  /// cuando se listan todas.
+  final String? estado;
   final List<TipoSalidaCatalogoItem> tiposSalida;
   final List<TipoServicioCatalogoItem> tiposServicio;
   final Map<String, List<LiquidacionItemDetalle>> itemDetallesByLiquidacion;
@@ -132,6 +137,7 @@ class LiquidacionesLoaded extends LiquidacionesState {
     int? pendientesLimit,
     String? tecnicoId,
     Object? aprobado = _aprobadoNoChange,
+    Object? estado = _aprobadoNoChange,
     List<TipoSalidaCatalogoItem>? tiposSalida,
     List<TipoServicioCatalogoItem>? tiposServicio,
     Map<String, List<LiquidacionItemDetalle>>? itemDetallesByLiquidacion,
@@ -150,6 +156,9 @@ class LiquidacionesLoaded extends LiquidacionesState {
       aprobado: identical(aprobado, _aprobadoNoChange)
           ? this.aprobado
           : aprobado as bool?,
+      estado: identical(estado, _aprobadoNoChange)
+          ? this.estado
+          : estado as String?,
       tiposSalida: tiposSalida ?? this.tiposSalida,
       tiposServicio: tiposServicio ?? this.tiposServicio,
       itemDetallesByLiquidacion:
@@ -326,9 +335,14 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
   ) async {
     try {
       await _repository.reopenLiquidacion(input: event.input);
+      final motivo = event.input.motivo.trim();
       await _loadAndEmit(
         emit: emit,
-        successMessage: 'Liquidacion reabierta correctamente',
+        // Reabrir baja aprobado y limpia fechaAprobacion: la liquidacion sale
+        // del circuito de pago hasta que se vuelva a aprobar.
+        successMessage: motivo.isEmpty
+            ? 'Liquidacion reabierta. Queda fuera del circuito de pago hasta volver a aprobarla.'
+            : 'Liquidacion reabierta. Motivo: $motivo. Queda fuera del circuito de pago hasta volver a aprobarla.',
       );
     } catch (error) {
       emit(LiquidacionesFailure(_errorMessage(error)));
@@ -429,6 +443,7 @@ class LiquidacionesBloc extends Bloc<LiquidacionesEvent, LiquidacionesState> {
           pendientesLimit: pendientesResult.limit,
           tecnicoId: _lastLiquidacionesQuery.tecnicoId,
           aprobado: _lastLiquidacionesQuery.aprobado,
+          estado: _lastLiquidacionesQuery.estado,
           tiposSalida: tiposSalida,
           tiposServicio: tiposServicio,
           itemDetallesByLiquidacion: _snapshotItemCache(),

@@ -7,6 +7,59 @@ import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liqu
 
 void main() {
   group('LiquidacionesPagosPage', () {
+    testWidgets('avisa las reabiertas que quedaron fuera del resumen', (tester) async {
+      // Sin este aviso la liquidacion solo desaparece de la lista y el admin no
+      // sabe por que no puede pagarla.
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository(
+        reabiertas: <LiquidacionItem>[_reabierta()],
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(
+        find.byKey(const ValueKey<String>('aviso-reabiertas-fuera-de-pago')),
+        findsOneWidget,
+      );
+      expect(find.text('Reabiertas 1'), findsOneWidget);
+      expect(find.textContaining('Km mal cargados'), findsOneWidget);
+      expect(find.textContaining('Campo Norte SA'), findsOneWidget);
+      expect(find.textContaining('hasta volver a aprobarlas'), findsOneWidget);
+    });
+
+    testWidgets('resumen vacio por reaperturas lo explica en el vacio', (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository(
+        previewVacio: true,
+        reabiertas: <LiquidacionItem>[_reabierta()],
+      );
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(
+        find.textContaining('las reabiertas listadas arriba no entran'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('sin reabiertas no aparece el aviso', (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeLiquidacionesRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+      await _fillFiltersAndPreview(tester);
+
+      expect(
+        find.byKey(const ValueKey<String>('aviso-reabiertas-fuera-de-pago')),
+        findsNothing,
+      );
+    });
+
     testWidgets('confirmar deshabilitado sin seleccion', (tester) async {
       await _setDesktopSurface(tester);
       final repository = _FakeLiquidacionesRepository();
@@ -62,7 +115,10 @@ void main() {
       expect(repository.confirmCalls, 1);
       expect(repository.previewCalls, 2);
       expect(
-        find.text('Algunas liquidaciones ya no son elegibles; actualizamos la lista.'),
+        find.text(
+          'Algunas liquidaciones ya no son elegibles (pueden haberse reabierto); '
+          'actualizamos la lista.',
+        ),
         findsOneWidget,
       );
     });
@@ -250,6 +306,24 @@ Widget _testApp(
 Finder _confirmButtonFinder() =>
     find.widgetWithText(FilledButton, 'Confirmar resumen de pago');
 
+LiquidacionItem _reabierta() {
+  return const LiquidacionItem(
+    id: 'liq-9',
+    servicioId: 'srv-9',
+    servicioCanal: 'campo',
+    tipoSalidaPrecioUsd: 80,
+    km: 40,
+    precioKmUsdSnapshotLegacy: 0,
+    aprobada: false,
+    liquidadaPago: false,
+    estado: 'reabierta',
+    clienteNombre: 'Campo Norte SA',
+    tipoSalidaNombre: 'Larga distancia',
+    motivoReapertura: 'Km mal cargados',
+    fechaReapertura: '2026-07-12T09:00:00.000Z',
+  );
+}
+
 // Los campos de fecha son readOnly y abren un date picker al tocarlos, asi que
 // no aceptan enterText. Aceptamos el initialDate: la validacion del cubit solo
 // exige que desde/hasta no esten vacios, el valor concreto es indistinto.
@@ -278,8 +352,15 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
     this.confirmError,
     this.clienteNombre = 'Agro SRL',
     this.tipoSalidaNombre = 'Media distancia',
+    this.reabiertas = const <LiquidacionItem>[],
+    this.previewVacio = false,
     List<LiquidacionItemsResponse?>? itemsQueue,
   }) : _itemsQueue = itemsQueue;
+
+  /// Liquidaciones del tecnico en estado reabierta: el backend las excluye del
+  /// resumen y la pagina las tiene que mostrar aparte.
+  final List<LiquidacionItem> reabiertas;
+  final bool previewVacio;
 
   final AppFailure? confirmError;
   final String? clienteNombre;
@@ -347,6 +428,15 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
     required ResumenPagoPreviewQuery query,
   }) async {
     previewCalls += 1;
+    if (previewVacio) {
+      return const ResumenPagoPreviewResponse(
+        items: <ResumenPagoPreviewItem>[],
+        meta: ResumenPagoPreviewMeta(
+          totalLiquidaciones: 0,
+          totalResumenUsd: 0,
+        ),
+      );
+    }
     return ResumenPagoPreviewResponse(
       items: <ResumenPagoPreviewItem>[_previewRow],
       meta: const ResumenPagoPreviewMeta(
@@ -433,7 +523,12 @@ class _FakeLiquidacionesRepository implements LiquidacionesRepository {
   Future<PagedResult<LiquidacionItem>> fetchLiquidaciones({
     required LiquidacionesQuery query,
   }) async {
-    throw UnimplementedError();
+    return PagedResult<LiquidacionItem>(
+      items: reabiertas,
+      total: reabiertas.length,
+      page: 1,
+      limit: 50,
+    );
   }
 
   @override

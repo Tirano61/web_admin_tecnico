@@ -170,6 +170,12 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
                 source['estadoLiquidacion'] ??
                 source['estado_liquidacion'],
           ),
+          motivoReapertura: _stringOrNull(
+            source['motivoReapertura'] ?? source['motivo_reapertura'],
+          ),
+          fechaReapertura: _stringOrNull(
+            source['fechaReapertura'] ?? source['fecha_reapertura'],
+          ),
           fechaLiquidadaPago: _stringOrNull(
             source['fechaLiquidadaPago'] ??
                 source['fecha_liquidada_pago'] ??
@@ -485,26 +491,7 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       return item;
     }
 
-    return LiquidacionItem(
-      id: item.id,
-      servicioId: item.servicioId,
-      servicioCanal: item.servicioCanal,
-      tecnicoId: item.tecnicoId,
-      tecnicoNombre: item.tecnicoNombre,
-      tecnicoEmail: item.tecnicoEmail,
-      clienteNombre: clienteNombre,
-      tipoSalidaId: item.tipoSalidaId,
-      tipoSalidaNombre: item.tipoSalidaNombre,
-      tipoSalidaPrecioUsd: item.tipoSalidaPrecioUsd,
-      km: item.km,
-      precioKmUsdSnapshotLegacy: item.precioKmUsdSnapshotLegacy,
-      aprobada: item.aprobada,
-      liquidadaPago: item.liquidadaPago,
-      estado: item.estado,
-      fechaLiquidadaPago: item.fechaLiquidadaPago,
-      fechaAprobacion: item.fechaAprobacion,
-      createdAt: item.createdAt,
-    );
+    return item.conClienteNombre(clienteNombre);
   }
 
   bool _requiresServicioHydration(LiquidacionPendienteItem item) {
@@ -1121,6 +1108,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   /// Se consulta el universo elegible del tecnico (aprobadas y no liquidadas),
   /// superconjunto de cualquier periodo del preview, y se cachea por tecnico
   /// mientras viva el repositorio.
+  ///
+  /// Aca `aprobado=true` significa "listas para pagar", asi que dejar afuera a
+  /// las reabiertas (que ahora quedan con `aprobado=false`) es lo correcto: el
+  /// preview tampoco las incluye.
   Future<Map<String, _LiquidacionResumen>> _fetchLiquidacionResumenPorTecnico(
     String tecnicoId, {
     required bool liquidadaPago,
