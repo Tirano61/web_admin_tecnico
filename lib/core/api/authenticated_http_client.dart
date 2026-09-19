@@ -3,11 +3,13 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
+import 'package:web_admin_tecnico/core/auth/session_expiration.dart';
 import 'package:web_admin_tecnico/core/auth/session_store.dart';
 
 class AuthenticatedHttpClient {
-  AuthenticatedHttpClient({String? baseUrl})
-      : baseUrl = baseUrl ?? configuredBaseUrl;
+  AuthenticatedHttpClient({String? baseUrl, SessionExpiration? sessionExpiration})
+      : baseUrl = baseUrl ?? configuredBaseUrl,
+        _sessionExpiration = sessionExpiration ?? SessionExpiration.instance;
 
   static const String defaultBaseUrl =
       'https://backend-feedback-11c2.onrender.com/api/v1';
@@ -17,6 +19,7 @@ class AuthenticatedHttpClient {
   );
 
   final String baseUrl;
+  final SessionExpiration _sessionExpiration;
 
   Uri buildUri(
     String endpoint, {
@@ -56,7 +59,7 @@ class AuthenticatedHttpClient {
       keepEmptyQueryParameters: keepEmptyQueryParameters,
     );
     final response = await http.get(uri, headers: buildAuthHeaders(includeAuth: includeAuth));
-    return _decodeResponse(response);
+    return _decodeResponse(response, includeAuth: includeAuth);
   }
 
   Future<dynamic> postJson(
@@ -76,7 +79,7 @@ class AuthenticatedHttpClient {
       headers: buildAuthHeaders(includeAuth: includeAuth),
       body: jsonEncode(body ?? const <String, dynamic>{}),
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, includeAuth: includeAuth);
   }
 
   Future<dynamic> patchJson(
@@ -96,7 +99,7 @@ class AuthenticatedHttpClient {
       headers: buildAuthHeaders(includeAuth: includeAuth),
       body: jsonEncode(body ?? const <String, dynamic>{}),
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, includeAuth: includeAuth);
   }
 
   Future<dynamic> deleteJson(
@@ -116,7 +119,7 @@ class AuthenticatedHttpClient {
       headers: buildAuthHeaders(includeAuth: includeAuth),
       body: body == null ? null : jsonEncode(body),
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, includeAuth: includeAuth);
   }
 
   Future<Uint8List> getBytes(
@@ -134,12 +137,12 @@ class AuthenticatedHttpClient {
     headers.remove('Content-Type');
     final response = await http.get(uri, headers: headers);
     if (response.statusCode >= 400) {
-      _decodeResponse(response);
+      _decodeResponse(response, includeAuth: includeAuth);
     }
     return response.bodyBytes;
   }
 
-  dynamic _decodeResponse(http.Response response) {
+  dynamic _decodeResponse(http.Response response, {bool includeAuth = true}) {
     final status = response.statusCode;
     final rawBody = response.body.trim();
 
@@ -150,6 +153,12 @@ class AuthenticatedHttpClient {
       } catch (_) {
         payload = rawBody;
       }
+    }
+
+    // El backend rechazo el token: la sesion se cierra desde el AuthBloc.
+    // Un 403 no cuenta: ahi el token sirve y lo que falta es permiso.
+    if (status == 401 && includeAuth && SessionStore.isAuthenticated) {
+      _sessionExpiration.notificar();
     }
 
     if (status >= 400) {

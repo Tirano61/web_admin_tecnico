@@ -1,13 +1,18 @@
 import 'package:web_admin_tecnico/core/auth/auth_session.dart';
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
+import 'package:web_admin_tecnico/core/auth/session_storage.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/auth/domain/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl({AuthenticatedHttpClient? httpClient})
-      : _httpClient = httpClient ?? AuthenticatedHttpClient();
+  AuthRepositoryImpl({
+    AuthenticatedHttpClient? httpClient,
+    SessionStorage? sessionStorage,
+  })  : _httpClient = httpClient ?? AuthenticatedHttpClient(),
+        _sessionStorage = sessionStorage ?? SecureSessionStorage();
 
   final AuthenticatedHttpClient _httpClient;
+  final SessionStorage _sessionStorage;
 
   @override
   Future<AuthSession> login(LoginInput input) async {
@@ -85,7 +90,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> logout() async {}
+  Future<AuthSession?> sesionGuardada() => _sessionStorage.leer();
+
+  @override
+  Future<void> guardarSesion(AuthSession session) => _sessionStorage.guardar(session);
+
+  @override
+  Future<void> logout() => _sessionStorage.limpiar();
 
   Map<String, dynamic> _asMap(dynamic value) {
     if (value is Map<String, dynamic>) {

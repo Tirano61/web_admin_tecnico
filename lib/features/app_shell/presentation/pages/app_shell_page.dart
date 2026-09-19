@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:web_admin_tecnico/core/auth/session_store.dart';
-import 'package:web_admin_tecnico/core/routing/app_routes.dart';
 import 'package:web_admin_tecnico/core/widgets/tech_admin_background.dart';
 import 'package:web_admin_tecnico/features/app_shell/domain/app_module.dart';
 import 'package:web_admin_tecnico/features/app_shell/presentation/bloc/app_shell_bloc.dart';
+import 'package:web_admin_tecnico/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:web_admin_tecnico/features/catalogos/presentation/pages/catalogos_page.dart';
 import 'package:web_admin_tecnico/features/clientes/presentation/pages/clientes_page.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_page.dart';
@@ -36,9 +35,10 @@ class _AppShellView extends StatelessWidget {
     context.read<AppShellBloc>().add(AppShellModuleChanged(module));
   }
 
+  /// El AuthBloc borra token y usuario del storage, limpia SessionStore y la
+  /// app vuelve al login.
   void _onLogout(BuildContext context) {
-    SessionStore.clear();
-    Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    context.read<AuthBloc>().add(AuthLogoutRequested());
   }
 
   @override
