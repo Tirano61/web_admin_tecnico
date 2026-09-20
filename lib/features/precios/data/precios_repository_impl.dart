@@ -1,8 +1,6 @@
-import 'dart:convert';
 
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
-import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/precios/domain/precios_repository.dart';
 
 class PreciosRepositoryImpl implements PreciosRepository {
@@ -121,40 +119,27 @@ class PreciosRepositoryImpl implements PreciosRepository {
 
   @override
   Future<void> createCotizacion({required CreateCotizacionInput input}) async {
-    final value = input.valorUsd;
+    // CreateCotizacionDto: { valor, fecha? } (fecha en formato ISO).
     final fecha = _stringOrNull(input.fecha);
-    final candidates = _withFechaCandidates(
-      <Map<String, dynamic>>[
-        <String, dynamic>{'valor': value},
-        <String, dynamic>{'valorUsd': value},
-        <String, dynamic>{'cotizacion': value},
-        <String, dynamic>{'cotizacionDolar': value},
-      ],
-      fecha,
-    );
-
-    await _sendWithFallback(
-      candidates,
-      (body) => _httpClient.postJson('/cotizacion', body: body),
+    await _httpClient.postJson(
+      '/cotizacion',
+      body: <String, dynamic>{
+        'valor': input.valorUsd,
+        'fecha': ?fecha,
+      },
     );
   }
 
   @override
   Future<void> createTarifaKm({required CreateTarifaKmInput input}) async {
-    final value = input.valorKmUsd;
+    // CreateTarifaKmDto: { valorKmUsd, fecha? } (fecha en formato ISO).
     final fecha = _stringOrNull(input.fecha);
-    final candidates = _withFechaCandidates(
-      <Map<String, dynamic>>[
-        <String, dynamic>{'valorKmUsd': value},
-        <String, dynamic>{'valor_km_usd': value},
-        <String, dynamic>{'valor': value},
-      ],
-      fecha,
-    );
-
-    await _sendWithFallback(
-      candidates,
-      (body) => _httpClient.postJson('/tarifa-km', body: body),
+    await _httpClient.postJson(
+      '/tarifa-km',
+      body: <String, dynamic>{
+        'valorKmUsd': input.valorKmUsd,
+        'fecha': ?fecha,
+      },
     );
   }
 
@@ -168,51 +153,6 @@ class PreciosRepositoryImpl implements PreciosRepository {
       return fallback;
     }
     return 'sin-id';
-  }
-
-  Future<void> _sendWithFallback(
-    List<Map<String, dynamic>> candidates,
-    Future<dynamic> Function(Map<String, dynamic> body) sender,
-  ) async {
-    AppFailure? lastFailure;
-    for (final body in candidates) {
-      try {
-        await sender(body);
-        return;
-      } on AppFailure catch (error) {
-        if (error.statusCode == 400 || error.statusCode == 422) {
-          lastFailure = error;
-          continue;
-        }
-        rethrow;
-      }
-    }
-    throw lastFailure ?? const AppFailure('No fue posible guardar el precio');
-  }
-
-  List<Map<String, dynamic>> _withFechaCandidates(
-    List<Map<String, dynamic>> base,
-    String? fecha,
-  ) {
-    final items = <Map<String, dynamic>>[];
-    final signatures = <String>{};
-
-    void add(Map<String, dynamic> body) {
-      final signature = jsonEncode(body);
-      if (!signatures.contains(signature)) {
-        signatures.add(signature);
-        items.add(body);
-      }
-    }
-
-    for (final raw in base) {
-      add(raw);
-      if (fecha != null) {
-        add(<String, dynamic>{...raw, 'fecha': fecha});
-      }
-    }
-
-    return items;
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

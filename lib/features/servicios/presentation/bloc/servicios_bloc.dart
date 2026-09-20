@@ -5,16 +5,12 @@ abstract class ServiciosEvent {}
 
 class ServiciosRequested extends ServiciosEvent {
   ServiciosRequested({
-    this.search = '',
-    this.estado = 'todos',
     this.canal = 'todos',
     this.tecnicoId = 'todos',
     this.page = 1,
     this.limit = 6,
   });
 
-  final String search;
-  final String estado;
   final String canal;
   final String tecnicoId;
   final int page;
@@ -34,8 +30,6 @@ class ServiciosLoaded extends ServiciosState {
     required this.total,
     required this.page,
     required this.limit,
-    required this.search,
-    required this.estado,
     required this.canal,
     required this.tecnicoId,
   });
@@ -45,8 +39,6 @@ class ServiciosLoaded extends ServiciosState {
   final int total;
   final int page;
   final int limit;
-  final String search;
-  final String estado;
   final String canal;
   final String tecnicoId;
 }
@@ -87,8 +79,6 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
       await _ensureTecnicosLoaded();
       final result = await _repository.fetchServicios(
         query: ServiciosQuery(
-          search: event.search,
-          estado: event.estado,
           canal: event.canal,
           tecnicoId: event.tecnicoId,
           page: event.page,
@@ -102,8 +92,6 @@ class ServiciosBloc extends Bloc<ServiciosEvent, ServiciosState> {
           total: result.total,
           page: result.page,
           limit: result.limit,
-          search: event.search,
-          estado: event.estado,
           canal: event.canal,
           tecnicoId: event.tecnicoId,
         ),

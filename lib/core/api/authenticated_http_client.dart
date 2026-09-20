@@ -176,7 +176,9 @@ class AuthenticatedHttpClient {
         return message;
       }
       if (message is List && message.isNotEmpty) {
-        return message.first.toString();
+        // class-validator devuelve un array con todos los errores del DTO:
+        // se propagan completos para no esconder que falta o sobra un campo.
+        return message.map((item) => item.toString()).join(' | ');
       }
       final error = payload['error'];
       if (error is String && error.trim().isNotEmpty) {

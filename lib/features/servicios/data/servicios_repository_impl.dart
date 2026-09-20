@@ -3,7 +3,6 @@ import 'dart:developer' as developer;
 
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
-import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/servicios/domain/servicios_repository.dart';
 
 class ServiciosRepositoryImpl implements ServiciosRepository {
@@ -14,13 +13,28 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
 
   @override
   Future<PagedResult<ServicioItem>> fetchServicios({required ServiciosQuery query}) async {
-    final payload = await _fetchServiciosPayload(query: query);
+    // FilterServiciosDto acepta canal, tecnicoId, page y limit (ademas de los
+    // filtros de diagnostico/producto/zona/fecha que este panel no usa todavia).
+    // El backend ya ordena por createdAt DESC y pagina con skip/take.
+    final canal = query.canal.trim().toLowerCase();
+    final tecnicoId = query.tecnicoId.trim();
+
+    final payload = await _httpClient.getJson(
+      '/servicios',
+      queryParameters: <String, String>{
+        if (canal.isNotEmpty && canal != 'todos') 'canal': canal,
+        if (tecnicoId.isNotEmpty && tecnicoId != 'todos') 'tecnicoId': tecnicoId,
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+      },
+    );
+
     developer.log(
       '>>> GET /servicios response:\n${const JsonEncoder.withIndent('  ').convert(payload)}',
       name: 'ServiciosRepository',
     );
 
-    final result = PagedResult<ServicioItem>.fromDynamic(
+    return PagedResult<ServicioItem>.fromDynamic(
       payload,
       (json) {
         final servicioNode = _asMap(json['servicio']);
@@ -36,31 +50,6 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       },
       fallbackPage: query.page,
       fallbackLimit: query.limit,
-    );
-
-    final sortedItems = List<ServicioItem>.from(result.items)
-      ..sort(_compareServiciosByFechaDesc);
-
-    if (sortedItems.length <= query.limit) {
-      return PagedResult<ServicioItem>(
-        items: sortedItems,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-      );
-    }
-
-    final start = (query.page - 1) * query.limit;
-    final end = start + query.limit;
-    final pagedItems = start >= sortedItems.length
-        ? <ServicioItem>[]
-        : sortedItems.sublist(start, end > sortedItems.length ? sortedItems.length : end);
-
-    return PagedResult<ServicioItem>(
-      items: pagedItems,
-      total: result.total,
-      page: query.page,
-      limit: query.limit,
     );
   }
 
@@ -120,135 +109,6 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       return left.compareTo(right);
     });
     return output;
-  }
-
-  Future<dynamic> _fetchServiciosPayload({required ServiciosQuery query}) async {
-    AppFailure? lastFailure;
-
-    for (final params in _buildServiciosQueryCandidates(query)) {
-      try {
-        return await _httpClient.getJson(
-          '/servicios',
-          queryParameters: params,
-        );
-      } on AppFailure catch (error) {
-        if (error.statusCode != 400) {
-          rethrow;
-        }
-        lastFailure = error;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo obtener servicios');
-  }
-
-  List<Map<String, String>> _buildServiciosQueryCandidates(ServiciosQuery query) {
-    final search = query.search.trim();
-    final estado = query.estado.trim().toLowerCase();
-    final canal = query.canal.trim().toLowerCase();
-    final tecnicoId = query.tecnicoId.trim();
-
-    final searchValue = search.isEmpty ? null : search;
-    final estadoValue = (estado.isEmpty || estado == 'todos') ? null : estado;
-    final canalValue = (canal.isEmpty || canal == 'todos') ? null : canal;
-    final tecnicoValue = (tecnicoId.isEmpty || tecnicoId == 'todos') ? null : tecnicoId;
-    final signatures = <String>{};
-    final candidates = <Map<String, String>>[];
-    final searchParamKeys = searchValue == null ? <String?>[null] : <String?>['q', 'search'];
-    final estadoParamKeys = estadoValue == null
-        ? <String?>[null]
-        : <String?>['estado', 'estadoOrden', 'estado_orden'];
-    final canalParamKeys = canalValue == null
-        ? <String?>[null]
-        : <String?>['canal', 'canalServicio', 'canal_servicio'];
-    final tecnicoParamKeys = tecnicoValue == null
-        ? <String?>[null]
-        : <String?>['tecnicoId', 'tecnico_id'];
-    final sortParamCandidates = <Map<String, String>>[
-      const <String, String>{
-        'sortBy': 'fechaHoraServicio',
-        'sortOrder': 'desc',
-      },
-      const <String, String>{},
-    ];
-
-    void addCandidate({
-      required bool includePagination,
-      String? searchParamKey,
-      String? estadoParamKey,
-      String? canalParamKey,
-      String? tecnicoParamKey,
-      Map<String, String> sortParams = const <String, String>{},
-    }) {
-      final params = <String, String>{
-        if (searchParamKey != null && searchValue != null) searchParamKey: searchValue,
-        if (estadoParamKey != null && estadoValue != null) estadoParamKey: estadoValue,
-        if (canalParamKey != null && canalValue != null) canalParamKey: canalValue,
-        if (tecnicoParamKey != null && tecnicoValue != null) tecnicoParamKey: tecnicoValue,
-        ...sortParams,
-        if (includePagination) 'page': query.page.toString(),
-        if (includePagination) 'limit': query.limit.toString(),
-      };
-
-      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
-      if (signatures.add(signature)) {
-        candidates.add(params);
-      }
-    }
-
-    for (final searchKey in searchParamKeys) {
-      for (final estadoKey in estadoParamKeys) {
-        for (final canalKey in canalParamKeys) {
-          for (final tecnicoKey in tecnicoParamKeys) {
-            for (final sortParams in sortParamCandidates) {
-              addCandidate(
-                includePagination: true,
-                searchParamKey: searchKey,
-                estadoParamKey: estadoKey,
-                canalParamKey: canalKey,
-                tecnicoParamKey: tecnicoKey,
-                sortParams: sortParams,
-              );
-              addCandidate(
-                includePagination: false,
-                searchParamKey: searchKey,
-                estadoParamKey: estadoKey,
-                canalParamKey: canalKey,
-                tecnicoParamKey: tecnicoKey,
-                sortParams: sortParams,
-              );
-            }
-          }
-        }
-      }
-    }
-
-    return candidates;
-  }
-
-  int _compareServiciosByFechaDesc(ServicioItem a, ServicioItem b) {
-    final aDate = _parseServicioDate(a.fechaHoraServicio);
-    final bDate = _parseServicioDate(b.fechaHoraServicio);
-
-    if (aDate != null && bDate != null) {
-      final dateComparison = bDate.compareTo(aDate);
-      if (dateComparison != 0) {
-        return dateComparison;
-      }
-    } else if (aDate == null && bDate != null) {
-      return 1;
-    } else if (aDate != null && bDate == null) {
-      return -1;
-    }
-
-    return a.id.compareTo(b.id);
-  }
-
-  DateTime? _parseServicioDate(String? rawDate) {
-    if (rawDate == null || rawDate.trim().isEmpty) {
-      return null;
-    }
-    return DateTime.tryParse(rawDate.trim());
   }
 
   String _tecnicoLabel(ServicioTecnicoOption tecnico) {
