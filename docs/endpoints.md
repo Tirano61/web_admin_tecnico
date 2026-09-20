@@ -647,20 +647,140 @@ Notas:
 | GET | `/cat/resoluciones` | tecnico, admin-tecnico, admin-desarrollo, admin |
 | POST | `/cat/resoluciones` | admin-desarrollo, admin |
 | PATCH | `/cat/resoluciones/:id` | admin-desarrollo, admin |
-| GET | `/zonas` | tecnico, admin-tecnico, admin-desarrollo, admin |
+| GET | `/zonas?activo=` | tecnico, admin-tecnico, admin-desarrollo, admin |
 | POST | `/zonas` | admin-tecnico, admin |
 | PATCH | `/zonas/:id` | admin-tecnico, admin |
+
+### Query param `activo` (zonas, categorias-producto, productos)
+
+Los tres listados aceptan el mismo param opcional `activo`:
+
+| Valor | Devuelve |
+|---|---|
+| sin el param | solo los activos |
+| `true` | solo los activos |
+| `false` | solo los inactivos |
+| `todos` | activos e inactivos |
+
+Reglas:
+
+- El default (sin el param) devuelve **solo activos**. La app del tecnico
+  consume estos endpoints sin el param y solo debe ver opciones vigentes en el
+  formulario, asi que el comportamiento historico no cambia.
+- `activo=false` y `activo=todos` existen para la administracion: antes, al
+  desactivar un item desaparecia del listado y no habia forma de volver a
+  activarlo desde la UI, o sea que la desactivacion quedaba de hecho
+  irreversible.
+- El valor especial es `todos`, siguiendo la convencion de `estado=todas` del
+  modulo liquidacion. Ojo con la letra final: aca es `todos`, y `activo=todas`
+  es invalido.
+- Un valor fuera de `true | false | todos` devuelve `400`. El param vacio
+  (`?activo=`) se trata como ausente.
+- El filtro se combina con los demas params del endpoint (por ejemplo
+  `categoriaId` en `/productos`).
+
+### GET /zonas
+
+Ejemplos:
+
+```http
+GET /zonas                   # solo activas (default, lo que usa la app del tecnico)
+GET /zonas?activo=true       # solo activas
+GET /zonas?activo=false      # solo inactivas
+GET /zonas?activo=todos      # activas e inactivas
+```
+
+Respuesta ejemplo (`GET /zonas?activo=todos`):
+
+```json
+[
+  {
+    "id": "{{zonaId}}",
+    "nombre": "Buenos Aires",
+    "provincia": "Buenos Aires",
+    "activo": true
+  },
+  {
+    "id": "{{zonaInactivaId}}",
+    "nombre": "Cordoba",
+    "provincia": "Cordoba",
+    "activo": false
+  }
+]
+```
 
 ## Productos
 
 | Metodo | Endpoint | Rol |
 |---|---|---|
-| GET | `/categorias-producto` | tecnico, admin-tecnico, admin-desarrollo, admin |
+| GET | `/categorias-producto?activo=` | tecnico, admin-tecnico, admin-desarrollo, admin |
 | POST | `/categorias-producto` | admin-tecnico, admin |
 | PATCH | `/categorias-producto/:id` | admin-tecnico, admin |
-| GET | `/productos?categoriaId=` | tecnico, admin-tecnico, admin-desarrollo, admin |
+| GET | `/productos?categoriaId=&activo=` | tecnico, admin-tecnico, admin-desarrollo, admin |
 | POST | `/productos` | admin-tecnico, admin |
 | PATCH | `/productos/:id` | admin-tecnico, admin |
+
+### GET /categorias-producto
+
+Acepta el mismo param `activo` descripto en Catalogos.
+
+Ejemplos:
+
+```http
+GET /categorias-producto                 # solo activas (default)
+GET /categorias-producto?activo=false    # solo inactivas
+GET /categorias-producto?activo=todos    # activas e inactivas
+```
+
+Respuesta ejemplo (`GET /categorias-producto?activo=todos`):
+
+```json
+[
+  { "id": "{{categoriaId}}", "nombre": "Indicadores", "activo": true },
+  { "id": "{{categoriaInactivaId}}", "nombre": "Celdas", "activo": false }
+]
+```
+
+### GET /productos
+
+Query params:
+
+- `categoriaId` (opcional, uuid)
+- `activo` (opcional, `true`, `false` o `todos`)
+
+Ejemplos:
+
+```http
+GET /productos                                          # solo activos (default)
+GET /productos?activo=false                             # solo inactivos
+GET /productos?activo=todos                             # activos e inactivos
+GET /productos?categoriaId={{categoriaId}}&activo=todos # de esa categoria, activos e inactivos
+```
+
+Respuesta ejemplo (`GET /productos?activo=todos`):
+
+```json
+[
+  {
+    "id": "{{productoId}}",
+    "nombre": "ST455",
+    "version": "v2",
+    "activo": true,
+    "categoria": { "id": "{{categoriaId}}", "nombre": "Indicadores", "activo": true }
+  },
+  {
+    "id": "{{productoInactivoId}}",
+    "nombre": "ST457",
+    "version": null,
+    "activo": false,
+    "categoria": { "id": "{{categoriaId}}", "nombre": "Indicadores", "activo": true }
+  }
+]
+```
+
+Nota: `activo` filtra por el estado del producto, no por el de su categoria.
+Un producto activo de una categoria desactivada sigue saliendo en
+`GET /productos?activo=true`.
 
 ## Repuestos
 
@@ -712,6 +832,12 @@ Notas:
 
 - Endpoint pensado para grillas de administracion en web admin-tecnico.
 - `GET /repuestos?q=` se mantiene como busqueda rapida (maximo 10 activos), util para autocompletes.
+- Repuestos no necesita el param `activo` en `GET /repuestos?q=`: ese endpoint
+  es el autocomplete del tecnico (siempre activos) y la administracion ya tiene
+  su propio listado. Ojo con la diferencia: en `/repuestos/listado` omitir
+  `activo` trae activos e inactivos, mientras que en `/zonas`,
+  `/categorias-producto` y `/productos` omitirlo trae solo activos, porque esos
+  tres los consume tambien la app del tecnico.
 
 ### Payload POST /servicios/:id/repuestos
 

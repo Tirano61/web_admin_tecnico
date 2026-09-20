@@ -344,6 +344,99 @@
 							]
 						}
 					}
+				},
+				{
+					"name": "GET Zonas (solo activas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/zonas?activo=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"zonas"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Zonas (solo inactivas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/zonas?activo=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"zonas"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "false"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Zonas (activas e inactivas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/zonas?activo=todos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"zonas"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "todos"
+								}
+							]
+						}
+					}
 				}
 			]
 		},
@@ -376,6 +469,99 @@
 					}
 				},
 				{
+					"name": "GET Categorias (solo activas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/categorias-producto?activo=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categorias-producto"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Categorias (solo inactivas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/categorias-producto?activo=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categorias-producto"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "false"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Categorias (activas e inactivas)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/categorias-producto?activo=todos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"categorias-producto"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "todos"
+								}
+							]
+						}
+					}
+				},
+				{
 					"name": "GET Productos por Categoria",
 					"request": {
 						"auth": {
@@ -401,6 +587,134 @@
 								{
 									"key": "categoriaId",
 									"value": "{{categoriaId}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Productos (solo activos)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/productos?activo=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"productos"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "true"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Productos (solo inactivos)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/productos?activo=false",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"productos"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "false"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Productos (activos e inactivos)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/productos?activo=todos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"productos"
+							],
+							"query": [
+								{
+									"key": "activo",
+									"value": "todos"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "GET Productos por Categoria (activos e inactivos)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/productos?categoriaId={{categoriaId}}&activo=todos",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"productos"
+							],
+							"query": [
+								{
+									"key": "categoriaId",
+									"value": "{{categoriaId}}"
+								},
+								{
+									"key": "activo",
+									"value": "todos"
 								}
 							]
 						}

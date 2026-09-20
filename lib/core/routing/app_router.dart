@@ -18,6 +18,8 @@ class AppRouter {
 
   AppModule _moduleForRoute(String route) {
     switch (route) {
+      case AppRoutes.tecnicos:
+        return AppModule.tecnicos;
       case AppRoutes.clientes:
         return AppModule.clientes;
       case AppRoutes.catalogos:
