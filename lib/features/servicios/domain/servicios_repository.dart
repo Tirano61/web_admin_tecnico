@@ -126,34 +126,28 @@ class ServicioTecnicoOption {
   final bool isActive;
 }
 
+// Los filtros del backend (FilterServiciosDto) son canal y tecnicoId; no hay
+// busqueda por texto ni filtro por estado de orden.
 class ServiciosQuery {
   const ServiciosQuery({
-    this.search = '',
-    this.estado = 'todos',
     this.canal = 'todos',
     this.tecnicoId = 'todos',
     this.page = 1,
     this.limit = 6,
   });
 
-  final String search;
-  final String estado;
   final String canal;
   final String tecnicoId;
   final int page;
   final int limit;
 
   ServiciosQuery copyWith({
-    String? search,
-    String? estado,
     String? canal,
     String? tecnicoId,
     int? page,
     int? limit,
   }) {
     return ServiciosQuery(
-      search: search ?? this.search,
-      estado: estado ?? this.estado,
       canal: canal ?? this.canal,
       tecnicoId: tecnicoId ?? this.tecnicoId,
       page: page ?? this.page,

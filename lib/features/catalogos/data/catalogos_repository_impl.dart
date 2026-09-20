@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
 import 'package:web_admin_tecnico/core/error/app_failure.dart';
@@ -122,37 +120,32 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
 
   @override
   Future<void> createCatalogo({required CreateCatalogoInput input}) async {
-    final endpoint = _endpointByTipo(input.tipo);
-    final candidates = _buildBodyCandidates(
-      tipo: input.tipo,
-      nombre: input.nombre,
-      categoriaId: input.categoriaId,
-      activo: input.activo,
-      codigo: input.codigo,
-      precioUsd: input.precioUsd,
-    );
-
-    await _sendWithFallback(
-      candidates,
-      (body) => _httpClient.postJson(endpoint, body: body),
+    await _httpClient.postJson(
+      _endpointByTipo(input.tipo),
+      body: _buildCatalogoBody(
+        tipo: input.tipo,
+        nombre: input.nombre,
+        categoriaId: input.categoriaId,
+        codigo: input.codigo,
+        precioUsd: input.precioUsd,
+        // El activo solo existe en los DTO de update; en el alta lo rechaza el backend.
+        activo: null,
+      ),
     );
   }
 
   @override
   Future<void> updateCatalogo({required UpdateCatalogoInput input}) async {
-    final endpoint = '${_endpointByTipo(input.tipo)}/${input.id}';
-    final candidates = _buildBodyCandidates(
-      tipo: input.tipo,
-      nombre: input.nombre,
-      categoriaId: input.categoriaId,
-      activo: input.activo,
-      codigo: input.codigo,
-      precioUsd: input.precioUsd,
-    );
-
-    await _sendWithFallback(
-      candidates,
-      (body) => _httpClient.patchJson(endpoint, body: body),
+    await _httpClient.patchJson(
+      '${_endpointByTipo(input.tipo)}/${input.id}',
+      body: _buildCatalogoBody(
+        tipo: input.tipo,
+        nombre: input.nombre,
+        categoriaId: input.categoriaId,
+        codigo: input.codigo,
+        precioUsd: input.precioUsd,
+        activo: input.activo,
+      ),
     );
   }
 
@@ -179,45 +172,23 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     String tipo,
     CatalogosQuery query, {
     bool usePagination = true,
-  }
-  ) async {
-    dynamic payload;
-    final isQuickSearchEndpoint = endpoint == '/repuestos';
-    final isAdminRepuestosEndpoint = endpoint == '/repuestos/listado';
-    final supportsServerPagination = endpoint != '/productos';
-    final supportsSearch = isQuickSearchEndpoint || isAdminRepuestosEndpoint;
-    final supportsActivoFilter = isAdminRepuestosEndpoint;
+  }) async {
+    // Solo /repuestos/listado pagina y filtra en el backend (page, limit, q, activo).
+    // /zonas y /categorias-producto no declaran query params y devuelven la lista
+    // completa; /productos (FilterProductosDto) solo acepta categoriaId. Mandarles
+    // page o limit los hace responder 400, asi que ahi se filtra y pagina en memoria.
+    final filtraEnServidor = endpoint == '/repuestos/listado';
     final trimmedSearch = query.search.trim();
-    final includeSearchParam = supportsSearch && (trimmedSearch.isNotEmpty || isQuickSearchEndpoint);
-    final keepEmptyParams = isQuickSearchEndpoint;
 
-    Map<String, String> buildQueryParameters({required bool includeSearch}) {
-      return <String, String>{
-        if (includeSearchParam && includeSearch) 'q': trimmedSearch,
-        if (supportsActivoFilter && query.activo != null) 'activo': query.activo!.toString(),
-        if (usePagination && supportsServerPagination) 'page': query.page.toString(),
-        if (usePagination && supportsServerPagination) 'limit': query.limit.toString(),
-      };
-    }
-
-    try {
-      payload = await _httpClient.getJson(
-        endpoint,
-        queryParameters: buildQueryParameters(includeSearch: true),
-        keepEmptyQueryParameters: keepEmptyParams,
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
-      }
-
-      // Retry sin parametro de busqueda para endpoints que validan q cuando llega vacio.
-      payload = await _httpClient.getJson(
-        endpoint,
-        queryParameters: buildQueryParameters(includeSearch: trimmedSearch.isNotEmpty),
-        keepEmptyQueryParameters: keepEmptyParams,
-      );
-    }
+    final payload = await _httpClient.getJson(
+      endpoint,
+      queryParameters: <String, String>{
+        if (filtraEnServidor && trimmedSearch.isNotEmpty) 'q': trimmedSearch,
+        if (filtraEnServidor && query.activo != null) 'activo': query.activo!.toString(),
+        if (filtraEnServidor && usePagination) 'page': query.page.toString(),
+        if (filtraEnServidor && usePagination) 'limit': query.limit.toString(),
+      },
+    );
 
     final paged = PagedResult<CatalogoItem>.fromDynamic(
       payload,
@@ -247,22 +218,37 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
       fallbackLimit: query.limit,
     );
 
-    if (usePagination && !supportsServerPagination) {
-      final start = (query.page - 1) * query.limit;
-      final end = start + query.limit;
-      final pageItems = start >= paged.items.length
-          ? <CatalogoItem>[]
-          : paged.items.sublist(start, end > paged.items.length ? paged.items.length : end);
+    if (filtraEnServidor) {
+      return paged;
+    }
 
+    final filtered = trimmedSearch.isEmpty
+        ? paged.items
+        : paged.items
+            .where((item) => item.nombre.toLowerCase().contains(trimmedSearch.toLowerCase()))
+            .toList();
+
+    if (!usePagination) {
       return PagedResult<CatalogoItem>(
-        items: pageItems,
-        total: paged.items.length,
-        page: query.page,
-        limit: query.limit,
+        items: filtered,
+        total: filtered.length,
+        page: 1,
+        limit: filtered.length,
       );
     }
 
-    return paged;
+    final start = (query.page - 1) * query.limit;
+    final end = start + query.limit;
+    final pageItems = start >= filtered.length
+        ? <CatalogoItem>[]
+        : filtered.sublist(start, end > filtered.length ? filtered.length : end);
+
+    return PagedResult<CatalogoItem>(
+      items: pageItems,
+      total: filtered.length,
+      page: query.page,
+      limit: query.limit,
+    );
   }
 
   String _endpointByTipo(String tipo) {
@@ -280,117 +266,56 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     }
   }
 
-  Future<void> _sendWithFallback(
-    List<Map<String, dynamic>> candidates,
-    Future<dynamic> Function(Map<String, dynamic> body) sender,
-  ) async {
-    AppFailure? lastFailure;
-    for (final body in candidates) {
-      try {
-        await sender(body);
-        return;
-      } on AppFailure catch (error) {
-        if (error.statusCode == 400 || error.statusCode == 422) {
-          lastFailure = error;
-          continue;
-        }
-        rethrow;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo procesar el catalogo');
-  }
-
-  List<Map<String, dynamic>> _buildBodyCandidates({
+  // Shapes tomados de los DTO del backend:
+  //   CreateZonaDto              { nombre, provincia? }
+  //   CreateCategoriaProductoDto { nombre }
+  //   CreateProductoDto          { nombre, version?, categoriaId }
+  //   CreateRepuestoDto          { codigo, nombre, precioUsd }
+  // Los Update* son PartialType del create mas un activo? opcional.
+  Map<String, dynamic> _buildCatalogoBody({
     required String tipo,
     required String nombre,
     String? categoriaId,
-    bool? activo,
     String? codigo,
     double? precioUsd,
+    bool? activo,
   }) {
     final cleanNombre = nombre.trim();
-    final cleanCategoriaId = categoriaId?.trim() ?? '';
-    final cleanCodigo = codigo?.trim() ?? '';
-    final normalizedTipo = tipo.toLowerCase();
-    final withCategoria = normalizedTipo == 'producto' && cleanCategoriaId.isNotEmpty;
-    final isRepuesto = normalizedTipo == 'repuesto';
-    final withCodigo = isRepuesto && cleanCodigo.isNotEmpty;
-    final withPrecio = isRepuesto && precioUsd != null;
-
-    final candidates = <Map<String, dynamic>>[];
-    final signatures = <String>{};
-
-    void addCandidate(
-      String labelKey, {
-      String? categoriaKey,
-      String? codigoKey,
-      String? precioKey,
-      bool withActivo = false,
-    }) {
-      final body = <String, dynamic>{
-        labelKey: cleanNombre,
-      };
-      if (withCategoria && categoriaKey != null) {
-        body[categoriaKey] = cleanCategoriaId;
-      }
-      if (withCodigo && codigoKey != null) {
-        body[codigoKey] = cleanCodigo;
-      }
-      if (withPrecio && precioKey != null) {
-        body[precioKey] = precioUsd;
-      }
-      if (withActivo && activo != null) {
-        body['activo'] = activo;
-      }
-
-      final signature = jsonEncode(body);
-      if (!signatures.contains(signature)) {
-        signatures.add(signature);
-        candidates.add(body);
-      }
+    if (cleanNombre.isEmpty) {
+      throw const AppFailure('El nombre es obligatorio');
     }
 
-    if (isRepuesto) {
-      const labels = <String>['nombre', 'descripcion'];
-      const precios = <String>['precioUsd', 'precio_usd', 'precio'];
+    final body = <String, dynamic>{'nombre': cleanNombre};
 
-      for (final label in labels) {
-        for (final precioKey in precios) {
-          addCandidate(label, codigoKey: 'codigo', precioKey: precioKey, withActivo: false);
+    switch (tipo.toLowerCase()) {
+      case 'zona':
+      case 'categoria':
+        break;
+      case 'producto':
+        final cleanCategoriaId = categoriaId?.trim() ?? '';
+        if (cleanCategoriaId.isEmpty) {
+          throw const AppFailure('La categoria es obligatoria para un producto');
         }
-      }
-      for (final label in labels) {
-        for (final precioKey in precios) {
-          addCandidate(label, codigoKey: 'codigo', precioKey: precioKey, withActivo: true);
+        body['categoriaId'] = cleanCategoriaId;
+      case 'repuesto':
+        final cleanCodigo = codigo?.trim() ?? '';
+        if (cleanCodigo.isEmpty) {
+          throw const AppFailure('El codigo es obligatorio para un repuesto');
         }
-      }
+        if (precioUsd == null) {
+          throw const AppFailure('El precio USD es obligatorio para un repuesto');
+        }
+        body['codigo'] = cleanCodigo;
+        body['precioUsd'] = precioUsd;
+      default:
+        throw const AppFailure('Tipo de catalogo no soportado');
     }
 
-    if (withCategoria) {
-      const categoriaKeys = <String>['categoriaId', 'categoria_id', 'categoriaProductoId'];
-      for (final categoriaKey in categoriaKeys) {
-        addCandidate('nombre', categoriaKey: categoriaKey, withActivo: false);
-      }
-      for (final categoriaKey in categoriaKeys) {
-        addCandidate('nombre', categoriaKey: categoriaKey, withActivo: true);
-      }
-      for (final categoriaKey in categoriaKeys) {
-        addCandidate('descripcion', categoriaKey: categoriaKey, withActivo: false);
-      }
-      for (final categoriaKey in categoriaKeys) {
-        addCandidate('descripcion', categoriaKey: categoriaKey, withActivo: true);
-      }
+    if (activo != null) {
+      body['activo'] = activo;
     }
 
-    addCandidate('nombre', withActivo: false);
-    addCandidate('nombre', withActivo: true);
-    addCandidate('descripcion', withActivo: false);
-    addCandidate('descripcion', withActivo: true);
-    addCandidate('detalle', withActivo: false);
-    addCandidate('detalle', withActivo: true);
-
-    return candidates;
+    return body;
   }
 
   double? _toDouble(dynamic value) {

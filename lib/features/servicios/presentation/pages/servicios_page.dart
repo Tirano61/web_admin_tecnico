@@ -29,8 +29,6 @@ class _ServiciosView extends StatefulWidget {
 }
 
 class _ServiciosViewState extends State<_ServiciosView> {
-  final TextEditingController _searchController = TextEditingController();
-  String _estadoFilter = 'todos';
   String _canalFilter = 'todos';
   String _tecnicoFilterId = 'todos';
 
@@ -83,8 +81,6 @@ class _ServiciosViewState extends State<_ServiciosView> {
   void _requestPage({int page = 1, int? limit}) {
     context.read<ServiciosBloc>().add(
           ServiciosRequested(
-            search: _searchController.text.trim(),
-            estado: _estadoFilter,
             canal: _canalFilter,
             tecnicoId: _tecnicoFilterId,
             page: page,
@@ -102,12 +98,6 @@ class _ServiciosViewState extends State<_ServiciosView> {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return BlocBuilder<ServiciosBloc, ServiciosState>(
       builder: (context, state) {
@@ -120,7 +110,6 @@ class _ServiciosViewState extends State<_ServiciosView> {
         }
 
         if (state is ServiciosLoaded) {
-          final estados = <String>{'todos', 'abierta', 'cerrada', 'firmada'};
           final canales = <String>{'todos', 'campo', 'remoto', 'fabrica'};
           final tecnicoFilterItems = _buildTecnicoFilterItems(state.tecnicos);
           final effectiveLimit = state.limit > 0 ? state.limit : 6;
@@ -128,11 +117,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
           final rowsPerPage = normalizeRowsPerPage(effectiveLimit);
           final rowsPerPageOptions = buildRowsPerPageOptions(effectiveLimit);
           final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
-          final hasFilters =
-            state.search.trim().isNotEmpty ||
-            state.estado != 'todos' ||
-            state.canal != 'todos' ||
-            state.tecnicoId != 'todos';
+          final hasFilters = state.canal != 'todos' || state.tecnicoId != 'todos';
           final emptyMessage = hasFilters
             ? 'No hay servicios para los filtros seleccionados.'
             : 'No hay servicios disponibles para mostrar.';
@@ -143,57 +128,12 @@ class _ServiciosViewState extends State<_ServiciosView> {
             trailing: ModuleStatusChip(label: '${state.total} total'),
             child: Column(
               children: <Widget>[
-                TextField(
-                  controller: _searchController,
-                  onChanged: (_) => _requestPage(page: 1, limit: currentLimit),
-                  style: const TextStyle(color: Color(0xFFEAF3FF)),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar por ID o descripcion...',
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    filled: true,
-                    fillColor: const Color(0xFF122B4A),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0x334EA6FF)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
                     spacing: 10,
                     runSpacing: 10,
                     children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF122B4A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0x334EA6FF)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _estadoFilter,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() => _estadoFilter = value);
-                              _requestPage(page: 1, limit: currentLimit);
-                            },
-                            items: estados
-                                .map(
-                                  (estado) => DropdownMenuItem<String>(
-                                    value: estado,
-                                    child: Text(estado.toUpperCase()),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                      ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
@@ -332,7 +272,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                 child: SingleChildScrollView(
                                   child: PaginatedDataTable(
                                     key: ValueKey<String>(
-                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.estado}_${state.canal}_${state.tecnicoId}',
+                                      'servicios_${state.page}_${state.limit}_${state.total}_${state.canal}_${state.tecnicoId}',
                                     ),
                                     initialFirstRowIndex: initialFirstRowIndex < 0
                                         ? 0

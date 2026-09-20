@@ -1,6 +1,5 @@
 import 'package:web_admin_tecnico/core/api/authenticated_http_client.dart';
 import 'package:web_admin_tecnico/core/api/paged_result.dart';
-import 'package:web_admin_tecnico/core/error/app_failure.dart';
 import 'package:web_admin_tecnico/features/clientes/domain/clientes_repository.dart';
 
 class ClientesRepositoryImpl implements ClientesRepository {
@@ -14,7 +13,7 @@ class ClientesRepositoryImpl implements ClientesRepository {
     final search = query.search.trim();
     final payload = search.isEmpty
         ? await _fetchPagedClientes(query)
-        : await _fetchClientesSearch(query: query, search: search);
+        : await _fetchClientesSearch(search: search);
 
     final result = PagedResult<ClienteItem>.fromDynamic(
       payload,
@@ -45,56 +44,24 @@ class ClientesRepositoryImpl implements ClientesRepository {
     );
   }
 
-  Future<dynamic> _fetchPagedClientes(ClientesQuery query) async {
-    try {
-      return await _httpClient.getJson(
-        '/clientes',
-        queryParameters: <String, String>{
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 404) {
-        rethrow;
-      }
-
-      // Compatibilidad con entornos viejos que aun no exponen /clientes paginado.
-      return _httpClient.getJson(
-        '/clientes/buscar',
-        queryParameters: <String, String>{
-          'q': '',
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-        keepEmptyQueryParameters: true,
-      );
-    }
+  // GET /clientes acepta solo page y limit; responde { data, meta }.
+  Future<dynamic> _fetchPagedClientes(ClientesQuery query) {
+    return _httpClient.getJson(
+      '/clientes',
+      queryParameters: <String, String>{
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+      },
+    );
   }
 
-  Future<dynamic> _fetchClientesSearch({
-    required ClientesQuery query,
-    required String search,
-  }) async {
-    try {
-      return await _httpClient.getJson(
-        '/clientes/buscar',
-        queryParameters: <String, String>{
-          'q': search,
-          'page': query.page.toString(),
-          'limit': query.limit.toString(),
-        },
-      );
-    } on AppFailure catch (error) {
-      if (error.statusCode != 400) {
-        rethrow;
-      }
-
-      return _httpClient.getJson(
-        '/clientes/buscar',
-        queryParameters: <String, String>{'q': search},
-      );
-    }
+  // GET /clientes/buscar (BuscarClientesDto) acepta solo q y no pagina:
+  // mandar page o limit lo rechaza con 400. El recorte se hace en memoria.
+  Future<dynamic> _fetchClientesSearch({required String search}) {
+    return _httpClient.getJson(
+      '/clientes/buscar',
+      queryParameters: <String, String>{'q': search},
+    );
   }
 
   @override
@@ -116,90 +83,51 @@ class ClientesRepositoryImpl implements ClientesRepository {
 
   @override
   Future<void> createCliente({required CreateClienteInput input}) async {
-    final bodies = _buildPayloadCandidates(
-      nombre: input.nombre,
-      cuit: input.cuit,
-      contacto: input.contacto,
-      telefono: input.telefono,
-      localidad: input.localidad,
-    );
-
-    await _sendWithFallback(
-      bodies,
-      (body) => _httpClient.postJson('/clientes', body: body),
+    await _httpClient.postJson(
+      '/clientes',
+      body: _buildClientePayload(
+        nombre: input.nombre,
+        cuit: input.cuit,
+        contacto: input.contacto,
+        telefono: input.telefono,
+        localidad: input.localidad,
+      ),
     );
   }
 
   @override
   Future<void> updateCliente({required UpdateClienteInput input}) async {
-    final bodies = _buildPayloadCandidates(
-      nombre: input.nombre,
-      cuit: input.cuit,
-      contacto: input.contacto,
-      telefono: input.telefono,
-      localidad: input.localidad,
-    );
-
-    await _sendWithFallback(
-      bodies,
-      (body) => _httpClient.patchJson('/clientes/${input.id}', body: body),
+    await _httpClient.patchJson(
+      '/clientes/${input.id}',
+      body: _buildClientePayload(
+        nombre: input.nombre,
+        cuit: input.cuit,
+        contacto: input.contacto,
+        telefono: input.telefono,
+        localidad: input.localidad,
+      ),
     );
   }
 
-  Future<void> _sendWithFallback(
-    List<Map<String, dynamic>> bodies,
-    Future<dynamic> Function(Map<String, dynamic> body) sender,
-  ) async {
-    AppFailure? lastFailure;
-    for (final body in bodies) {
-      try {
-        await sender(body);
-        return;
-      } on AppFailure catch (error) {
-        if (error.statusCode == 400 || error.statusCode == 422) {
-          lastFailure = error;
-          continue;
-        }
-        rethrow;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo guardar el cliente');
-  }
-
-  List<Map<String, dynamic>> _buildPayloadCandidates({
+  // CreateClienteDto / UpdateClienteDto: { cuit, nombre, contacto?, telefono?, localidad? }.
+  Map<String, dynamic> _buildClientePayload({
     required String nombre,
     required String cuit,
     String? contacto,
     String? telefono,
     String? localidad,
   }) {
-    final cleanNombre = nombre.trim();
-    final cleanCuit = cuit.trim();
     final cleanContacto = _stringOrNull(contacto);
     final cleanTelefono = _stringOrNull(telefono);
     final cleanLocalidad = _stringOrNull(localidad);
 
-    final candidateNombre = <String, dynamic>{
-      'nombre': cleanNombre,
-      'cuit': cleanCuit,
-      ...?_singleEntry('contacto', cleanContacto),
-      ...?_singleEntry('telefono', cleanTelefono),
-      ...?_singleEntry('localidad', cleanLocalidad),
+    return <String, dynamic>{
+      'cuit': cuit.trim(),
+      'nombre': nombre.trim(),
+      'contacto': ?cleanContacto,
+      'telefono': ?cleanTelefono,
+      'localidad': ?cleanLocalidad,
     };
-
-    final candidateRazonSocial = <String, dynamic>{
-      'razonSocial': cleanNombre,
-      'cuit': cleanCuit,
-      ...?_singleEntry('contacto', cleanContacto),
-      ...?_singleEntry('telefono', cleanTelefono),
-      ...?_singleEntry('localidad', cleanLocalidad),
-    };
-
-    return <Map<String, dynamic>>[
-      candidateNombre,
-      candidateRazonSocial,
-    ];
   }
 
   Map<String, dynamic> _asMap(dynamic value) {
@@ -218,12 +146,5 @@ class ClientesRepositoryImpl implements ClientesRepository {
       return null;
     }
     return text;
-  }
-
-  Map<String, dynamic>? _singleEntry(String key, String? value) {
-    if (value == null) {
-      return null;
-    }
-    return <String, dynamic>{key: value};
   }
 }

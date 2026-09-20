@@ -23,39 +23,19 @@ class AuthRepositoryImpl implements AuthRepository {
       throw const AppFailure('Email y password son obligatorios', statusCode: 400);
     }
 
-    final credentialBodies = <Map<String, dynamic>>[
-      <String, dynamic>{'email': email, 'password': password},
-      <String, dynamic>{'usuario': email, 'password': password},
-      <String, dynamic>{'username': email, 'password': password},
-      <String, dynamic>{'user': email, 'password': password},
-      <String, dynamic>{'identifier': email, 'password': password},
-    ];
-
-    dynamic payload;
-    AppFailure? lastFailure;
-
-    for (final body in credentialBodies) {
-      try {
-        payload = await _httpClient.postJson(
-          '/auth/login',
-          includeAuth: false,
-          body: body,
-        );
-        break;
-      } on AppFailure catch (error) {
-        if (error.statusCode == 400 || error.statusCode == 401) {
-          lastFailure = error;
-          continue;
-        }
-        rethrow;
-      }
-    }
-
-    if (payload == null) {
-      if (lastFailure != null && (lastFailure.statusCode == 400 || lastFailure.statusCode == 401)) {
+    // Shape de POST /auth/login (LoginUserDto): { email, password }.
+    final dynamic payload;
+    try {
+      payload = await _httpClient.postJson(
+        '/auth/login',
+        includeAuth: false,
+        body: <String, dynamic>{'email': email, 'password': password},
+      );
+    } on AppFailure catch (error) {
+      if (error.statusCode == 401) {
         throw const AppFailure('Usuario o contrasena incorrectos', statusCode: 401);
       }
-      throw lastFailure ?? const AppFailure('No fue posible autenticar usuario', statusCode: 401);
+      rethrow;
     }
 
     // Shape de POST /auth/login: { access_token, user: { id, fullName, email, roles } }

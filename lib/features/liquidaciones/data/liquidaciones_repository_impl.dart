@@ -665,20 +665,13 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       throw const AppFailure('El KM debe ser mayor a 0 para crear la liquidacion');
     }
 
-    final candidates = <Map<String, dynamic>>[
-      <String, dynamic>{
-        'servicio_id': servicioId,
-        'km': input.km,
-      },
-      <String, dynamic>{
+    // CreateLiquidacionDto: { servicioId | servicio_id, km }.
+    await _httpClient.postJson(
+      '/liquidaciones',
+      body: <String, dynamic>{
         'servicioId': servicioId,
         'km': input.km,
       },
-    ];
-
-    await _sendWithFallback<dynamic>(
-      candidates,
-      (body) => _httpClient.postJson('/liquidaciones', body: body),
     );
   }
 
@@ -686,14 +679,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   Future<void> updateLiquidacion({required UpdateLiquidacionInput input}) async {
     final liquidacionId = input.liquidacionId.trim();
     final tipoSalidaId = input.tipoSalidaId.trim();
-    final candidates = <Map<String, dynamic>>[
-      <String, dynamic>{'tipo_salida_id': tipoSalidaId},
-      <String, dynamic>{'tipoSalidaId': tipoSalidaId},
-    ];
-
-    await _sendWithFallback<dynamic>(
-      candidates,
-      (body) => _httpClient.patchJson('/liquidaciones/$liquidacionId', body: body),
+    // UpdateLiquidacionTipoSalidaDto: { tipoSalidaId | tipo_salida_id }.
+    await _httpClient.patchJson(
+      '/liquidaciones/$liquidacionId',
+      body: <String, dynamic>{'tipoSalidaId': tipoSalidaId},
     );
   }
 
@@ -713,16 +702,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       throw const AppFailure('El motivo de reapertura es obligatorio');
     }
 
-    final candidates = <Map<String, dynamic>>[
-      <String, dynamic>{'motivo': motivo},
-      <String, dynamic>{'motivoReapertura': motivo},
-      <String, dynamic>{'motivo_reapertura': motivo},
-      <String, dynamic>{'reason': motivo},
-    ];
-
-    await _sendWithFallback<dynamic>(
-      candidates,
-      (body) => _httpClient.patchJson('/liquidaciones/$liquidacionId/reabrir', body: body),
+    // ReopenLiquidacionDto: { motivo } (entre 3 y 500 caracteres).
+    await _httpClient.patchJson(
+      '/liquidaciones/$liquidacionId/reabrir',
+      body: <String, dynamic>{'motivo': motivo},
     );
   }
 
@@ -766,14 +749,10 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
   }) async {
     final liquidacionId = input.liquidacionId.trim();
     final tipoServicioId = input.tipoServicioId.trim();
-    final candidates = <Map<String, dynamic>>[
-      <String, dynamic>{'tipo_servicio_id': tipoServicioId},
-      <String, dynamic>{'tipoServicioId': tipoServicioId},
-    ];
-
-    final payload = await _sendWithFallback<dynamic>(
-      candidates,
-      (body) => _httpClient.postJson('/liquidaciones/$liquidacionId/items', body: body),
+    // CreateLiquidacionItemDto: { tipoServicioId | tipo_servicio_id }.
+    final payload = await _httpClient.postJson(
+      '/liquidaciones/$liquidacionId/items',
+      body: <String, dynamic>{'tipoServicioId': tipoServicioId},
     );
 
     final root = _asMap(payload);
@@ -1281,157 +1260,44 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
     );
   }
 
-  Future<dynamic> _fetchLiquidacionesPayload({required LiquidacionesQuery query}) async {
-    AppFailure? lastFailure;
+  // FilterLiquidacionesDto (sirve para /liquidaciones, /liquidaciones/pendientes
+  // y /liquidaciones/para-pago): { tecnicoId?, aprobado?, estado?, liquidadaPago?,
+  // page?, limit? }. Los valores vacios se omiten; cualquier otra clave da 400.
+  Future<dynamic> _fetchLiquidacionesPayload({required LiquidacionesQuery query}) {
+    final tecnicoId = _stringOrNull(query.tecnicoId);
+    final estado = _stringOrNull(query.estado);
+    final aprobado = query.aprobado == null ? null : (query.aprobado! ? 'true' : 'false');
+    final liquidadaPago =
+        query.liquidadaPago == null ? null : (query.liquidadaPago! ? 'true' : 'false');
 
-    for (final params in _buildLiquidacionesQueryCandidates(query)) {
-      try {
-        return await _httpClient.getJson('/liquidaciones', queryParameters: params);
-      } on AppFailure catch (error) {
-        if (error.statusCode != 400) {
-          rethrow;
-        }
-        lastFailure = error;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo obtener liquidaciones');
+    return _httpClient.getJson(
+      '/liquidaciones',
+      queryParameters: <String, String>{
+        'tecnicoId': ?tecnicoId,
+        'aprobado': ?aprobado,
+        'estado': ?estado,
+        'liquidadaPago': ?liquidadaPago,
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+      },
+    );
   }
 
   Future<dynamic> _fetchPendientesPayload({
     required LiquidacionesPendientesQuery query,
-  }) async {
-    AppFailure? lastFailure;
-
-    for (final params in _buildPendientesQueryCandidates(query)) {
-      try {
-        return await _httpClient.getJson('/liquidaciones/pendientes', queryParameters: params);
-      } on AppFailure catch (error) {
-        if (error.statusCode != 400) {
-          rethrow;
-        }
-        lastFailure = error;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo obtener pendientes de liquidacion');
-  }
-
-  List<Map<String, String>> _buildLiquidacionesQueryCandidates(
-    LiquidacionesQuery query,
-  ) {
-    final tecnicoId = _stringOrNull(query.tecnicoId);
-    final aprobado = query.aprobado;
-    final aprobadoValue = aprobado == null ? null : (aprobado ? 'true' : 'false');
-    final estado = _stringOrNull(query.estado);
-    final liquidadaPago = query.liquidadaPago;
-    final liquidadaPagoValue =
-        liquidadaPago == null ? null : (liquidadaPago ? 'true' : 'false');
-    final tecnicoKeys = tecnicoId == null
-        ? const <String?>[null]
-        : const <String?>['tecnicoId', 'tecnico_id'];
-    final aprobadoKeys = aprobadoValue == null
-        ? const <String?>[null]
-        : const <String?>['aprobado'];
-    final estadoKeys = estado == null
-        ? const <String?>[null]
-        : const <String?>['estado'];
-
-    final signatures = <String>{};
-    final candidates = <Map<String, String>>[];
-
-    void addCandidate({
-      required bool includePagination,
-      required String? tecnicoKey,
-      required String? aprobadoKey,
-      required String? estadoKey,
-    }) {
-      final params = <String, String>{
-        if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
-        if (aprobadoKey != null && aprobadoValue != null) aprobadoKey: aprobadoValue,
-        if (estadoKey != null && estado != null) estadoKey: estado,
-        'liquidadaPago': ?liquidadaPagoValue,
-        if (includePagination) 'page': query.page.toString(),
-        if (includePagination) 'limit': query.limit.toString(),
-      };
-
-      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
-      if (signatures.add(signature)) {
-        candidates.add(params);
-      }
-    }
-
-    for (final tecnicoKey in tecnicoKeys) {
-      for (final aprobadoKey in aprobadoKeys) {
-        for (final estadoKey in estadoKeys) {
-          addCandidate(
-            includePagination: true,
-            tecnicoKey: tecnicoKey,
-            aprobadoKey: aprobadoKey,
-            estadoKey: estadoKey,
-          );
-          addCandidate(
-            includePagination: false,
-            tecnicoKey: tecnicoKey,
-            aprobadoKey: aprobadoKey,
-            estadoKey: estadoKey,
-          );
-        }
-      }
-    }
-
-    return candidates;
-  }
-
-  List<Map<String, String>> _buildPendientesQueryCandidates(
-    LiquidacionesPendientesQuery query,
-  ) {
+  }) {
     final tecnicoId = _stringOrNull(query.tecnicoId);
     final estado = _stringOrNull(query.estado);
-    final tecnicoKeys = tecnicoId == null
-        ? const <String?>[null]
-        : const <String?>['tecnicoId', 'tecnico_id'];
-    final estadoKeys = estado == null
-        ? const <String?>[null]
-        : const <String?>['estado'];
 
-    final signatures = <String>{};
-    final candidates = <Map<String, String>>[];
-
-    void addCandidate({
-      required bool includePagination,
-      required String? tecnicoKey,
-      required String? estadoKey,
-    }) {
-      final params = <String, String>{
-        if (tecnicoKey != null && tecnicoId != null) tecnicoKey: tecnicoId,
-        if (estadoKey != null && estado != null) estadoKey: estado,
-        if (includePagination) 'page': query.page.toString(),
-        if (includePagination) 'limit': query.limit.toString(),
-      };
-
-      final signature = params.entries.map((entry) => '${entry.key}=${entry.value}').join('&');
-      if (signatures.add(signature)) {
-        candidates.add(params);
-      }
-    }
-
-    for (final tecnicoKey in tecnicoKeys) {
-      for (final estadoKey in estadoKeys) {
-        addCandidate(
-          includePagination: true,
-          tecnicoKey: tecnicoKey,
-          estadoKey: estadoKey,
-        );
-        addCandidate(
-          includePagination: false,
-          tecnicoKey: tecnicoKey,
-          estadoKey: estadoKey,
-        );
-      }
-    }
-
-    return candidates;
+    return _httpClient.getJson(
+      '/liquidaciones/pendientes',
+      queryParameters: <String, String>{
+        'tecnicoId': ?tecnicoId,
+        'estado': ?estado,
+        'page': query.page.toString(),
+        'limit': query.limit.toString(),
+      },
+    );
   }
 
   dynamic _normalizeLiquidacionesPayload(dynamic payload) {
@@ -1659,26 +1525,6 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       fechaAprobacion: _stringOrNull(json['fechaAprobacion'] ?? json['fecha_aprobacion']),
       createdAt: _stringOrNull(json['createdAt'] ?? json['created_at']),
     );
-  }
-
-  Future<T> _sendWithFallback<T>(
-    List<Map<String, dynamic>> candidates,
-    Future<T> Function(Map<String, dynamic> body) sender,
-  ) async {
-    AppFailure? lastFailure;
-    for (final body in candidates) {
-      try {
-        return await sender(body);
-      } on AppFailure catch (error) {
-        if (error.statusCode == 400 || error.statusCode == 422) {
-          lastFailure = error;
-          continue;
-        }
-        rethrow;
-      }
-    }
-
-    throw lastFailure ?? const AppFailure('No se pudo completar la operacion de liquidacion');
   }
 
   List<dynamic> _extractItems(dynamic payload) {
