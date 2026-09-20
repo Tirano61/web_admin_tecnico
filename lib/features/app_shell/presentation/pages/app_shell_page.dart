@@ -11,6 +11,7 @@ import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liqu
 import 'package:web_admin_tecnico/features/precios/presentation/pages/precios_page.dart';
 import 'package:web_admin_tecnico/features/repuestos/presentation/pages/repuestos_page.dart';
 import 'package:web_admin_tecnico/features/servicios/presentation/pages/servicios_page.dart';
+import 'package:web_admin_tecnico/features/tecnicos/presentation/pages/tecnicos_page.dart';
 
 class AppShellPage extends StatelessWidget {
   const AppShellPage({super.key, required this.initialModule});
@@ -105,6 +106,8 @@ class _AppShellView extends StatelessWidget {
 
   Widget _modulePage(AppModule module) {
     switch (module) {
+      case AppModule.tecnicos:
+        return const TecnicosPage();
       case AppModule.servicios:
         return const ServiciosPage();
       case AppModule.clientes:
