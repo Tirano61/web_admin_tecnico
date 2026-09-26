@@ -6,13 +6,13 @@ abstract class TecnicosEvent {}
 class TecnicosRequested extends TecnicosEvent {
   TecnicosRequested({
     this.search = '',
-    this.activos = true,
+    this.activos = FiltroEstadoTecnicos.activos,
     this.page = 1,
     this.limit = 20,
   });
 
   final String search;
-  final bool activos;
+  final FiltroEstadoTecnicos activos;
   final int page;
   final int limit;
 }
@@ -61,7 +61,7 @@ class TecnicosLoaded extends TecnicosState {
   final int page;
   final int limit;
   final String search;
-  final bool activos;
+  final FiltroEstadoTecnicos activos;
   final String? message;
 }
 
@@ -107,12 +107,15 @@ class TecnicosBloc extends Bloc<TecnicosEvent, TecnicosState> {
       return;
     }
 
-    // El listado filtra por estado: si el alta quedo inactiva y se esta viendo
-    // activos (o al reves), el tecnico recien creado no se veria. Se salta al
-    // filtro que lo contiene para que el alta quede a la vista.
+    // Si el alta quedo inactiva y se esta viendo activos (o al reves), el
+    // tecnico recien creado no se veria. Se salta al filtro que lo contiene
+    // para que el alta quede a la vista; con TODOS ya se ve.
+    final filtroConElAlta = _lastQuery.activos.incluye(isActive: event.input.isActive)
+        ? _lastQuery.activos
+        : (event.input.isActive ? FiltroEstadoTecnicos.activos : FiltroEstadoTecnicos.inactivos);
     await _emitListado(
       emit,
-      _lastQuery.copyWith(page: 1, activos: event.input.isActive),
+      _lastQuery.copyWith(page: 1, activos: filtroConElAlta),
       message: 'Tecnico creado correctamente',
     );
   }
@@ -145,11 +148,17 @@ class TecnicosBloc extends Bloc<TecnicosEvent, TecnicosState> {
       return;
     }
 
-    // Cambiar el estado saca al tecnico del filtro actual: se refresca sobre el
-    // mismo filtro y el aviso explica a donde se fue la fila.
-    final mensaje = event.isActive
-        ? 'Tecnico activado: ahora aparece en el filtro ACTIVOS'
-        : 'Tecnico desactivado: ahora aparece en el filtro INACTIVOS';
+    // Con ACTIVOS o INACTIVOS el cambio saca al tecnico del filtro actual: se
+    // refresca sobre el mismo filtro y el aviso explica a donde se fue la fila.
+    // Con TODOS la fila se queda y solo cambia su estado.
+    final String mensaje;
+    if (_lastQuery.activos == FiltroEstadoTecnicos.todos) {
+      mensaje = event.isActive ? 'Tecnico activado' : 'Tecnico desactivado';
+    } else {
+      mensaje = event.isActive
+          ? 'Tecnico activado: ahora aparece en el filtro ACTIVOS'
+          : 'Tecnico desactivado: ahora aparece en el filtro INACTIVOS';
+    }
 
     await _emitListado(emit, _lastQuery, message: mensaje);
   }

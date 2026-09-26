@@ -6,13 +6,12 @@ import 'package:web_admin_tecnico/features/tecnicos/domain/tecnicos_repository.d
 void main() {
   group('TecnicosRepositoryImpl listado', () {
     test('manda activos explicito al pedir los inactivos', () async {
-      // `QueryTecnicosDto.activos` tiene default true y transforma cualquier
-      // string distinto de "false" en true: omitirlo esconderia los inactivos.
+      // Si se omite `activos` el backend devuelve solo los activos.
       final client = _RecordingHttpClient();
       final repository = TecnicosRepositoryImpl(httpClient: client);
 
       await repository.fetchTecnicos(
-        query: const TecnicosQuery(activos: false, page: 2, limit: 10),
+        query: const TecnicosQuery(activos: FiltroEstadoTecnicos.inactivos, page: 2, limit: 10),
       );
 
       final call = client.calls.single;
@@ -21,6 +20,26 @@ void main() {
       expect(call.queryParameters['page'], '2');
       expect(call.queryParameters['limit'], '10');
       expect(call.queryParameters.containsKey('q'), isFalse);
+    });
+
+    test('el filtro TODOS manda activos=todos', () async {
+      final client = _RecordingHttpClient();
+      final repository = TecnicosRepositoryImpl(httpClient: client);
+
+      await repository.fetchTecnicos(
+        query: const TecnicosQuery(activos: FiltroEstadoTecnicos.todos),
+      );
+
+      expect(client.calls.single.queryParameters['activos'], 'todos');
+    });
+
+    test('por defecto manda activos=true', () async {
+      final client = _RecordingHttpClient();
+      final repository = TecnicosRepositoryImpl(httpClient: client);
+
+      await repository.fetchTecnicos(query: const TecnicosQuery());
+
+      expect(client.calls.single.queryParameters['activos'], 'true');
     });
 
     test('manda q solo cuando hay busqueda', () async {

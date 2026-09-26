@@ -236,7 +236,9 @@ class _CatalogosViewState extends State<_CatalogosView> {
   Future<void> _openEditDialog(BuildContext context, CatalogoItem item) async {
     final formKey = GlobalKey<FormState>();
     var nombre = item.nombre;
-    var categoriaId = '';
+    // El update de producto exige categoriaId: se precarga la actual para que
+    // guardar (por ejemplo, para reactivarlo) no obligue a tipearla.
+    var categoriaId = item.categoriaId ?? '';
     var activo = item.activo;
 
     await showDialog<void>(
@@ -279,8 +281,8 @@ class _CatalogosViewState extends State<_CatalogosView> {
                         onChanged: (value) => categoriaId = value,
                         style: const TextStyle(color: Color(0xFFEAF3FF)),
                         decoration: const InputDecoration(
-                          labelText: 'Categoria ID (opcional)',
-                          hintText: 'Completar solo si vas a reasignar categoria',
+                          labelText: 'Categoria ID',
+                          hintText: 'Cambiar solo si vas a reasignar categoria',
                         ),
                       ),
                     ],
@@ -325,6 +327,20 @@ class _CatalogosViewState extends State<_CatalogosView> {
       },
     );
 
+  }
+
+  void _toggleActivo(CatalogoItem item) {
+    context.read<CatalogosBloc>().add(
+          CatalogosUpdateRequested(
+            input: UpdateCatalogoInput(
+              id: item.id,
+              tipo: item.tipo,
+              nombre: item.nombre,
+              categoriaId: item.categoriaId,
+              activo: !item.activo,
+            ),
+          ),
+        );
   }
 
   @override
@@ -484,6 +500,7 @@ class _CatalogosViewState extends State<_CatalogosView> {
                                         page: state.page,
                                         limit: state.limit,
                                         onEdit: (item) => _openEditDialog(context, item),
+                                        onToggleActivo: _toggleActivo,
                                       ),
                                       rowsPerPage: rowsPerPage,
                                       availableRowsPerPage: rowsPerPageOptions,
@@ -577,14 +594,14 @@ class _CategoriaProductosCard extends StatelessWidget {
         collapsedIconColor: const Color(0xFFB8CCE8),
         iconColor: const Color(0xFFEAF3FF),
         title: Text(
-          group.categoriaNombre,
-          style: const TextStyle(
-            color: Color(0xFFEAF3FF),
+          group.categoriaActiva ? group.categoriaNombre : '${group.categoriaNombre} (categoria inactiva)',
+          style: TextStyle(
+            color: group.categoriaActiva ? const Color(0xFFEAF3FF) : const Color(0xFF9AB1CC),
             fontWeight: FontWeight.w700,
           ),
         ),
         subtitle: Text(
-          '${group.productos.length} producto(s)',
+          _resumenProductos(group.productos),
           style: const TextStyle(color: Color(0xFFB8CCE8)),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -597,14 +614,23 @@ class _CategoriaProductosCard extends StatelessWidget {
               children: group.productos
                   .map(
                     (item) => ActionChip(
-                      backgroundColor: const Color(0x1A4EA6FF),
-                      side: const BorderSide(color: Color(0x334EA6FF)),
+                      tooltip: item.activo ? 'Editar producto' : 'Producto inactivo: editar para reactivar',
+                      backgroundColor: item.activo ? const Color(0x1A4EA6FF) : const Color(0x1FF4B942),
+                      side: BorderSide(
+                        color: item.activo ? const Color(0x334EA6FF) : const Color(0x66F4B942),
+                      ),
                       avatar: Icon(
-                        item.activo ? Icons.inventory_2_outlined : Icons.inventory_2,
+                        item.activo ? Icons.inventory_2_outlined : Icons.visibility_off_outlined,
                         size: 16,
                         color: item.activo ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B),
                       ),
-                      label: Text(item.nombre),
+                      label: Text(
+                        item.activo ? item.nombre : '${item.nombre} · INACTIVO',
+                        style: TextStyle(
+                          color: item.activo ? const Color(0xFFEAF3FF) : const Color(0xFF9AB1CC),
+                          fontStyle: item.activo ? FontStyle.normal : FontStyle.italic,
+                        ),
+                      ),
                       onPressed: () => onEdit(item),
                     ),
                   )
@@ -617,6 +643,13 @@ class _CategoriaProductosCard extends StatelessWidget {
   }
 }
 
+String _resumenProductos(List<CatalogoItem> productos) {
+  final inactivos = productos.where((item) => !item.activo).length;
+  return inactivos == 0
+      ? '${productos.length} producto(s)'
+      : '${productos.length} producto(s) · $inactivos inactivo(s)';
+}
+
 class _CatalogosTableSource extends DataTableSource {
   _CatalogosTableSource({
     required this.items,
@@ -624,6 +657,7 @@ class _CatalogosTableSource extends DataTableSource {
     required this.page,
     required this.limit,
     required this.onEdit,
+    required this.onToggleActivo,
   });
 
   final List<CatalogoItem> items;
@@ -631,6 +665,7 @@ class _CatalogosTableSource extends DataTableSource {
   final int page;
   final int limit;
   final ValueChanged<CatalogoItem> onEdit;
+  final ValueChanged<CatalogoItem> onToggleActivo;
 
   @override
   DataRow? getRow(int index) {
@@ -644,7 +679,16 @@ class _CatalogosTableSource extends DataTableSource {
     return DataRow.byIndex(
       index: index,
       cells: <DataCell>[
-        DataCell(Text(item.nombre)),
+        // Los inactivos se atenuan para distinguirlos de un vistazo.
+        DataCell(
+          Text(
+            item.nombre,
+            style: TextStyle(
+              color: item.activo ? null : const Color(0xFF9AB1CC),
+              fontStyle: item.activo ? FontStyle.normal : FontStyle.italic,
+            ),
+          ),
+        ),
         DataCell(ModuleStatusChip(label: item.tipo.toUpperCase())),
         DataCell(
           ModuleStatusChip(
@@ -654,10 +698,24 @@ class _CatalogosTableSource extends DataTableSource {
           ),
         ),
         DataCell(
-          IconButton(
-            tooltip: 'Editar catalogo',
-            onPressed: () => onEdit(item),
-            icon: const Icon(Icons.edit_outlined, size: 18),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              IconButton(
+                tooltip: 'Editar catalogo',
+                onPressed: () => onEdit(item),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+              ),
+              IconButton(
+                tooltip: item.activo ? 'Desactivar' : 'Reactivar',
+                onPressed: () => onToggleActivo(item),
+                icon: Icon(
+                  item.activo ? Icons.toggle_on_outlined : Icons.toggle_off_outlined,
+                  size: 20,
+                  color: item.activo ? const Color(0xFF8FF0BC) : const Color(0xFFFFD98B),
+                ),
+              ),
+            ],
           ),
         ),
       ],

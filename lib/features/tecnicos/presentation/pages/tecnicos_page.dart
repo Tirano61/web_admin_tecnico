@@ -38,7 +38,7 @@ class _TecnicosView extends StatefulWidget {
 class _TecnicosViewState extends State<_TecnicosView> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
-  bool _activosFilter = true;
+  FiltroEstadoTecnicos _activosFilter = FiltroEstadoTecnicos.activos;
 
   static const Duration _searchDebounceDuration = Duration(milliseconds: 350);
   static const List<int> _rowsPerPageDefaults = <int>[10, 20, 50];
@@ -460,10 +460,12 @@ class _TecnicosViewState extends State<_TecnicosView> {
             );
             final initialFirstRowIndex = (state.page - 1) * effectiveLimit;
             final hasActiveSearch = state.search.trim().isNotEmpty;
-            final estadoTexto = state.activos ? 'activos' : 'inactivos';
+            final estadoTexto = state.activos == FiltroEstadoTecnicos.todos
+                ? ''
+                : ' ${state.activos.etiqueta.toLowerCase()}';
             final emptyMessage = hasActiveSearch
-                ? 'No se encontraron tecnicos $estadoTexto para "${state.search}".'
-                : 'No hay tecnicos $estadoTexto para mostrar.';
+                ? 'No se encontraron tecnicos$estadoTexto para "${state.search}".'
+                : 'No hay tecnicos$estadoTexto para mostrar.';
 
             return ModulePageLayout(
               title: 'Tecnicos',
@@ -478,7 +480,7 @@ class _TecnicosViewState extends State<_TecnicosView> {
                     icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
                     label: const Text('Nuevo tecnico'),
                   ),
-                  ModuleStatusChip(label: '${state.total} ${estadoTexto.toUpperCase()}'),
+                  ModuleStatusChip(label: '${state.total} ${state.activos.etiqueta}'),
                 ],
               ),
               child: Column(
@@ -515,7 +517,7 @@ class _TecnicosViewState extends State<_TecnicosView> {
                             border: Border.all(color: const Color(0x334EA6FF)),
                           ),
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton<bool>(
+                            child: DropdownButton<FiltroEstadoTecnicos>(
                               value: state.activos,
                               onChanged: (value) {
                                 if (value == null || value == state.activos) {
@@ -524,21 +526,16 @@ class _TecnicosViewState extends State<_TecnicosView> {
                                 setState(() => _activosFilter = value);
                                 _requestPage(page: 1, limit: effectiveLimit);
                               },
-                              items: const <DropdownMenuItem<bool>>[
-                                DropdownMenuItem<bool>(value: true, child: Text('ACTIVOS')),
-                                DropdownMenuItem<bool>(value: false, child: Text('INACTIVOS')),
-                              ],
+                              items: FiltroEstadoTecnicos.values
+                                  .map(
+                                    (filtro) => DropdownMenuItem<FiltroEstadoTecnicos>(
+                                      value: filtro,
+                                      child: Text(filtro.etiqueta),
+                                    ),
+                                  )
+                                  .toList(),
                             ),
                           ),
-                        ),
-                        // `GET /auth/tecnicos` filtra siempre por un estado:
-                        // `activos` es booleano con default true, no existe un
-                        // "todos" en una sola consulta.
-                        Text(
-                          'El listado muestra un estado por vez.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF9AB1CC),
-                              ),
                         ),
                       ],
                     ),

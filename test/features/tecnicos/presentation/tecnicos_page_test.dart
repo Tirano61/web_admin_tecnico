@@ -17,25 +17,40 @@ void main() {
       expect(find.text('juan@example.com'), findsOneWidget);
       expect(find.text('TECNICO'), findsWidgets);
       expect(find.text('ACTIVO'), findsWidgets);
-      expect(repository.queries.single.activos, isTrue);
+      expect(repository.queries.single.activos, FiltroEstadoTecnicos.activos);
     });
 
     testWidgets('el filtro INACTIVOS consulta activos=false', (tester) async {
-      // El backend filtra siempre por un estado: sin mandar activos=false los
-      // inactivos nunca se verian.
       await _setDesktopSurface(tester);
       final repository = _FakeTecnicosRepository();
 
       await tester.pumpWidget(_testApp(repository));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(DropdownButton<bool>));
+      await tester.tap(find.byType(DropdownButton<FiltroEstadoTecnicos>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('INACTIVOS').last);
       await tester.pumpAndSettle();
 
-      expect(repository.queries.last.activos, isFalse);
+      expect(repository.queries.last.activos, FiltroEstadoTecnicos.inactivos);
       expect(find.text('INACTIVO'), findsWidgets);
+    });
+
+    testWidgets('el filtro TODOS muestra activos e inactivos juntos', (tester) async {
+      await _setDesktopSurface(tester);
+      final repository = _FakeTecnicosRepository();
+
+      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButton<FiltroEstadoTecnicos>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('TODOS').last);
+      await tester.pumpAndSettle();
+
+      expect(repository.queries.last.activos, FiltroEstadoTecnicos.todos);
+      expect(find.text('Juan Perez'), findsOneWidget);
+      expect(find.text('Ana Gomez'), findsOneWidget);
     });
   });
 
@@ -113,25 +128,23 @@ class _FakeTecnicosRepository implements TecnicosRepository {
   Future<PagedResult<TecnicoItem>> fetchTecnicos({required TecnicosQuery query}) async {
     queries.add(query);
 
-    final items = query.activos
-        ? <TecnicoItem>[
-            const TecnicoItem(
-              id: 'tec-1',
-              fullName: 'Juan Perez',
-              email: 'juan@example.com',
-              isActive: true,
-              roles: <String>['tecnico'],
-            ),
-          ]
-        : <TecnicoItem>[
-            const TecnicoItem(
-              id: 'tec-2',
-              fullName: 'Ana Gomez',
-              email: 'ana@example.com',
-              isActive: false,
-              roles: <String>['tecnico'],
-            ),
-          ];
+    const todos = <TecnicoItem>[
+      TecnicoItem(
+        id: 'tec-1',
+        fullName: 'Juan Perez',
+        email: 'juan@example.com',
+        isActive: true,
+        roles: <String>['tecnico'],
+      ),
+      TecnicoItem(
+        id: 'tec-2',
+        fullName: 'Ana Gomez',
+        email: 'ana@example.com',
+        isActive: false,
+        roles: <String>['tecnico'],
+      ),
+    ];
+    final items = todos.where((item) => query.activos.incluye(isActive: item.isActive)).toList();
 
     return PagedResult<TecnicoItem>(
       items: items,

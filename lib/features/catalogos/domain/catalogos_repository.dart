@@ -27,10 +27,12 @@ class ProductosPorCategoria {
     required this.categoriaId,
     required this.categoriaNombre,
     required this.productos,
+    this.categoriaActiva = true,
   });
 
   final String categoriaId;
   final String categoriaNombre;
+  final bool categoriaActiva;
   final List<CatalogoItem> productos;
 }
 
@@ -101,7 +103,8 @@ class CatalogosQuery {
 abstract class CatalogosRepository {
   Future<PagedResult<CatalogoItem>> fetchCatalogos({required CatalogosQuery query});
 
-  Future<List<CatalogoItem>> fetchCategorias();
+  /// Por defecto solo las activas (selector del alta de producto).
+  Future<List<CatalogoItem>> fetchCategorias({bool incluirInactivas = false});
 
   Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search});
 
