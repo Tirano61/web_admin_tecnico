@@ -39,26 +39,47 @@ class TecnicoDetalle {
   final String? updatedAt;
 }
 
+/// Valores del param `activos` de `GET /auth/tecnicos`: `true`, `false` o
+/// `todos`. Si se omite, el backend devuelve solo los activos.
+enum FiltroEstadoTecnicos {
+  activos('true', 'ACTIVOS'),
+  inactivos('false', 'INACTIVOS'),
+  todos('todos', 'TODOS');
+
+  const FiltroEstadoTecnicos(this.valorQuery, this.etiqueta);
+
+  final String valorQuery;
+  final String etiqueta;
+
+  /// Si un tecnico con ese estado entra en este filtro.
+  bool incluye({required bool isActive}) {
+    switch (this) {
+      case FiltroEstadoTecnicos.activos:
+        return isActive;
+      case FiltroEstadoTecnicos.inactivos:
+        return !isActive;
+      case FiltroEstadoTecnicos.todos:
+        return true;
+    }
+  }
+}
+
 class TecnicosQuery {
   const TecnicosQuery({
     this.search = '',
-    this.activos = true,
+    this.activos = FiltroEstadoTecnicos.activos,
     this.page = 1,
     this.limit = 20,
   });
 
   final String search;
-
-  /// `QueryTecnicosDto.activos` es un booleano con default `true`: el backend
-  /// filtra siempre por un estado u otro, no existe un "todos" en una sola
-  /// consulta.
-  final bool activos;
+  final FiltroEstadoTecnicos activos;
   final int page;
   final int limit;
 
   TecnicosQuery copyWith({
     String? search,
-    bool? activos,
+    FiltroEstadoTecnicos? activos,
     int? page,
     int? limit,
   }) {

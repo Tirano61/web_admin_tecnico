@@ -52,8 +52,13 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
   }
 
   @override
-  Future<List<CatalogoItem>> fetchCategorias() async {
-    final payload = await _httpClient.getJson('/categorias-producto');
+  Future<List<CatalogoItem>> fetchCategorias({bool incluirInactivas = false}) async {
+    // Sin `activo` el backend devuelve solo las activas, que es lo que necesita
+    // el selector del alta de producto.
+    final payload = await _httpClient.getJson(
+      '/categorias-producto',
+      queryParameters: <String, String>{if (incluirInactivas) 'activo': 'todos'},
+    );
     final paged = PagedResult<CatalogoItem>.fromDynamic(
       payload,
       (json) => CatalogoItem(
@@ -71,7 +76,9 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
 
   @override
   Future<List<ProductosPorCategoria>> fetchProductosPorCategoria({required String search}) async {
-    final categorias = await fetchCategorias();
+    // Categorias y productos con `activo=todos`: el panel tiene que mostrar los
+    // inactivos para poder reactivarlos.
+    final categorias = await fetchCategorias(incluirInactivas: true);
 
     final normalizedSearch = search.trim().toLowerCase();
 
@@ -81,7 +88,7 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
           .map((categoria) async {
         final payload = await _httpClient.getJson(
           '/productos',
-          queryParameters: <String, String>{'categoriaId': categoria.id},
+          queryParameters: <String, String>{'categoriaId': categoria.id, 'activo': 'todos'},
         );
 
         final productosPaged = PagedResult<CatalogoItem>.fromDynamic(
@@ -110,6 +117,7 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
         return ProductosPorCategoria(
           categoriaId: categoria.id,
           categoriaNombre: categoria.nombre,
+          categoriaActiva: categoria.activo,
           productos: productos,
         );
       }),
@@ -173,18 +181,22 @@ class CatalogosRepositoryImpl implements CatalogosRepository {
     CatalogosQuery query, {
     bool usePagination = true,
   }) async {
-    // Solo /repuestos/listado pagina y filtra en el backend (page, limit, q, activo).
-    // /zonas y /categorias-producto no declaran query params y devuelven la lista
-    // completa; /productos (FilterProductosDto) solo acepta categoriaId. Mandarles
-    // page o limit los hace responder 400, asi que ahi se filtra y pagina en memoria.
+    // Solo /repuestos/listado pagina y busca en el backend (page, limit, q, activo);
+    // sin `activo` trae activos e inactivos.
+    // /zonas, /categorias-producto y /productos solo aceptan `activo`
+    // (`true | false | todos`, y /productos ademas `categoriaId`); no paginan ni
+    // buscan, asi que eso se hace en memoria. Ojo: ahi omitir `activo` trae solo
+    // los activos, por eso sin filtro explicito se manda `todos` para que el
+    // panel muestre los inactivos y se puedan reactivar.
     final filtraEnServidor = endpoint == '/repuestos/listado';
     final trimmedSearch = query.search.trim();
+    final activoParam = filtraEnServidor ? query.activo?.toString() : (query.activo?.toString() ?? 'todos');
 
     final payload = await _httpClient.getJson(
       endpoint,
       queryParameters: <String, String>{
         if (filtraEnServidor && trimmedSearch.isNotEmpty) 'q': trimmedSearch,
-        if (filtraEnServidor && query.activo != null) 'activo': query.activo!.toString(),
+        'activo': ?activoParam,
         if (filtraEnServidor && usePagination) 'page': query.page.toString(),
         if (filtraEnServidor && usePagination) 'limit': query.limit.toString(),
       },

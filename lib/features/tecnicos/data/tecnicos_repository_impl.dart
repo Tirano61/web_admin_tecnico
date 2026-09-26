@@ -12,14 +12,14 @@ class TecnicosRepositoryImpl implements TecnicosRepository {
   Future<PagedResult<TecnicoItem>> fetchTecnicos({required TecnicosQuery query}) async {
     final search = query.search.trim();
 
-    // `activos` viaja siempre explicito: si se omite, el backend asume `true`
-    // y los inactivos nunca aparecerian.
+    // `activos` viaja siempre explicito (`true`, `false` o `todos`): si se
+    // omite, el backend devuelve solo los activos.
     final payload = await _httpClient.getJson(
       '/auth/tecnicos',
       queryParameters: <String, String>{
         'page': query.page.toString(),
         'limit': query.limit.toString(),
-        'activos': query.activos ? 'true' : 'false',
+        'activos': query.activos.valorQuery,
         if (search.isNotEmpty) 'q': search,
       },
     );
