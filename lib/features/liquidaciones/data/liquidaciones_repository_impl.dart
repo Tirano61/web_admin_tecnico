@@ -928,7 +928,11 @@ class LiquidacionesRepositoryImpl implements LiquidacionesRepository {
       queryParameters: <String, String>{
         'page': query.page.toString(),
         'limit': query.limit.toString(),
-        'activos': query.activos ? 'true' : 'false',
+        'activos': switch (query.activos) {
+          true => 'true',
+          false => 'false',
+          null => 'todos',
+        },
         if ((query.q ?? '').trim().isNotEmpty) 'q': query.q!.trim(),
       },
     );

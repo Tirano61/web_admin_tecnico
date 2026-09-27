@@ -41,11 +41,11 @@ class _ServiciosViewState extends State<_ServiciosView> {
       }
 
       final label = _formatTecnicoFilterLabel(tecnico);
-      byId[id] = _TecnicoFilterItem(id: id, label: label);
+      byId[id] = _TecnicoFilterItem(id: id, label: label, activo: tecnico.isActive);
     }
 
-    final items = byId.values.toList()
-      ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    // El repositorio ya los entrega ordenados: activos primero, inactivos al final.
+    final items = byId.values.toList();
 
     if (_tecnicoFilterId != 'todos' && !byId.containsKey(_tecnicoFilterId)) {
       items.add(
@@ -187,11 +187,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                     .map(
                                       (item) => Align(
                                         alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          item.label,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                        child: _TecnicoFilterLabel(item: item),
                                       ),
                                     )
                                     .toList();
@@ -200,11 +196,7 @@ class _ServiciosViewState extends State<_ServiciosView> {
                                   .map(
                                     (tecnicoItem) => DropdownMenuItem<String>(
                                       value: tecnicoItem.id,
-                                      child: Text(
-                                        tecnicoItem.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                      child: _TecnicoFilterLabel(item: tecnicoItem),
                                     ),
                                   )
                                   .toList(),
@@ -527,10 +519,35 @@ class _TecnicoFilterItem {
   const _TecnicoFilterItem({
     required this.id,
     required this.label,
+    this.activo = true,
   });
 
   final String id;
   final String label;
+  final bool activo;
+}
+
+/// Los tecnicos desactivados siguen en el combo para filtrar sus servicios
+/// historicos, pero atenuados y marcados para que se note que ya no operan.
+class _TecnicoFilterLabel extends StatelessWidget {
+  const _TecnicoFilterLabel({required this.item});
+
+  final _TecnicoFilterItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      item.activo ? item.label : '${item.label} (inactivo)',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: item.activo
+          ? null
+          : const TextStyle(
+              color: Color(0xFF9AB1CC),
+              fontStyle: FontStyle.italic,
+            ),
+    );
+  }
 }
 
 class _ServicioCompactCard extends StatelessWidget {

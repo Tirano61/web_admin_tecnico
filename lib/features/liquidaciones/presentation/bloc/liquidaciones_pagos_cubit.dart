@@ -87,10 +87,17 @@ class LiquidacionesPagosState {
               id: item.id,
               nombre: item.fullName,
               email: item.email,
+              activo: item.isActive,
             ),
           )
           .toList();
-      output.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+      // Activos primero y los inactivos al final, alfabetico dentro de cada grupo.
+      output.sort((a, b) {
+        if (a.activo != b.activo) {
+          return a.activo ? -1 : 1;
+        }
+        return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      });
       return output;
     }
 
@@ -181,11 +188,13 @@ class TecnicoPagoOption {
     required this.id,
     this.nombre,
     this.email,
+    this.activo = true,
   });
 
   final String id;
   final String? nombre;
   final String? email;
+  final bool activo;
 
   String get label {
     final cleanName = (nombre ?? '').trim();
@@ -232,12 +241,14 @@ class LiquidacionesPagosCubit extends Cubit<LiquidacionesPagosState> {
     emit(state.copyWith(loadingTecnicos: true));
 
     try {
+      // Todos, no solo activos: el combo filtra el historial de resumenes, y un
+      // tecnico desactivado puede tener liquidaciones aprobadas sin pagar.
       final data = await _repository.fetchTecnicosListado(
         query: TecnicosListadoQuery(
           page: page,
           limit: limit,
           q: q,
-          activos: true,
+          activos: null,
         ),
       );
       emit(

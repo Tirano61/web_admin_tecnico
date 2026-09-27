@@ -55,12 +55,14 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
 
   @override
   Future<List<ServicioTecnicoOption>> fetchTecnicosFiltro() async {
+    // `activos=todos`: el combo filtra servicios historicos, y los que cargo un
+    // tecnico ya desactivado tienen que seguir siendo filtrables.
     final payload = await _httpClient.getJson(
       '/auth/tecnicos',
       queryParameters: const <String, String>{
         'page': '1',
         'limit': '100',
-        'activos': 'true',
+        'activos': 'todos',
       },
     );
 
@@ -102,8 +104,12 @@ class ServiciosRepositoryImpl implements ServiciosRepository {
       );
     }
 
-    final output = byId.values.where((item) => item.isActive).toList();
+    // Activos primero y los inactivos al final, alfabetico dentro de cada grupo.
+    final output = byId.values.toList();
     output.sort((a, b) {
+      if (a.isActive != b.isActive) {
+        return a.isActive ? -1 : 1;
+      }
       final left = _tecnicoLabel(a).toLowerCase();
       final right = _tecnicoLabel(b).toLowerCase();
       return left.compareTo(right);

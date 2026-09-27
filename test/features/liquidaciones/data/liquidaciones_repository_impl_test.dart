@@ -30,6 +30,29 @@ void main() {
       expect(client.calls.first.queryParameters['tecnicoId'] ?? client.calls.first.queryParameters['tecnico_id'], 'tec-1');
     });
   });
+
+  group('LiquidacionesRepositoryImpl listado de tecnicos', () {
+    test('activos null manda activos=todos', () async {
+      final client = _RecordingHttpClient();
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      await repository.fetchTecnicosListado(
+        query: const TecnicosListadoQuery(activos: null),
+      );
+
+      expect(client.calls.single.endpoint, '/auth/tecnicos');
+      expect(client.calls.single.queryParameters['activos'], 'todos');
+    });
+
+    test('por defecto manda activos=true', () async {
+      final client = _RecordingHttpClient();
+      final repository = LiquidacionesRepositoryImpl(httpClient: client);
+
+      await repository.fetchTecnicosListado(query: const TecnicosListadoQuery());
+
+      expect(client.calls.single.queryParameters['activos'], 'true');
+    });
+  });
 }
 
 void _mainReabiertas() {
