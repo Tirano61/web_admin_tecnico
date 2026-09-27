@@ -403,7 +403,9 @@ class TecnicosListadoQuery {
   final int page;
   final int limit;
   final String? q;
-  final bool activos;
+
+  /// `true` solo activos, `false` solo inactivos, `null` todos (`activos=todos`).
+  final bool? activos;
 }
 
 class ResumenPagoDetalleItem {

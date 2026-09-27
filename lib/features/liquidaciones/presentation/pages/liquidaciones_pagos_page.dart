@@ -235,6 +235,7 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
       width: 320,
       child: DropdownButtonFormField<String>(
         initialValue: _selectedTecnicoId,
+        isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Tecnico',
           hintText: 'Seleccionar tecnico',
@@ -243,7 +244,19 @@ class _LiquidacionesPagosViewState extends State<_LiquidacionesPagosView>
             .map(
               (option) => DropdownMenuItem<String>(
                 value: option.id,
-                child: Text(option.label),
+                // Los desactivados quedan para pagar lo pendiente y consultar
+                // su historial, atenuados para que se note que ya no operan.
+                child: Text(
+                  option.activo ? option.label : '${option.label} (inactivo)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: option.activo
+                      ? null
+                      : const TextStyle(
+                          color: Color(0xFF9AB1CC),
+                          fontStyle: FontStyle.italic,
+                        ),
+                ),
               ),
             )
             .toList(),
