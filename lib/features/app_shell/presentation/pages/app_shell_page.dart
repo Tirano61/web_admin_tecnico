@@ -6,6 +6,7 @@ import 'package:web_admin_tecnico/features/app_shell/presentation/bloc/app_shell
 import 'package:web_admin_tecnico/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:web_admin_tecnico/features/catalogos/presentation/pages/catalogos_page.dart';
 import 'package:web_admin_tecnico/features/clientes/presentation/pages/clientes_page.dart';
+import 'package:web_admin_tecnico/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_page.dart';
 import 'package:web_admin_tecnico/features/liquidaciones/presentation/pages/liquidaciones_pagos_page.dart';
 import 'package:web_admin_tecnico/features/precios/presentation/pages/precios_page.dart';
@@ -106,6 +107,8 @@ class _AppShellView extends StatelessWidget {
 
   Widget _modulePage(AppModule module) {
     switch (module) {
+      case AppModule.dashboard:
+        return const DashboardPage();
       case AppModule.tecnicos:
         return const TecnicosPage();
       case AppModule.servicios:

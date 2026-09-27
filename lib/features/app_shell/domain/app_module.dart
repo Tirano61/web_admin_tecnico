@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:web_admin_tecnico/core/routing/app_routes.dart';
 
 enum AppModule {
+  dashboard,
   tecnicos,
   servicios,
   clientes,
@@ -15,6 +16,8 @@ enum AppModule {
 extension AppModuleX on AppModule {
   String get label {
     switch (this) {
+      case AppModule.dashboard:
+        return 'Dashboard';
       case AppModule.tecnicos:
         return 'Tecnicos';
       case AppModule.servicios:
@@ -36,6 +39,8 @@ extension AppModuleX on AppModule {
 
   String get route {
     switch (this) {
+      case AppModule.dashboard:
+        return AppRoutes.dashboard;
       case AppModule.tecnicos:
         return AppRoutes.tecnicos;
       case AppModule.servicios:
@@ -57,6 +62,8 @@ extension AppModuleX on AppModule {
 
   IconData get icon {
     switch (this) {
+      case AppModule.dashboard:
+        return Icons.dashboard_outlined;
       case AppModule.tecnicos:
         return Icons.badge_outlined;
       case AppModule.servicios:
@@ -78,6 +85,8 @@ extension AppModuleX on AppModule {
 
   String get shortDescription {
     switch (this) {
+      case AppModule.dashboard:
+        return 'Metricas del periodo y pendientes a revisar.';
       case AppModule.tecnicos:
         return 'Alta, edicion y estado de los tecnicos.';
       case AppModule.servicios:

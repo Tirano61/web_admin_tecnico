@@ -42,7 +42,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('Acceso Interno'), findsNothing);
-    expect(find.text('Servicios'), findsWidgets);
+    // `/` abre el Dashboard (antes caia en Servicios).
+    expect(find.text('Dashboard'), findsWidgets);
+    expect(find.text('Resumen operativo del periodo y pendientes que requieren accion.'),
+        findsOneWidget);
     expect(SessionStore.isAuthenticated, isTrue);
     expect(SessionStore.puedeAccederAlPanel, isTrue);
   });
@@ -59,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Acceso Interno'), findsOneWidget);
-    expect(find.text('Servicios'), findsNothing);
+    expect(find.text('Dashboard'), findsNothing);
     expect(repository.guardada, isNull);
     expect(SessionStore.isAuthenticated, isFalse);
   });

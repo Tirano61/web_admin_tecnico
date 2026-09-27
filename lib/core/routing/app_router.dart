@@ -18,6 +18,8 @@ class AppRouter {
 
   AppModule _moduleForRoute(String route) {
     switch (route) {
+      case AppRoutes.servicios:
+        return AppModule.servicios;
       case AppRoutes.tecnicos:
         return AppModule.tecnicos;
       case AppRoutes.clientes:
@@ -32,9 +34,10 @@ class AppRouter {
         return AppModule.liquidaciones;
       case AppRoutes.liquidacionesPagos:
         return AppModule.liquidacionesPagos;
-      case AppRoutes.servicios:
+      // `/`, `/login` (al autenticarse) y cualquier ruta desconocida.
+      case AppRoutes.dashboard:
       default:
-        return AppModule.servicios;
+        return AppModule.dashboard;
     }
   }
 }
